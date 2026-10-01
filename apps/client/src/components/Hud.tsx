@@ -18,12 +18,13 @@ interface HudProps {
   onOpenPlayers: () => void;
   onOpenMap: () => void;
   onOpenBackpack: () => void;
+  onOpenCommands: () => void;
   /** Sólo para el admin: abre sus controles. */
   onOpenAdmin?: () => void;
   onExit: () => void;
 }
 
-export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayers, onOpenMap, onOpenBackpack, onOpenAdmin, onExit }: HudProps) {
+export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayers, onOpenMap, onOpenBackpack, onOpenCommands, onOpenAdmin, onExit }: HudProps) {
   const [self, setSelf] = useState<{ name: string; color: string } | null>(null);
 
   useEffect(() => {
@@ -60,6 +61,10 @@ export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayer
       <button type="button" className="hud-item" onClick={onOpenBackpack} title="Mochila">
         <UiIcon name="backpack" />
         Mochila <kbd>H</kbd>
+      </button>
+      <button type="button" className="hud-item" onClick={onOpenCommands} title="Comandos de chat">
+        <UiIcon name="terminal" />
+        Comandos <kbd>C</kbd>
       </button>
       {onOpenAdmin && (
         <button type="button" className="hud-item hud-admin" onClick={onOpenAdmin} title="Controles de admin">

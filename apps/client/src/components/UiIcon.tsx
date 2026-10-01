@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "zap" | "shield" | "sun" | "moon" | "horizon" | "megaphone";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "zap" | "shield" | "sun" | "moon" | "horizon" | "megaphone" | "terminal";
 
 const PATHS: Record<UiIconName, ReactNode> = {
   user: (
@@ -85,6 +85,12 @@ const PATHS: Record<UiIconName, ReactNode> = {
     <>
       <path d="M7 17a5 5 0 0 1 10 0" />
       <path d="M2 17h20M5 21h14M12 5v3M4.9 9.9l1.4 1.4M19.1 9.9l-1.4 1.4" />
+    </>
+  ),
+  terminal: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9l3 3-3 3M12 15h5" />
     </>
   ),
   exit: (

@@ -41,6 +41,8 @@ input {
 
 .join-screen {
   display: grid;
+  /* Columna acotada al ancho de la pantalla: si no, el contenido la ensancha en celulares. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   height: 100%;
   padding: 16px;
@@ -48,7 +50,9 @@ input {
 
 .join-card {
   width: 100%;
-  max-width: 360px;
+  max-width: 620px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   padding: 28px 24px;
   border: 1px solid var(--panel-border);
   border-radius: 14px;
@@ -100,6 +104,139 @@ input {
 .join-card button:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+/* Creador de personaje: vista previa a la izquierda, opciones a la derecha. */
+.join-creator {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 18px;
+  text-align: left;
+}
+
+.join-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 70%, rgba(76, 201, 240, 0.16), rgba(0, 0, 0, 0.25) 70%);
+}
+
+.join-preview-avatar.rolled {
+  animation: join-roll 0.35s ease-out;
+}
+
+@keyframes join-roll {
+  from {
+    transform: rotate(-12deg) scale(0.85);
+    opacity: 0.4;
+  }
+}
+
+.join-preview-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+  white-space: nowrap;
+}
+
+.join-card .join-dice {
+  width: 100%;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.join-card .join-dice:hover {
+  border-color: var(--accent);
+}
+
+.join-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.join-options fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.join-options legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.join-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.join-card .join-chips button {
+  padding: 5px 10px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.join-card .join-chips button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.15);
+  color: var(--text);
+}
+
+.join-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.join-card .join-swatches button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.join-card .join-swatches button[aria-checked="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.join-submit {
+  margin-top: 16px;
+}
+
+@media (max-width: 560px) {
+  .join-card {
+    padding: 20px 16px;
+  }
+
+  .join-creator {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .join-preview .avatar-preview {
+    width: 110px;
+    height: auto;
+  }
 }
 
 .join-error {
@@ -1212,5 +1349,739 @@ input {
 @media (max-width: 760px) {
   .announcement {
     top: 140px;
+  }
+}
+
+/* ---------- Menú de jugador (clic sobre otro avatar) ---------- */
+
+.player-menu {
+  position: fixed;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  /* Arriba a la derecha del clic, sin tapar al avatar elegido. */
+  transform: translate(8px, -50%);
+}
+
+.player-menu-name {
+  overflow: hidden;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 4px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-menu button {
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-menu button:hover,
+.player-menu button:focus-visible {
+  background: rgba(76, 201, 240, 0.15);
+}
+
+/* ---------- Invitaciones a intercambiar ---------- */
+
+.trade-invites {
+  position: fixed;
+  top: 200px;
+  left: 50%;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+
+.trade-invite {
+  padding: 10px 12px;
+  border: 1px solid rgba(76, 201, 240, 0.5);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  animation: notice-in 0.2s ease-out;
+}
+
+.trade-invite p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.trade-invite-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.trade-invite-actions button,
+.trade-footer button {
+  flex: 1;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.trade-invite-actions button.primary,
+.trade-footer button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #0b0d14;
+}
+
+.trade-footer button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Intercambio ---------- */
+
+.trade-backdrop {
+  /* Por encima de la barra rápida; los avisos (30) siguen visibles arriba. */
+  z-index: 25;
+}
+
+.trade {
+  width: min(560px, 100%);
+}
+
+.trade h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trade-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.trade-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 150px;
+  padding: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.trade-side.accepted {
+  border-color: #06d6a0;
+  background: rgba(6, 214, 160, 0.08);
+}
+
+.trade-accepted {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #06d6a0;
+  color: #0b0d14;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.trade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trade-grid li {
+  aspect-ratio: 1;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.trade-grid button,
+.trade-cell-static {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+}
+
+.trade-grid button {
+  cursor: pointer;
+}
+
+.trade-grid li:has(button:not(:disabled)):hover {
+  border-color: var(--accent);
+}
+
+.trade-grid button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trade-cell-name {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.6rem;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-money,
+.trade-money-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: auto 0 0;
+  color: #06d6a0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-money input {
+  width: 0;
+  flex: 1;
+  min-width: 60px;
+  padding: 4px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+}
+
+.trade-money small {
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.trade-backpack {
+  padding: 0 16px 12px;
+}
+
+.trade-backpack .trade-grid {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.trade-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.modal footer.trade-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.trade-status {
+  flex: 1 1 100%;
+}
+
+@media (max-width: 480px) {
+  .trade-sides {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Cajas sorpresa ---------- */
+
+.backpack-cell.box {
+  border-color: rgba(255, 209, 102, 0.55);
+  background: rgba(200, 85, 61, 0.18);
+}
+
+.backpack-cell.box:hover {
+  border-color: var(--system);
+}
+
+/* Lo que salió de la caja: arriba de todo, en el medio. Clic para cerrarlo antes. */
+.box-reveal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  max-width: calc(100vw - 32px);
+  padding: 20px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  animation: box-reveal-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+  cursor: pointer;
+}
+
+.box-reveal > :not(.box-reveal-burst) {
+  position: relative;
+}
+
+.box-reveal-burst {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 0deg, transparent 0 10%, rgba(255, 209, 102, 0.16) 10% 15%, transparent 15% 35%, rgba(255, 209, 102, 0.16) 35% 40%, transparent 40% 60%, rgba(255, 209, 102, 0.16) 60% 65%, transparent 65% 85%, rgba(255, 209, 102, 0.16) 85% 90%, transparent 90%);
+  animation: box-reveal-spin 6s linear infinite;
+}
+
+.box-reveal-stars {
+  color: var(--system);
+  letter-spacing: 0.08em;
+}
+
+@keyframes box-reveal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}
+
+@keyframes box-reveal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box-reveal,
+  .box-reveal-burst {
+    animation: none;
+  }
+}
+
+/* ---------- Cañas de pescar ---------- */
+
+/* Nombre de la caña dentro del botón "Pescar con …". */
+.fishing-rod-name {
+  font-weight: 800;
+}
+
+.backpack-cell.rod-in-use {
+  border-color: rgba(76, 201, 240, 0.7);
+}
+
+/* Arriba a la izquierda (el contador ×N va a la derecha), sin tapar el nombre. */
+.backpack-badge {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-size: 0.55rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.shop-perks {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+/* Cañas y pescados se arrastran a la barra rápida. */
+.backpack-cell-static[draggable="true"] {
+  cursor: grab;
+}
+
+/* ---------- Comandos (tecla C) ---------- */
+
+.commands {
+  width: min(480px, 100%);
+}
+
+.commands-intro {
+  margin: 10px 16px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.commands-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 16px 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.commands-list {
+  margin: 0;
+  padding: 0 16px 6px;
+  list-style: none;
+}
+
+.commands-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 0;
+}
+
+.commands-list li + li {
+  border-top: 1px solid var(--panel-border);
+}
+
+.commands-list code {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(76, 201, 240, 0.14);
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.commands-list code.admin {
+  background: rgba(255, 159, 28, 0.14);
+  color: #ff9f1c;
+}
+
+.commands-list span {
+  font-size: 0.82rem;
+}
+
+.commands footer {
+  padding-top: 8px;
+}
+
+/* ---------- Regatear (vender todo o nada) ---------- */
+
+.shop-list li.haggling {
+  flex-wrap: wrap;
+}
+
+.shop-sell-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shop-list .shop-haggle-toggle {
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  background: transparent;
+  color: var(--system);
+}
+
+.shop-list .shop-haggle-toggle[aria-expanded="true"] {
+  background: rgba(255, 209, 102, 0.15);
+}
+
+.haggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  border: 1px solid rgba(255, 209, 102, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 209, 102, 0.06);
+}
+
+.haggle-price {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.haggle-price input {
+  flex: 1;
+  accent-color: var(--system);
+}
+
+.haggle-price strong {
+  min-width: 56px;
+  color: #06d6a0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.haggle-odds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.haggle-chance {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.haggle-chance.high {
+  color: #06d6a0;
+}
+
+.haggle-chance.mid {
+  color: var(--system);
+}
+
+.haggle-chance.low {
+  color: var(--danger);
+}
+
+.haggle-bar {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.haggle-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.12s;
+}
+
+.haggle-bar span.high {
+  background: #06d6a0;
+}
+
+.haggle-bar span.mid {
+  background: var(--system);
+}
+
+.haggle-bar span.low {
+  background: var(--danger);
+}
+
+.haggle-warning {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.shop-list .haggle-go {
+  align-self: stretch;
+  background: var(--system);
+  color: #0b0d14;
+}
+
+/* ---------- Viajar entre barrios ---------- */
+
+.city-menu .city-menu-go {
+  margin-left: auto;
+  padding: 3px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.city-menu .city-menu-go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.city-menu > ul > li + li {
+  margin-top: 8px;
+}
+
+.travel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.travel-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(560px, 100%);
+}
+
+.travel-route {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.travel-route strong {
+  color: var(--text);
+}
+
+/* Escena: cielo, edificios que pasan, el ómnibus y la calle. */
+.travel-scene {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 190px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: linear-gradient(#1b2740, #2c3b5c 70%);
+}
+
+.travel-skyline {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  width: 200%;
+  height: 120px;
+  animation: travel-scroll 4s linear infinite;
+}
+
+.travel-bus {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: travel-sway 0.5s ease-in-out infinite alternate;
+}
+
+.travel-bus svg {
+  display: block;
+  max-width: 46vw;
+  height: auto;
+}
+
+.travel-wheel {
+  /* Gira sobre su propio centro (en SVG el origen por defecto es la esquina del dibujo). */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: travel-spin 0.45s linear infinite;
+}
+
+.travel-road {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30px;
+  background:
+    repeating-linear-gradient(90deg, #ffd166 0 36px, transparent 36px 72px) center / 200% 3px no-repeat,
+    #3b3f46;
+  animation: travel-road 0.6s linear infinite;
+}
+
+.travel-progress {
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.travel-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: travel-progress linear forwards;
+}
+
+.travel-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@keyframes travel-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes travel-sway {
+  from {
+    transform: translate(-50%, 0) rotate(-0.4deg);
+  }
+  to {
+    transform: translate(-50%, -2px) rotate(0.4deg);
+  }
+}
+
+@keyframes travel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes travel-road {
+  to {
+    background-position: -72px center, 0 0;
+  }
+}
+
+@keyframes travel-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-skyline,
+  .travel-bus,
+  .travel-wheel,
+  .travel-road {
+    animation: none;
   }
 }

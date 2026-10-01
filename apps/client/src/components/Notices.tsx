@@ -9,7 +9,16 @@ const NOTICE_MS = 4000;
 export function Notices() {
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
 
-  useEffect(() => eventBus.on("notice", ({ text }) => setNotice({ id: Date.now(), text })), []);
+  useEffect(() => {
+    const show = ({ text }: { text: string }) => setNotice({ id: Date.now(), text });
+    const offNotice = eventBus.on("notice", show);
+    // Cómo terminó un intercambio (hecho, cancelado o el otro se fue).
+    const offTrade = eventBus.on("trade:closed", show);
+    return () => {
+      offNotice();
+      offTrade();
+    };
+  }, []);
 
   useEffect(() => {
     if (!notice) return;

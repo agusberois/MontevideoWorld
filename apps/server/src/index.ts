@@ -6,6 +6,7 @@ import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { DEFAULT_PORT, ROOM_NAME } from "@montevideo-world/shared";
+import { playerStore } from "./playerStore";
 import { CityRoom } from "./rooms/CityRoom";
 
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
@@ -64,6 +65,9 @@ const gameServer = new Server({
 });
 
 gameServer.define(ROOM_NAME, CityRoom).filterBy(["cityId"]);
+// Al apagar (Ctrl+C, PM2, reinicio de `tsx watch`), Colyseus saca a todos (cada `onLeave` guarda)
+// y después se escribe el archivo de jugadores.
+gameServer.onShutdown(() => playerStore.flush());
 
 gameServer.listen(PORT, HOST).then(() => {
   console.log(`[Montevideo World] escuchando en ws://${HOST}:${PORT} (CORS: ${allowAll ? "*" : allowedOrigins.join(", ")})`);

@@ -1,7 +1,8 @@
 import type { Landmark, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { PieceSpec } from "./buildings";
-import { Face, IsoPainter, boxColors } from "./IsoPainter";
+import type * as Phaser from "phaser";
+import { Face, IsoPainter, Vec2, boxColors } from "./IsoPainter";
 
 /**
  * Edificios emblemáticos dibujados con primitivas. Cada uno se expresa en coordenadas locales:
@@ -29,6 +30,8 @@ const IRON = 0x1f1f22;
 export const ROOF_SPOTS: Partial<Record<Landmark["kind"], { u: number; v: number; z: number }>> = {
   // Cabildo: parte de atrás del techo plano, detrás del campanario.
   cabildo: { u: 1.0, v: 0.55, z: 67 },
+  // Shopping Tres Cruces: sobre la azotea, del lado de la explanada.
+  shopping: { u: 1.0, v: 1.2, z: 36 },
 };
 
 export function landmarkPieces(landmark: Landmark): PlacedPiece[] {
@@ -64,6 +67,16 @@ export function landmarkPieces(landmark: Landmark): PlacedPiece[] {
       return single(1, 96, drawFarola);
     case "gate":
       return gatePieces(landmark);
+    case "shopping":
+      return single(4, 72, drawShoppingTresCruces);
+    case "hospital":
+      return single(4, 150, drawSanatorio);
+    case "obelisk":
+      return single(1, 76, drawObelisco);
+    case "velodrome":
+      return single(4, 26, drawVelodromo);
+    case "stadium":
+      return single(5, 112, drawEstadioCentenario);
   }
 }
 
@@ -334,45 +347,176 @@ function drawMonumentoArtigas(p: IsoPainter) {
   p.faceRect({ side: "south", y: 1.1 }, 0.2, 0.8, 22, 34, 0x8a6d3b);
   p.box(-0.15, -0.15, 1.15, 1.15, 50, 54, boxColors(shade(granite, 12)));
 
-  const c = p.p(0.5, 0.5, 54);
-  const g = p.g;
-  g.fillStyle(bronze, 1);
-  // Patas del caballo.
-  for (const [dx, lift] of [
-    [-9, 0],
-    [-6, 0],
-    [7, 3],
-    [10, 0],
-  ]) {
-    g.fillRect(c.x + dx, c.y - 15 - lift, 2.5, 15);
-  }
-  g.fillEllipse(c.x, c.y - 19, 27, 11);
-  g.fillPoints(
+  drawEquestrianStatue(p.g, p.p(0.5, 0.5, 54), bronze, highlight);
+}
+
+type Pt = readonly [number, number];
+
+/**
+ * Estatua ecuestre de perfil, mirando a la derecha, con los cascos en `base` (arriba del pedestal).
+ * Coordenadas en px relativas a `base` (y negativa = hacia arriba). El caballo va al paso, con la
+ * mano cercana levantada como en la estatua real; las patas del lado lejano van más oscuras para
+ * dar profundidad, y el lomo y el cuello llevan el brillo del bronce.
+ */
+function drawEquestrianStatue(g: Phaser.GameObjects.Graphics, base: Vec2, bronze: number, highlight: number) {
+  const at = ([x, y]: Pt): Vec2 => ({ x: base.x + x, y: base.y + y });
+  const poly = (points: readonly Pt[], color: number) => {
+    g.fillStyle(color, 1);
+    g.fillPoints(points.map(at), true);
+  };
+  /** Pata articulada: tramos gruesos con las articulaciones redondeadas y el casco abajo. */
+  const leg = (joints: readonly Pt[], widths: readonly number[], color: number) => {
+    for (let i = 0; i < joints.length - 1; i++) {
+      const a = at(joints[i]);
+      const b = at(joints[i + 1]);
+      g.lineStyle(widths[i], color, 1);
+      g.lineBetween(a.x, a.y, b.x, b.y);
+      g.fillStyle(color, 1);
+      g.fillCircle(b.x, b.y, widths[i] / 2);
+    }
+    const hoof = at(joints[joints.length - 1]);
+    g.fillStyle(shade(color, -25), 1);
+    g.fillRect(hoof.x - 1.6, hoof.y - 1.6, 3.4, 2);
+  };
+  const far = shade(bronze, -22);
+  const dark = shade(bronze, -14);
+
+  // Lado lejano: cola y patas de atrás del cuerpo.
+  poly(
     [
-      { x: c.x + 8, y: c.y - 22 },
-      { x: c.x + 12, y: c.y - 34 },
-      { x: c.x + 16, y: c.y - 33 },
-      { x: c.x + 13, y: c.y - 19 },
+      [-15, -22],
+      [-19, -20.5],
+      [-21.5, -14],
+      [-20.5, -6],
+      [-18.5, -7.5],
+      [-18.5, -13.5],
+      [-16.5, -18],
     ],
-    true,
+    dark,
   );
-  g.fillEllipse(c.x + 16, c.y - 33, 10, 5);
-  g.fillPoints(
+  leg([[-10.5, -16], [-13.5, -8], [-12.5, -2.2], [-12.2, 0]], [5, 2.6, 2.2], far);
+  leg([[9.5, -16], [10.5, -7.5], [10.6, -2.2], [11, 0]], [4.4, 2.4, 2.1], far);
+
+  // Cuerpo: pecho, panza, flanco, ancas y grupa.
+  poly(
     [
-      { x: c.x - 12, y: c.y - 21 },
-      { x: c.x - 17, y: c.y - 10 },
-      { x: c.x - 14, y: c.y - 10 },
-      { x: c.x - 11, y: c.y - 18 },
+      [12.5, -23],
+      [15, -19.5],
+      [14.5, -15.5],
+      [10.5, -12.5],
+      [2, -11.5],
+      [-6, -12],
+      [-11, -13.5],
+      [-15, -16.5],
+      [-16.5, -20.5],
+      [-14, -24.5],
+      [-8, -24],
+      [-1, -23],
+      [6, -23.6],
+      [9, -24.5],
     ],
-    true,
+    bronze,
   );
-  // Jinete.
-  g.fillRect(c.x - 3, c.y - 36, 7, 13);
-  g.fillCircle(c.x + 0.5, c.y - 39, 3.4);
-  g.fillEllipse(c.x + 0.5, c.y - 42, 9, 2.6);
+  // Cuello arqueado hasta la nuca.
+  poly(
+    [
+      [6.5, -23.5],
+      [8.5, -29],
+      [11.5, -33.5],
+      [14.8, -36.5],
+      [18, -34.5],
+      [18.2, -31],
+      [16.5, -26],
+      [15, -20],
+    ],
+    bronze,
+  );
+  // Cabeza inclinada hacia adelante, con el hocico abajo.
+  poly(
+    [
+      [14.6, -37],
+      [17.8, -37],
+      [21.5, -33],
+      [24.6, -29.5],
+      [24.8, -27.6],
+      [22.8, -26.6],
+      [20, -28],
+      [17.2, -31],
+      [15, -33],
+    ],
+    bronze,
+  );
+  poly(
+    [
+      [15.4, -36.8],
+      [16, -40.6],
+      [17.4, -37],
+    ],
+    bronze,
+  );
+  // Crin sobre el cuello, ollar y ojo.
+  poly(
+    [
+      [6, -24],
+      [7.6, -29.8],
+      [10.8, -34.6],
+      [14.6, -38],
+      [13.2, -34.2],
+      [10.2, -30],
+      [8.6, -25.2],
+    ],
+    dark,
+  );
+  g.fillStyle(far, 1);
+  g.fillCircle(at([23.4, -28.6]).x, at([23.4, -28.6]).y, 0.8);
+  g.fillCircle(at([18.8, -33.6]).x, at([18.8, -33.6]).y, 0.9);
+
+  // Lado cercano: patas delante del cuerpo (la de adelante levantada, al paso).
+  leg([[-8, -15.5], [-10.5, -7.5], [-8.6, -2.2], [-8.2, 0]], [5.4, 2.8, 2.3], bronze);
+  leg([[12, -16.5], [16, -10.2], [14.4, -5.2], [15.4, -3.6]], [4.6, 2.6, 2.2], bronze);
+
+  // Brillo del bronce sobre el lomo, la grupa y la cresta del cuello.
+  g.lineStyle(1.3, highlight, 1);
+  g.strokePoints(
+    [at([-15, -22.5]), at([-12.5, -24.2]), at([-6, -23.4]), at([1, -22.6]), at([7, -23.4])],
+    false,
+  );
+  g.strokePoints([at([9, -27.6]), at([11.6, -32]), at([14.4, -35])], false);
   g.fillStyle(highlight, 1);
-  g.fillEllipse(c.x - 3, c.y - 21, 12, 3);
-  g.fillRect(c.x - 2, c.y - 35, 2, 10);
+  g.fillEllipse(at([-11, -19]).x, at([-11, -19]).y, 5, 3);
+
+  // Jinete: poncho al viento, torso erguido, pierna sobre el flanco, brazo con las riendas.
+  poly(
+    [
+      [-1.5, -33.5],
+      [-6.5, -26],
+      [-5, -21.5],
+      [-0.5, -23.5],
+    ],
+    dark,
+  );
+  poly(
+    [
+      [-2, -23.5],
+      [4, -23.5],
+      [3.6, -33],
+      [-1.2, -33.4],
+    ],
+    bronze,
+  );
+  leg([[1.5, -23.5], [5.5, -19.5], [4.6, -13.6]], [3.4, 2.4], bronze);
+  leg([[2.8, -31], [6.6, -27.8], [9, -26]], [2.2, 1.8], bronze);
+  g.lineStyle(0.8, far, 1);
+  g.lineBetween(at([9, -26]).x, at([9, -26]).y, at([22.5, -28]).x, at([22.5, -28]).y);
+  // Cabeza con sombrero de ala.
+  g.fillStyle(bronze, 1);
+  g.fillRect(at([0, -35.4]).x, at([0, -35.4]).y, 2.4, 2.4);
+  g.fillCircle(at([1.2, -37.4]).x, at([1.2, -37.4]).y, 3);
+  g.fillStyle(dark, 1);
+  g.fillEllipse(at([1.2, -39.6]).x, at([1.2, -39.6]).y, 10, 2.4);
+  g.fillRoundedRect(at([-1.4, -43]).x, at([-1.4, -43]).y, 5.2, 3.6, 1.2);
+  g.fillStyle(highlight, 1);
+  g.fillRect(at([-1, -32.6]).x, at([-1, -32.6]).y, 1.4, 8);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -496,4 +640,218 @@ function facesOf(x1: number, y1: number): Face[] {
     { side: "south", y: y1 },
     { side: "east", x: x1 },
   ];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tres Cruces y Parque Batlle.
+
+const CONCRETE = 0xe6e2d9;
+const GLASS = 0x6fa3c0;
+
+/** Shopping Tres Cruces: volumen blanco con vidriados, franja roja, y la terminal con ómnibus al este. */
+function drawShoppingTresCruces(p: IsoPainter) {
+  const red = 0xd7263d;
+  const south: Face = { side: "south", y: 2.6 };
+  const east: Face = { side: "east", x: 2.7 };
+
+  p.box(-0.5, -0.5, 2.7, 2.6, 0, 34, boxColors(CONCRETE));
+  p.windows(south, -0.4, 2.6, 6, 26, 6, 2, { color: GLASS, widthRatio: 0.85, heightRatio: 0.8 });
+  p.windows(east, -0.4, 2.5, 6, 26, 5, 2, { color: GLASS, widthRatio: 0.85, heightRatio: 0.8 });
+  p.faceRect(south, 0.7, 1.4, 0, 12, 0x2f3d4b);
+  p.faceRect(south, -0.5, 2.7, 27, 31, red);
+  p.faceRect(east, -0.5, 2.6, 27, 31, red);
+  p.box(-0.5, -0.5, 2.7, 2.6, 34, 36, boxColors(shade(CONCRETE, 8)));
+  // Claraboya del patio de comidas.
+  p.box(0.2, 0.0, 1.6, 1.0, 36, 40, boxColors(GLASS));
+
+  // Terminal: andenes al este, con ómnibus bajo el alero.
+  p.box(2.7, -0.45, 3.45, 2.55, 0, 2, boxColors(0xb9b4aa));
+  for (const [y0, y1, color] of [
+    [-0.25, 0.95, 0xf2f2f2],
+    [1.2, 2.4, 0x2d6cb4],
+  ] as const) {
+    p.box(2.85, y0, 3.3, y1, 2, 14, boxColors(color));
+    p.faceRect({ side: "east", x: 3.3 }, y0 + 0.05, y1 - 0.05, 8, 12, 0x2f3d4b);
+    p.faceRect({ side: "east", x: 3.3 }, y0, y1, 4, 5.5, red);
+  }
+  for (const y of [-0.35, 1.05, 2.45]) p.box(3.38, y - 0.04, 3.45, y + 0.04, 2, 22, boxColors(0x8d8a83), false);
+  p.box(2.7, -0.45, 3.5, 2.55, 22, 25, boxColors(0xd8d4cb));
+}
+
+/** Sanatorio Americano: basamento y torre blanca con cruz roja y helipuerto en la azotea. */
+function drawSanatorio(p: IsoPainter) {
+  const white = 0xf2f4f5;
+  const top = 132;
+  p.box(-0.5, -0.5, 3.5, 3.5, 0, 22, boxColors(0xd9dde0));
+  for (const face of facesOf(3.5, 3.5)) {
+    p.windows(face, -0.4, 3.4, 3, 20, 6, 1, { color: GLASS, widthRatio: 0.7, heightRatio: 0.7 });
+  }
+  p.box(0.0, 0.0, 3.1, 3.1, 22, top, boxColors(white));
+  for (const face of facesOf(3.1, 3.1)) {
+    p.windows(face, 0.1, 3.0, 26, top - 6, 6, 9, { color: 0x4a6a7e, widthRatio: 0.6, heightRatio: 0.55 });
+  }
+  // Cruz roja sobre la fachada sur.
+  const south: Face = { side: "south", y: 3.1 };
+  p.faceRect(south, 1.15, 1.95, top - 30, top - 8, 0xffffff);
+  p.faceRect(south, 1.47, 1.63, top - 27, top - 11, 0xd7263d);
+  p.faceRect(south, 1.27, 1.83, top - 21, top - 17, 0xd7263d);
+  p.box(-0.05, -0.05, 3.15, 3.15, top, top + 3, boxColors(shade(white, -10)));
+  // Helipuerto: círculo oscuro con la H amarilla.
+  p.fill(0x4b4f55, ovalPoints(p, 1.55, 1.55, 1.15, 1.15, top + 3.2, 0, Math.PI * 2));
+  p.g.lineStyle(1.5, 0xffd166, 1);
+  p.g.strokePoints(ovalPoints(p, 1.55, 1.55, 1.0, 1.0, top + 3.3, 0, Math.PI * 2), true);
+  for (const [a, b] of [
+    [p.p(1.2, 1.25, top + 3.3), p.p(1.2, 1.85, top + 3.3)],
+    [p.p(1.9, 1.25, top + 3.3), p.p(1.9, 1.85, top + 3.3)],
+    [p.p(1.2, 1.55, top + 3.3), p.p(1.9, 1.55, top + 3.3)],
+  ]) {
+    p.line(a, b, 0xffd166, 2);
+  }
+}
+
+/** Obelisco a los Constituyentes: escalinata, tres figuras de bronce y el fuste de granito. */
+function drawObelisco(p: IsoPainter) {
+  const granite = 0xbdb6aa;
+  p.box(-0.45, -0.45, 0.45, 0.45, 0, 3, boxColors(0xa39d92));
+  p.box(-0.3, -0.3, 0.3, 0.3, 3, 8, boxColors(granite));
+  // Figuras de bronce (Ley, Libertad, Fuerza) contra el pedestal, en las caras que se ven.
+  const g = p.g;
+  for (const [x, y] of [
+    [0.0, 0.36],
+    [0.36, 0.0],
+    [0.3, 0.3],
+  ]) {
+    const base = p.p(x, y, 3);
+    g.fillStyle(0x3f4d3c, 1);
+    g.fillEllipse(base.x, base.y - 6, 5, 11);
+    g.fillCircle(base.x, base.y - 13, 2);
+  }
+  // Fuste que se afina hacia arriba y punta piramidal.
+  const z0 = 8;
+  const z1 = 66;
+  const b = 0.17;
+  const t = 0.09;
+  p.fill(shade(granite, -6), [p.p(-b, b, z0), p.p(b, b, z0), p.p(t, t, z1), p.p(-t, t, z1)]);
+  p.fill(shade(granite, -20), [p.p(b, b, z0), p.p(b, -b, z0), p.p(t, -t, z1), p.p(t, t, z1)]);
+  p.pyramid(-t, -t, t, t, z1, z1 + 8, shade(granite, 6), shade(granite, -14));
+}
+
+/** Velódromo Municipal: óvalo con pista peraltada de ladrillo, césped al centro y una tribuna. */
+function drawVelodromo(p: IsoPainter) {
+  drawBowl(p, 1.5, 1.5, 1.0, 0.82, [
+    { r: 1.95, z: 9, color: 0xc9c4ba },
+    { r: 1.82, z: 8, color: 0xb5653f },
+    { r: 1.32, z: 2, color: 0x7fae5a },
+  ], 0xa7a196);
+  // Líneas de la pista.
+  p.g.lineStyle(1, 0xffffff, 0.85);
+  p.g.strokePoints(ovalPoints(p, 1.5, 1.5, 1.55, 1.55 * 0.82, 5.2, 0, Math.PI * 2), true);
+  // Tribuna techada sobre la recta sur.
+  p.box(0.4, 3.0, 2.6, 3.45, 0, 13, boxColors(0xb9b4aa));
+  p.windows({ side: "south", y: 3.45 }, 0.45, 2.55, 2, 11, 6, 1, { color: 0x3a3f4c, widthRatio: 0.6 });
+  p.box(0.35, 2.95, 2.65, 3.5, 13, 15, boxColors(0x6f7c86));
+}
+
+/**
+ * Estadio Centenario: la Torre de los Homenajes (atrás, al oeste), la tribuna en escalones con los
+ * colores de las cuatro tribunas, la cancha con sus líneas y el muro exterior.
+ */
+function drawEstadioCentenario(p: IsoPainter) {
+  drawTorreHomenajes(p, -0.2, 2.0);
+  const cx = 2.2;
+  const cy = 2.0;
+  drawBowl(p, cx, cy, 1.0, 0.92, [
+    { r: 2.3, z: 34, color: 0xd9d4c9 },
+    { r: 2.12, z: 30, color: 0xa9b3bb },
+    { r: 1.92, z: 23, color: 0x8fa3ad },
+    { r: 1.72, z: 16, color: 0xa9b3bb },
+    { r: 1.52, z: 9, color: 0x8fa3ad },
+    { r: 1.35, z: 4, color: 0x5f9a46 },
+  ], 0xbcb6aa, true);
+  // Cancha: rectángulo, mitad de cancha, círculo central y áreas.
+  const z = 4.2;
+  const hx = 0.95;
+  const hy = 0.6;
+  const g = p.g;
+  g.lineStyle(1, 0xffffff, 0.9);
+  g.strokePoints([p.p(cx - hx, cy - hy, z), p.p(cx + hx, cy - hy, z), p.p(cx + hx, cy + hy, z), p.p(cx - hx, cy + hy, z)], true);
+  g.lineBetween(p.p(cx, cy - hy, z).x, p.p(cx, cy - hy, z).y, p.p(cx, cy + hy, z).x, p.p(cx, cy + hy, z).y);
+  g.strokePoints(ovalPoints(p, cx, cy, 0.2, 0.2, z, 0, Math.PI * 2), true);
+  for (const side of [-1, 1]) {
+    const x0 = cx + side * hx;
+    const x1 = cx + side * (hx - 0.28);
+    g.strokePoints([p.p(x0, cy - 0.3, z), p.p(x1, cy - 0.3, z), p.p(x1, cy + 0.3, z), p.p(x0, cy + 0.3, z)], false);
+  }
+}
+
+/** Torre de los Homenajes: alta, blanca, con nervaduras verticales, mirador y mástil con bandera. */
+function drawTorreHomenajes(p: IsoPainter, x: number, y: number) {
+  const white = 0xf3f1ea;
+  const w = 0.2;
+  const top = 96;
+  p.box(x - w, y - w, x + w, y + w, 0, top, boxColors(white));
+  for (const face of facesOf(x + w, y + w)) {
+    const [u0, u1] = face.side === "south" ? [x - w, x + w] : [y - w, y + w];
+    for (let i = 1; i < 4; i++) {
+      const u = u0 + ((u1 - u0) * i) / 4;
+      p.faceRect(face, u - 0.012, u + 0.012, 10, top - 14, shade(white, -22));
+    }
+    p.faceRect(face, u0 + 0.05, u1 - 0.05, top - 12, top - 4, 0x3a3f4c);
+  }
+  p.box(x - w - 0.04, y - w - 0.04, x + w + 0.04, y + w + 0.04, top, top + 4, boxColors(shade(white, -6)));
+  drawUruguayFlag(p, x, y, top + 4);
+}
+
+/**
+ * Óvalo en escalones (estadio, velódromo) visto desde la cámara. `rings` va de afuera hacia
+ * adentro: cada anillo baja de altura y el último es el centro (cancha). Para que lo de adelante
+ * tape bien: primero la mitad de atrás de afuera hacia adentro, después el centro, y por último la
+ * mitad de adelante de adentro hacia afuera, y el muro exterior.
+ */
+function drawBowl(
+  p: IsoPainter,
+  cx: number,
+  cy: number,
+  aspectX: number,
+  aspectY: number,
+  rings: ReadonlyArray<{ r: number; z: number; color: number }>,
+  wall: number,
+  pillars = false,
+) {
+  // "Adelante" = hacia la cámara (x + y crece): de -45° a 135°.
+  const front: [number, number] = [-Math.PI / 4, (3 * Math.PI) / 4];
+  const back: [number, number] = [(3 * Math.PI) / 4, (7 * Math.PI) / 4];
+  const arc = (i: number, [t0, t1]: [number, number], z = rings[i].z) =>
+    ovalPoints(p, cx, cy, rings[i].r * aspectX, rings[i].r * aspectY, z, t0, t1);
+  const band = (i: number, range: [number, number]) => [...arc(i, range), ...arc(i + 1, range).reverse()];
+
+  for (let i = 0; i < rings.length - 1; i++) p.fill(shade(rings[i].color, -10), band(i, back));
+  const last = rings.length - 1;
+  p.fill(rings[last].color, arc(last, [0, Math.PI * 2]));
+  for (let i = rings.length - 2; i >= 0; i--) p.fill(rings[i].color, band(i, front));
+
+  // Muro exterior (sólo se ve la mitad de adelante).
+  const wallPoints = [...arc(0, front), ...arc(0, front, 0).reverse()];
+  p.fill(wall, wallPoints);
+  p.outline(wallPoints);
+  if (pillars) {
+    for (let i = 0; i <= 12; i++) {
+      const t = front[0] + ((front[1] - front[0]) * i) / 12;
+      const x = cx + Math.cos(t) * rings[0].r * aspectX;
+      const y = cy + Math.sin(t) * rings[0].r * aspectY;
+      p.line(p.p(x, y, 0), p.p(x, y, rings[0].z), shade(wall, -18), 1.5);
+    }
+  }
+  p.g.lineStyle(1, 0x000000, 0.25);
+  p.g.strokePoints(arc(0, [0, Math.PI * 2]), true);
+}
+
+/** Puntos de un óvalo horizontal a la altura `z`, de `t0` a `t1` (radianes). */
+function ovalPoints(p: IsoPainter, cx: number, cy: number, rx: number, ry: number, z: number, t0: number, t1: number, steps = 40): Vec2[] {
+  const points: Vec2[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = t0 + ((t1 - t0) * i) / steps;
+    points.push(p.p(cx + Math.cos(t) * rx, cy + Math.sin(t) * ry, z));
+  }
+  return points;
 }

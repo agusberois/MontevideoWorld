@@ -1,11 +1,11 @@
 # Montevideo World — Documentación viva
 
 MMORPG web 2.5D con vista isométrica estilo Habbo. **v1 = prueba de concepto**: conectarse por
-WebSocket, aparecer en un barrio de Montevideo (por ahora sólo **Ciudad Vieja**, con sus edificios
-emblemáticos), caminar haciendo clic en el piso (sincronizado en tiempo real) y chatear con globos
+WebSocket, aparecer en un barrio de Montevideo (**Ciudad Vieja** al entrar; también **Tres Cruces**, con
+viaje entre barrios desde la lista M), caminar haciendo clic en el piso (sincronizado en tiempo real) y chatear con globos
 de texto sobre la cabeza del avatar. Hay bancos donde sentarse (clic) y una mochila con ropa
 para ponerse/sacarse, más una barra de acceso rápido, dinero, tiendas y la primera actividad:
-**pescar** en la Escollera Sarandí. Teclas: **M** lista de barrios, **H** mochila, **Tab** jugadores
+**pescar** en la Escollera Sarandí (con cañas de distinto nivel). Teclas: **M** lista de barrios, **H** mochila, **C** comandos, **Tab** jugadores
 del barrio, **F** pescar, **1–9** barra rápida, **Esc** cierra.
 
 > Mantené este archivo actualizado cuando cambien la arquitectura, los comandos o las convenciones.
@@ -27,6 +27,7 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
 ```
 .
 ├── CLAUDE.md
+├── docs/                     # docs de trabajo en .md: pending/ (por hacer) y finished/ (hechos)
 ├── package.json              # workspaces + scripts orquestadores
 ├── tsconfig.base.json        # strict, experimentalDecorators, useDefineForClassFields:false
 ├── deploy/
@@ -35,31 +36,43 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
 ├── packages/shared/          # @montevideo-world/shared (compila a dist/ con tsc, CommonJS + .d.ts)
 │   └── src/
 │       ├── index.ts          # entrada "@montevideo-world/shared": SIN dependencias de runtime
+│       ├── appearance.ts     # aspecto elegible: sexo, piel, pelo, color (paletas, random/sanitizeAppearance)
+│       ├── commands.ts       # catálogo de comandos de chat (COMMANDS: nombre, uso, rol) + parseCommand
 │       ├── constants.ts      # ROOM_NAME, tamaños de tile, STEP_MS, límites de chat…
 │       ├── cities/           # barrios ("ciudades") como datos
 │       │   ├── types.ts       # TileChar, CityDefinition, Landmark, PlaceLabel
 │       │   ├── layoutBuilder.ts # arma layouts por capas (calles, plazas, agua → rambla automática)
 │       │   ├── ciudadVieja.ts # layout, spawn y edificios emblemáticos de Ciudad Vieja
+│       │   ├── tresCruces.ts  # Tres Cruces: shopping/terminal, Sanatorio Americano, Obelisco, Parque Batlle
 │       │   └── index.ts       # CITIES, SPAWN_CITY_ID, getCity
 │       ├── map.ts            # CityMap (caminables, spawn, findPath BFS 8 dir.) + getCityMap(id)
-│       ├── items.ts          # catálogo: CLOTHING + FISH (ITEMS, getClothing, sellPrice, STARTER_KIT…)
+│       ├── items.ts          # catálogo: CLOTHING + FISH + RODS + BOXES (ITEMS, bestRod, rollLoot, STARTER_INVENTORY…)
+│       ├── haggle.ts         # regatear al vender: haggleChance, maxHagglePrice (tope 5×)
+│       ├── fishing.ts        # probabilidades por caña: catchWeight, fishChances, rareChance, rodPerks
 │       ├── messages.ts       # MessageType + DTOs (Move, Chat, Sit, Equip, Inventory, Wallet, Shop, Fish…)
 │       ├── money.ts          # STARTING_MONEY ($100), MAX_MONEY, isValidAmount, formatMoney
 │       ├── sanitize.ts       # sanitizeName / sanitizeChat (mismas reglas en cliente y server)
 │       ├── stamina.ts        # MAX_STAMINA, costos (caminar/pescar), recuperación, EXHAUSTED_RECOVERY
 │       ├── time.ts           # hora del juego: darknessAt (curva de luz), formatClock, CLOCK_PRESETS
+│       ├── weevils.ts        # picudo rojo: constantes (velocidad, alcance, picadura, recompensa…)
+│       ├── trade.ts          # intercambio: TradeOffer, normalizeTradeOffer, changeOfferQuantity, límites
 │       └── schema/           # entrada "@montevideo-world/shared/schema"
-│           ├── Player.ts     # sessionId, name, color, x, y (tile), sitting, hat/top/bottom/shoes
-│           └── GameState.ts  # players: MapSchema<Player>, minuteOfDay (hora del juego)
+│           ├── Player.ts     # sessionId, name, color, gender/skin/hairColor/hairStyle, x, y, sitting, fishing, rod, ropa
+│           ├── Weevil.ts     # picudo rojo: x, y (tiles con decimales), mode, targetId, bites
+│           └── GameState.ts  # players, weevils (MapSchema), minuteOfDay (hora del juego)
 ├── apps/server/              # @montevideo-world/server
 │   └── src/
 │       ├── index.ts          # Express + CORS + http.Server + Colyseus Server
 │       ├── env.ts            # carga apps/server/.env; ADMIN_NAME, DAY_LENGTH_MINUTES
 │       ├── gameClock.ts      # reloj del juego global (hora = tiempo real transcurrido × velocidad)
-│       ├── inventory.ts      # Inventory: casilleros con pilas (add/remove/canAdd), sólo server
+│       ├── inventory.ts      # Inventory: casilleros con pilas (add/remove/canAdd/restore), sólo server
+│       ├── playerStore.ts    # progreso por clave secreta en un JSON (mochila, plata, ropa) + sesiones activas
 │       ├── wallet.ts         # Wallet: saldo con credit/debit validados, sólo server
-│       ├── fishing.ts        # rollCatch: qué pica (por catchWeight) y cuánto tarda
+│       ├── commands/         # un archivo por comando de chat (help, post, box) + registro en index.ts
+│       ├── fishing.ts        # rollCatch(rod): qué pica con esa caña (0, 1 o 2 peces) y cuánto tarda
 │       ├── stamina.ts        # Stamina: energía con decimales y estado "agotado", sólo server
+│       ├── weevils.ts        # WeevilManager: salen de palmeras, persiguen al más cercano, pican, mueren
+│       ├── trades.ts         # TradeManager (invitaciones e intercambios) + executeTrade/clampOffer
 │       └── rooms/CityRoom.ts # una sala por barrio (filterBy cityId): join/leave, move, chat, sit, equip, tick
 └── apps/client/              # @montevideo-world/client
     ├── vercel.json           # install/build desde la raíz del monorepo
@@ -70,24 +83,33 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
         ├── app/              # layout.tsx, page.tsx, globals.css
         ├── components/
         │   ├── App.tsx        # máquina de estados: JoinScreen ↔ juego
-        │   ├── JoinScreen.tsx # pide nombre y abre la conexión
+        │   ├── JoinScreen.tsx # nombre + creador de personaje (sexo, piel, pelo, color, dado) y conexión
+        │   ├── AvatarPreview.tsx # vista previa SVG del avatar (misma geometría que Avatar.ts)
         │   ├── PhaserGame.tsx # monta/desmonta Phaser (seguro con StrictMode)
         │   ├── Hud.tsx        # barra de info con íconos: nombre, barrio, dinero, online, Barrios, Mochila, Salir
-        │   ├── CityMenu.tsx   # lista de barrios (tecla M / Esc)
+        │   ├── CityMenu.tsx   # lista de barrios (tecla M / Esc) con botón "Ir" para viajar
+        │   ├── TravelOverlay.tsx # pantalla del viaje: ómnibus andando + barra de progreso (5 s)
         │   ├── Backpack.tsx   # mochila: ropa puesta + grilla de casilleros con pilas ×N (tecla H / Esc)
-        │   ├── Hotbar.tsx     # barra de acceso rápido 1–9 (se arma arrastrando prendas)
+        │   ├── Hotbar.tsx     # barra de acceso rápido 1–9 (se arma arrastrando ítems de la mochila)
+        │   ├── CommandsPanel.tsx # ayuda de comandos (tecla C): sólo los que tu rol puede usar
         │   ├── ShopPanel.tsx  # panel de tienda: Comprar / Vender
         │   ├── PlayersPanel.tsx # jugadores conectados en el barrio (tecla Tab / Esc)
+        │   ├── PlayerMenu.tsx # menú al hacer clic en otro jugador: Saludar / Intercambiar
+        │   ├── TradeInvites.tsx # invitaciones a intercambiar recibidas (Aceptar / Rechazar)
+        │   ├── TradePanel.tsx # modal del intercambio: ofertas de los dos, plata y aceptar
         │   ├── FishingWidget.tsx # Pescar (F) / espera / resultado, sólo parado en la escollera
         │   ├── Notices.tsx    # avisos breves del server para el jugador (p. ej. "estás agotado")
         │   ├── AdminPanel.tsx # sólo admin (tecla P): mover el reloj del juego
         │   ├── Announcement.tsx # anuncio del admin (/post) en el medio de la pantalla
+        │   ├── BoxReveal.tsx  # lo que salió de una caja sorpresa, en el medio de la pantalla
         │   ├── ItemIcon.tsx   # ícono SVG de cada prenda según su style y su color
         │   ├── UiIcon.tsx     # íconos SVG de interfaz (HUD, títulos): user, pin, moneyBag, map, backpack…
         │   └── ChatBox.tsx    # historial + input (overlay abajo a la derecha)
         ├── lib/
         │   ├── network.ts     # Client de Colyseus, joinCity → CitySession, bindRoomMessages, sendEquip
         │   ├── hotbar.ts      # barra rápida: localStorage + datos de drag & drop
+        │   ├── playerKey.ts   # clave secreta del jugador en localStorage (con ella el server guarda su progreso)
+        │   ├── itemActions.ts # qué hace cada tipo de ítem al usarlo desde la barra (1–9)
         │   └── eventBus.ts    # EventBus tipado React ↔ Phaser (sin Phaser, apto SSR)
         └── game/
             ├── createGame.ts  # new Phaser.Game + escena
@@ -95,24 +117,38 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
             ├── color.ts       # shade()
             ├── city/
             │   ├── IsoPainter.ts   # cajas, caras, ventanas, arcos, techos, cúpulas en coords de tile
-            │   ├── buildings.ts    # PieceSpec + casas de relleno, árboles, palmeras, bancos, tienda
+            │   ├── buildings.ts    # PieceSpec + casas, árboles, palmeras, bancos, tiendas (SHOP_STYLES por tipo)
             │   ├── landmarks.ts    # dibujo de cada edificio emblemático (por LandmarkKind)
             │   ├── CityRenderer.ts # hornea piso/edificios a texturas, profundidad, transparencia, carteles
             │   └── DayNight.ts     # velo de atardecer/noche según la hora + halos de luz (farola, faroles…)
-            ├── scenes/CityScene.ts  # barrio, clic (caminar / sentarse), cámara que sigue al avatar, sync de Schema
+            ├── scenes/CityScene.ts  # barrio, clic (caminar / sentarse), cámara que sigue al avatar (zoom con la rueda), sync de Schema
             └── objects/
+                ├── Weevil.ts      # picudo rojo dibujado (patitas, mordisco, patas arriba al morir)
                 ├── Avatar.ts      # avatar procedural (cuerpo completo, ropa redibujable, gorros,
                 │                  # vista frente/espalda, sentado), interpolación, caminata, nombre y globo
-                └── avatarLook.ts  # piel/pelo determinísticos por sessionId + Outfit (ropa del Schema)
+                └── avatarLook.ts  # AvatarLook desde el aspecto del Schema + Outfit (ropa del Schema)
 ```
 
 ## Flujo de red
 
-1. `JoinScreen` → `joinCity(name)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID })`.
+1. `JoinScreen` → `joinCity(name, appearance)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID, appearance })`.
+   El aspecto (sexo, piel, pelo, color) se arma en la pantalla de ingreso (🎲 = `randomAppearance`) y
+   se recuerda en `localStorage` (`mw:appearance`). El server lo valida con `sanitizeAppearance`
+   (si no es válido sortea uno) y lo copia al Schema (`gender`, `skin`, `hairColor`, `hairStyle`,
+   `color`): todos ven igual a cada jugador. El nombre sobre la cabeza va en `Player.color`.
    Siempre se entra a **Ciudad Vieja**. Las salas se separan por `cityId` (`filterBy`); un `cityId`
    desconocido hace fallar `onCreate`.
 2. `CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (Plaza Independencia)
    y avisa a los demás por chat de sistema.
+   **Progreso guardado.** El navegador genera una clave secreta (`lib/playerKey.ts`, `mw:playerKey`
+   en localStorage) y la manda en `JoinOptions.playerKey`. Con ella el server guarda en
+   `playerStore` (archivo JSON, `PLAYER_DATA_FILE`) la mochila, la plata y la ropa puesta: al
+   salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Al entrar
+   con una clave conocida se restaura todo (validando ítems, cantidades y montos); sin clave, kit
+   inicial. En localStorage vive **sólo la clave**, nunca el progreso, así no se puede editar desde
+   la consola. Una clave = una sesión: si entra de nuevo (otra pestaña), `activeSessions` cierra la
+   vieja con código 4001 después de guardarla. El nombre y el aspecto se recuerdan en el navegador
+   (`mw:name`, `mw:appearance`) y vienen prellenados en `JoinScreen`.
 3. Clic en el piso → `room.send("move", { x, y })` → el server valida, calcula camino (`findPath`) y
    cada `STEP_MS` (250 ms) avanza un tile a cada jugador → el Schema replica `x/y` a todos.
 4. `CityScene` escucha `onAdd / onChange / onRemove` del Schema e interpola cada avatar a velocidad
@@ -122,7 +158,7 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    el tile del banco con `sitting = true`. Cualquier `move` lo levanta. La orientación sentada sale del
    banco (`CityMap.benchAt`), no del Schema.
 6. Mochila. Un jugador nuevo aparece con el `STARTER_KIT` **puesto** (1 remera, 1 short, chancletas)
-   y la mochila vacía. La mochila es estado **privado** de la Room (`Inventory`, `INVENTORY_CAPACITY`
+   y en la mochila el `STARTER_INVENTORY` (la caña básica). La mochila es estado **privado** de la Room (`Inventory`, `INVENTORY_CAPACITY`
    casilleros; prendas iguales se apilan hasta `MAX_STACK`): no va en el Schema. El cliente la pide con
    `inventory:get` después de registrar su handler (en `bindRoomMessages`) y el server responde, y
    reenvía tras cada cambio, con `client.send("inventory", …)` sólo al dueño → EventBus
@@ -131,10 +167,15 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    vuelve a la mochila; si no entra, no cambia nada); `itemId: null` guarda lo puesto en la mochila.
    Lo puesto (`hat/top/bottom/shoes`) sí va en el Schema: todos lo ven; la escena reemite la ropa propia
    a React con `player:outfit`.
-   Barra rápida (1–9): guarda **ids** de prendas, no prendas; es preferencia de UI y vive en
+   Barra rápida (1–9): guarda **ids** de ítems, no ítems; es preferencia de UI y vive en
    `localStorage` (`lib/hotbar.ts`), no en el server. Se arrastra desde la mochila (HTML5 drag & drop),
-   se reordena arrastrando entre casilleros y se saca arrastrando afuera o con clic derecho. Al
-   activarla: si la prenda está puesta → `equip(slot, null)`; si está en la mochila → `equip(slot, id)`.
+   se reordena arrastrando entre casilleros y se saca arrastrando afuera o con clic derecho. Qué hace
+   cada ítem al activarlo está en un solo lugar, `lib/itemActions.ts` (`itemAction`): ropa →
+   ponérsela/sacársela (`equip`); caña → pescar/recoger (como F); pescado → comerlo (`fish:eat`,
+   recupera `fishStamina(dificultad)` = 10…30 de energía); caja → abrirla. Lo que ya no tenés (ni
+   en la mochila ni puesto) se saca solo de la barra y el casillero queda libre; se espera
+   `HOTBAR_CLEANUP_MS` (1 s) sin cambios porque al ponerse/sacarse algo la mochila y la ropa
+   llegan por separado.
    Los íconos de prendas son SVG por `style` pintados con `item.color` (`ItemIcon.tsx`): al agregar
    un `ItemStyle` nuevo, dibujarlo ahí y en `Avatar.ts`.
 7. Dinero. Saldo en pesos **enteros**, autoritativo y **privado** como la mochila: `Wallet` por jugador
@@ -149,15 +190,28 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    { shopId, itemId }` exigen estar pegado a la tienda (`isNearShop`); comprar cobra `item.price` si
    alcanza y hay lugar en la mochila; vender paga `sellPrice` (mitad) por prendas **de la mochila** (lo
    puesto no se vende). El server responde `shop:result { ok, text }` y reenvía saldo e inventario.
-   Ciudad Vieja tiene la **Ropería Sarandí** (26,19) junto a la peatonal, que vende todo el catálogo.
+   **Regatear** (sólo al vender): `shop:haggle { shopId, itemId, price }`, todo o nada. Se puede pedir
+   entre `sellPrice + 1` y `maxHagglePrice` (5×); la tienda acepta con `haggleChance` =
+   `(sellPrice / price)^1,2` (la misma fórmula que muestra el panel). Si acepta se cobra `price`; si
+   no, el ítem se pierde igual y no se cobra nada. Con exponente > 1, en promedio regatear rinde un
+   poco menos que vender normal: es una apuesta, no una forma de farmear plata.
+   Ciudad Vieja tiene la **Ropería Sarandí** (26,19) junto a la peatonal, que vende todo el catálogo,
+   y **Pesca Sarandí** (7,25), sobre la rambla frente a la escollera, que vende las cañas y compra las
+   usadas (`buys: ["rod"]`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
+   para un tipo nuevo, sumar su estilo en `SHOP_STYLES` (`buildings.ts`).
 9. Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río;
-   `CityMap.canFishAt` = parado en la escollera. `fish:cast` → el server valida (en la escollera, sin
-   camino pendiente, sin estar pescando), sortea con `rollCatch` (20 % nada; si no, por `catchWeight`)
-   y pone `player.fishing = true` (Schema: los demás ven la caña). Manda `fish:started { durationMs }`
-   (más largo cuanto más difícil el pez) y al vencer el timer (`this.clock.setTimeout`) agrega el pez
-   a la mochila y manda `fish:result`. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan
+   `CityMap.canFishAt` = parado en la escollera. Para pescar hace falta una **caña** (`RodItem`,
+   `category: "rod"`) en la mochila: se usa siempre la de mayor `tier` (`bestRod`). Hay 4 (`RODS`:
+   básica, fibra, carbono, profesional); cada una define `rareBoost` (el peso de cada pez se
+   multiplica por `(1 + rareBoost)^(dificultad−1)`), `nothingChance`, `doubleChance` (segundo pez
+   cuando pica) y `waitFactor`. Las probabilidades se calculan en shared (`fishChances`), así la
+   tienda y la mochila muestran lo mismo que sortea el server. `fish:cast` → el server valida (en la
+   escollera, sin camino pendiente, sin estar pescando, con caña), sortea con `rollCatch(rod)` y pone
+   `player.fishing = true` y `player.rod` (Schema: los demás ven la caña de su color). Manda
+   `fish:started { durationMs }` (más largo cuanto más difícil el pez) y al vencer el timer
+   (`this.clock.setTimeout`) agrega los peces a la mochila y manda `fish:result { itemIds }`. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan
    (`stopFishing`). Peces de dificultad ≥ 4 se anuncian en el chat. Los peces (`FISH`: pejerrey… corvina
-   negra) son ítems `category: "fish"`: no se ponen ni van a la barra rápida; se venden a precio completo
+   negra) son ítems `category: "fish"`: no se ponen; se comen desde la barra rápida o se venden a precio completo
    en la **Pescadería del Mercado** (tienda `building: "none"` sobre el área del Mercado del Puerto,
    `buys: ["fish"]`), que además vende todas las especies con recargo (`FISH_BUY_MARKUP` = 1,5×).
    Las tiendas sólo compran las categorías de su `buys`. Precios: `buyPrice(item)` (lo que cobra la
@@ -175,11 +229,47 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    06:00–07:30) y la anima suave; el HUD muestra la hora (`city:clock`). Al entrar, si el nombre
    coincide con `ADMIN_NAME`, `player.admin = true` (nombre con ★ en naranja y botón **Admin (P)**).
    `admin:time { minuteOfDay }` mueve el reloj (sólo admins; se anuncia en el chat) y desde ahí sigue.
-   Comando de chat **`/post <mensaje>`** (sólo admin, se detecta en `handleChat`): no va al chat; se
-   publica en presence (`ANNOUNCEMENT_TOPIC`) y **cada sala de todos los barrios** lo reenvía como
-   `announcement` → `Announcement.tsx` lo muestra en el medio de la pantalla ("AGOSHO: hola que tal").
-   Un no-admin que lo usa recibe un `notice` y no se publica nada.
-12. Chat → `room.send("chat", { text })` → el server sanitiza, aplica cooldown y hace
+   Comando de chat **`/post <mensaje>`** (sólo admin): se publica en presence (`ANNOUNCEMENT_TOPIC`)
+   y **cada sala de todos los barrios** lo reenvía como `announcement` → `Announcement.tsx` lo
+   muestra en el medio de la pantalla ("AGOSHO: hola que tal").
+12. Jugadores: clic sobre otro avatar (`Avatar.containsWorldPoint`, no se camina) → la escena emite
+   `player:click` → `PlayerMenu`. **Saludar** = `greet { targetId }`: el server lo publica como
+   mensaje de chat propio ("👋 ¡Hola, X!", con el cooldown del chat). **Intercambiar** =
+   `trade:request` → al otro le llega `trade:invite` (vence en `TRADE_INVITE_MS`; si los dos se
+   invitan, arranca directo) → `trade:respond { fromId, accept }`. Con el intercambio abierto
+   (`TradeManager`, uno por jugador) cada uno manda su oferta completa con `trade:offer { items,
+   money }` (sólo de la mochila: lo puesto no se intercambia); cualquier cambio de oferta **anula las
+   dos aceptaciones**. Cuando los dos mandan `trade:accept`, `executeTrade` simula con copias de las
+   mochilas (que tengan lo ofrecido, que entre lo que reciben, tope de plata) y recién ahí aplica.
+   Si la mochila o la plata cambian durante el intercambio, `clampOffer` recorta la oferta.
+   El server manda `trade:state` (a cada uno desde su lado) y `trade:closed` al terminar; salir de
+   la sala cancela. Con un intercambio abierto, React no abre otros paneles ni atajos.
+13. Comandos de chat. Todo mensaje que empieza con `/` es un comando y **no va al chat**:
+   `handleChat` → `runCommand` (`commands/index.ts`) lo parsea (`parseCommand`), lo busca en
+   `COMMANDS` (shared), chequea el rol (`user` o `admin`, contra `player.admin`) y llama a su handler.
+   Las respuestas son `notice` privados. Los handlers sólo usan `CommandHost` (avisar, dar ítems,
+   anunciar), no el estado privado de la sala. Comandos: `/help` (lista los que podés usar),
+   `/post <mensaje>` (admin), `/box [cantidad]` (admin, 1–10 cajas sorpresa a la mochila propia) y
+   `/plata <monto> [jugador]` (admin: carga plata a un jugador del barrio por nombre, sin distinguir
+   mayúsculas y con espacios; sin nombre, a uno mismo; acepta "1.000"). El HUD tiene el botón
+   **Comandos (C)** → `CommandsPanel`, que lista desde `COMMANDS` sólo los que tu rol puede usar.
+14. Cajas sorpresa (`BoxItem`, `category: "box"`, en `BOXES`). Se consiguen con `/box` y se pasan
+   por intercambio; no se compran ni venden. En la mochila: clic, o arrastrarla y soltarla fuera del
+   panel → `box:open { itemId }` → el server sortea el premio con `rollLoot` (pesos de `loot`; la de
+   peces suma 100 = %), consume la caja, agrega el premio (si no entra, no se abre) y manda
+   `box:opened` → `BoxReveal`. Premios de dificultad ≥ 4 se anuncian en el chat.
+15. Picudo rojo (sólo en palmeras, `TileChar.Palm`). Clic en una palmera (o en sus hojas: se
+   buscan palmeras hasta 2 tiles en diagonal) → `palm:shake { x, y }` → el server camina al jugador
+   hasta pegarse (`approachTile`) y la sacude: `WeevilManager.shake` larga 2–4 picudos (cada palmera
+   espera `PALM_COOLDOWN_MS`; tope `MAX_WEEVILS` por sala). Viven en el Schema (`state.weevils`):
+   los ve todo el barrio. El server los mueve cada 100 ms: persiguen al jugador **más cercano**
+   dentro de `WEEVIL_AGGRO_RANGE` (no al que sacudió; cambian de objetivo si otro queda más cerca),
+   pican a `WEEVIL_BITE_RANGE` (−`WEEVIL_BITE_STAMINA` de energía, `bites++` → "-2" en todos los
+   clientes) y, sin nadie cerca o pasado `WEEVIL_LIFETIME_MS`, vuelven a la palmera. Clic en un
+   picudo (tiene prioridad sobre todo) → `weevil:kick { id }`: si está a `WEEVIL_KICK_RANGE` muere
+   (`mode = "dead"`, "¡Plaf!"), el que pateó cobra `WEEVIL_REWARD` y su `player.kicks++` anima la
+   patada del avatar en todos los clientes.
+16. Chat → `room.send("chat", { text })` → el server sanitiza, aplica cooldown y hace
    `broadcast("chat", ChatBroadcastMessage)` → `ChatBox` lo agrega al historial y `CityScene`
    muestra el globo sobre la cabeza durante `CHAT_BUBBLE_MS`.
 
@@ -214,7 +304,7 @@ corré `npm run build:shared`.
 
 | Variable | Default | Descripción |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SERVER_URL` | `ws://localhost:2567` | URL WebSocket del servidor. En producción **debe ser `wss://`** (el sitio en Vercel es https). Se inlinea en build: cambiarla requiere redeploy. |
+| `NEXT_PUBLIC_SERVER_URL` | `ws://<host de la página>:2567` | URL WebSocket del servidor. Sin definir, usa el mismo host que la página (`getServerUrl`), así se puede jugar desde otras compus de la red local entrando por `http://<ip>:3000`. En producción **debe ser `wss://`** (el sitio en Vercel es https). Se inlinea en build: cambiarla requiere redeploy. |
 
 ### Servidor (entorno del proceso; ver `apps/server/.env.example`)
 
@@ -226,6 +316,7 @@ corré `npm run build:shared`.
 | `NODE_ENV` | — | `production` en el VPS (lo setea `npm start`) |
 | `ADMIN_NAME` | — | Nombre con el que se entra como **admin** (sin distinguir mayúsculas). Local: `AGOSHO`. Vacío = sin admin |
 | `DAY_LENGTH_MINUTES` | `24` | Minutos reales que dura un día del juego (24 → 1 hora del juego por minuto real) |
+| `PLAYER_DATA_FILE` | `apps/server/data/players.json` | Archivo donde se guarda el progreso de cada jugador (mochila, plata, ropa). Está en `.gitignore`. En el VPS conviene una ruta fuera del repo y con backup |
 
 El server carga `apps/server/.env` al arrancar (`src/env.ts`, importado primero en `index.ts`, con
 `process.loadEnvFile`). Lo que ya venga del entorno (shell, PM2, systemd) tiene prioridad. `.env` está
@@ -270,7 +361,8 @@ Reglas:
 2. **React no conoce Phaser y Phaser no conoce React.** Se hablan sólo por eventos tipados en
    `GameEvents` (`chat:message`, `players:list`, `player:self`, `player:outfit`, `inventory:update`,
    `wallet:update`, `shop:open`, `shop:result`, `fishing:status`, `fishing:started`, `fishing:result`,
-   `player:stamina`, `notice`, `player:admin`, `city:clock`, `announcement`). Para un evento nuevo, agregalo a
+   `player:stamina`, `notice`, `player:admin`, `city:clock`, `announcement`, `player:click`,
+   `trade:invite`, `trade:state`, `trade:closed`, `box:opened`). Para un evento nuevo, agregalo a
    esa interfaz primero.
 3. Cada suscripción devuelve su función de limpieza y **se libera** (cleanup de `useEffect`,
    `dispose()` de la escena en `SHUTDOWN`/`DESTROY`). Así StrictMode y el hot reload no duplican handlers.
@@ -288,6 +380,12 @@ Reglas:
   que usan igual el server (validar movimiento, pathfinding, spawn) y el cliente (hover/clic).
 - Diseño de Ciudad Vieja: manzanas como **parques de pasto caminable** con pocas casas sueltas y
   árboles (sólo donde no cortan el paso); los edificios emblemáticos son los protagonistas.
+- Tres Cruces (60×46): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
+  sobre el borde (`LayoutBuilder.edges`), Bulevar Artigas y Av. Italia, el Shopping (con la
+  terminal y la tienda `building: "none"` "Moda Tres Cruces"), el Sanatorio Americano, el Obelisco y
+  el Parque Batlle con el Velódromo y el Estadio Centenario (óvalos con gradas: `drawBowl`).
+- Antes de `scatter` de árboles, poner `Plaza` bajo el área de cada emblemático: si no, le crecen
+  árboles adentro.
 - Logo: `CityDefinition.logoSign = { landmarkId }` pone el cartel "MW" sobre el techo de ese edificio
   emblemático (en Ciudad Vieja, el **Cabildo**). El punto del techo de cada tipo está en `ROOF_SPOTS`
   (`landmarks.ts`, coordenadas del dibujo base; se escala con el edificio) y el nombre del edificio se
@@ -306,8 +404,16 @@ Reglas:
 
 1. Crear `packages/shared/src/cities/<barrio>.ts` (usar `LayoutBuilder`) y sumarlo a `CITIES`.
 2. Si tiene un tipo de edificio nuevo: agregarlo a `LandmarkKind` y dibujarlo en `landmarks.ts`.
-3. Aparece solo en la lista (tecla M). Viajar entre barrios todavía no existe: hay que agregar un
-   mensaje/flujo que salga de la sala actual y haga `joinOrCreate` con el nuevo `cityId`.
+3. Aparece solo en la lista (tecla M, sólo nombres) con su botón **Ir · $52**. Viajar cuesta un
+   boleto de STM (`TRAVEL_FARE`): `travel:request { cityId }` → el server cobra, guarda el progreso
+   y emite un boleto (`travelTickets`, vence en `TRAVEL_TICKET_MS`) → `travel:ok` → `App.travel`
+   sale de la sala y `travelTo(cityId)` entra a la del destino con el mismo nombre, aspecto y clave.
+   Mientras tanto se ve `TravelOverlay` (ómnibus de STM animado en SVG/CSS); el viaje dura como
+   mínimo `TRAVEL_MS` (5 s) aunque el server responda antes.
+   `CityRoom.onJoin` rechaza entrar a un barrio que no sea el de spawn sin boleto vigente para ese
+   barrio (y lo consume): no se puede viajar gratis pidiendo otra sala desde el cliente. Sin clave
+   (navegador sin almacenamiento) no se puede viajar.
+4. Si tiene un cartel "MW" (`logoSign`), sumar el punto del techo de su tipo en `ROOF_SPOTS`.
 
 ## Cómo agregar un mensaje nuevo (receta)
 
@@ -315,6 +421,15 @@ Reglas:
 2. `apps/server/src/rooms/CityRoom.ts`: `this.onMessage(MessageType.X, (client, msg: unknown) => …)` con type guard.
 3. Si el server responde con un broadcast: registrarlo en `bindRoomMessages` y reemitir por el EventBus.
 4. `npm run typecheck`.
+
+## Cómo agregar un comando de chat (receta)
+
+1. `packages/shared/src/commands.ts`: sumarlo a `COMMANDS` (`name`, `usage`, `description`, `role`).
+2. `apps/server/src/commands/<nombre>.ts`: exportar un `CommandHandler` (`({ client, player, args, rest }, host) => …`).
+3. `apps/server/src/commands/index.ts`: agregarlo a `HANDLERS` (el `Record<CommandName, …>` no compila si falta).
+4. Si necesita algo nuevo de la sala, sumarlo a `CommandHost` (`commands/types.ts`) e implementarlo en `CityRoom.commandHost`.
+
+Aparece solo en `/help` para quien lo pueda usar.
 
 ## Despliegue
 
@@ -352,19 +467,22 @@ sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
 
 ## Limitaciones conocidas de v1 / próximos pasos
 
-- Sin autenticación ni persistencia (el nombre es libre, todo se pierde al reiniciar).
+- Sin cuentas: el progreso queda atado a la clave del navegador (borrar los datos del sitio o cambiar
+  de navegador = empezar de cero). Persistencia en un archivo JSON: alcanza para una instancia; con
+  más jugadores, pasar a una base de datos.
 - Sin colisión entre avatares; el pathfinding sólo esquiva tiles no caminables del barrio.
-- Sin zoom: la cámara sigue al avatar propio a escala 1.
-- Inventario y dinero sin persistencia: al reconectar se vuelve a aparecer con el kit inicial y $100.
-  Dos tiendas (ropa y pescadería); el stock es infinito y los precios son fijos.
-- Pesca sin minijuego: el resultado se sortea al tirar y sólo hay que esperar. Todavía no hay
+- Zoom con la rueda del mouse (0,5× a 2×, se recuerda en `mw:zoom`). Las texturas horneadas se
+  ven un poco suaves al acercar al máximo.
+- Tres tiendas (ropa y pescadería); el stock es infinito y los precios son fijos.
+- Pesca sin minijuego: el resultado se sortea al tirar y sólo hay que esperar. La caña no se
+  gasta ni se rompe. Todavía no hay
   forma de conseguir prendas nuevas (el resto del catálogo existe pero nadie lo tiene).
-- Los rasgos físicos (piel/pelo) salen del `sessionId` y no se eligen.
-- Un solo barrio (Ciudad Vieja) y sin viaje entre barrios: la lista (M) es informativa.
-- El spawn en Ciudad Vieja lo decide el cliente (`SPAWN_CITY_ID` en `joinCity`); el server acepta
-  cualquier `cityId` válido.
-- Avatares dibujados con primitivas (4 orientaciones por espejado: frente/espalda × izq/der; de espaldas sólo mientras camina, al llegar queda de frente). El aspecto
-  (piel, pelo, pantalón, zapatos) sale del `sessionId`, no es elegible; la remera usa `Player.color`.
-  Próximo paso: elegirlo en `JoinScreen` y sincronizarlo en el Schema, o pasar a spritesheets de 8 direcciones.
+- Dos barrios (Ciudad Vieja y Tres Cruces). Al entrar siempre se aparece en Ciudad Vieja; al viajar,
+  en la zona de spawn del destino.
+- Al entrar al juego siempre se aparece en Ciudad Vieja (el server exige boleto para los demás
+  barrios). Quien queda en otro barrio sin $52 puede salir y volver a entrar.
+- Avatares dibujados con primitivas (4 orientaciones por espejado: frente/espalda × izq/der; de espaldas
+  sólo mientras camina, al llegar queda de frente). El aspecto se elige al entrar y no se puede cambiar
+  después sin reconectar. Próximo paso: spritesheets de 8 direcciones.
 - Sin predicción de movimiento en el cliente (con latencia alta el propio avatar arranca con delay).
 - Sin reconexión automática (`room.reconnectionToken` + `allowReconnection` en el server).

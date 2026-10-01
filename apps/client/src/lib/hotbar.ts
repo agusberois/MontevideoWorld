@@ -1,8 +1,9 @@
 import type { DragEvent } from "react";
 
 /**
- * Barra de acceso rápido (teclas 1–9). Es una preferencia de UI: guarda referencias a prendas
- * (ids), no las prendas; por eso vive en el navegador y no pasa por el servidor.
+ * Barra de acceso rápido (teclas 1–9). Es una preferencia de UI: guarda referencias a ítems (ids:
+ * ropa, cañas, pescados, cajas), no los ítems; por eso vive en el navegador y no pasa por el
+ * servidor. Qué hace cada ítem al usarlo está en `itemActions.ts`.
  */
 export const HOTBAR_SIZE = 9;
 
@@ -32,7 +33,7 @@ export function saveHotbar(slots: HotbarSlots) {
   }
 }
 
-/** Qué se está arrastrando: una prenda y, si viene de la barra, desde qué casillero. */
+/** Qué se está arrastrando: un ítem y, si viene de la barra, desde qué casillero. */
 export interface ItemDrag {
   itemId: string;
   fromHotbar?: number;

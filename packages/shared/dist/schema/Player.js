@@ -14,6 +14,11 @@ class Player extends schema_1.Schema {
         this.sessionId = "";
         this.name = "";
         this.color = "#ffffff";
+        /** Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado. */
+        this.gender = "m";
+        this.skin = 0;
+        this.hairColor = 0;
+        this.hairStyle = "short";
         /** Tile actual (coordenadas de grilla, no píxeles). */
         this.x = 0;
         this.y = 0;
@@ -21,6 +26,10 @@ class Player extends schema_1.Schema {
         this.sitting = false;
         /** Pescando desde la escollera (los demás lo ven con la caña). */
         this.fishing = false;
+        /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
+        this.rod = "";
+        /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
+        this.kicks = 0;
         /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `stamina.ts`. */
         this.stamina = 100;
         /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
@@ -43,6 +52,18 @@ __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "color", void 0);
 __decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "gender", void 0);
+__decorate([
+    (0, schema_1.type)("uint8")
+], Player.prototype, "skin", void 0);
+__decorate([
+    (0, schema_1.type)("uint8")
+], Player.prototype, "hairColor", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "hairStyle", void 0);
+__decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "x", void 0);
 __decorate([
@@ -54,6 +75,12 @@ __decorate([
 __decorate([
     (0, schema_1.type)("boolean")
 ], Player.prototype, "fishing", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "rod", void 0);
+__decorate([
+    (0, schema_1.type)("uint16")
+], Player.prototype, "kicks", void 0);
 __decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "stamina", void 0);

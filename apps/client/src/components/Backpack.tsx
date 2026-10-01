@@ -8,13 +8,21 @@ import {
   ItemSlot,
   MAX_STACK,
   OutfitIds,
+  BoxItem,
   difficultyStars,
+  fishStamina,
   formatMoney,
   getClothing,
   getItem,
+  RodItem,
+  bestRod,
+  isBox,
+  lootChances,
+  rodPerks,
+  rodStars,
 } from "@montevideo-world/shared";
-import { startItemDrag } from "@/lib/hotbar";
-import { CityRoom, sendEquip } from "@/lib/network";
+import { isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
+import { CityRoom, sendBoxOpen, sendEquip } from "@/lib/network";
 import { ItemIcon, SlotPlaceholderIcon } from "./ItemIcon";
 import { UiIcon } from "./UiIcon";
 
@@ -42,9 +50,25 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
   const cells = Array.from({ length: capacity }, (_, index) => stacks[index]);
 
   const equip = (slot: ItemSlot, itemId: string | null) => sendEquip(room, slot, itemId);
+  const hasBox = stacks.some((stack) => isBox(getItem(stack.itemId)));
+  /** La caña que se usa al pescar: la de mayor nivel de la mochila. */
+  const rodInUse = bestRod(stacks.map((stack) => stack.itemId));
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      // Tirar una caja fuera de la mochila (sobre el fondo, no sobre el panel) la abre.
+      onDragOver={(event) => {
+        if (event.target === event.currentTarget && isItemDrag(event)) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        if (event.target !== event.currentTarget) return;
+        event.preventDefault();
+        const drag = readItemDrag(event);
+        if (drag && isBox(getItem(drag.itemId))) sendBoxOpen(room, drag.itemId);
+      }}
+    >
       <section
         className="modal backpack"
         role="dialog"
@@ -99,13 +123,51 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
               const item = stack ? getItem(stack.itemId) : undefined;
               if (!stack || !item) return <li key={`empty-${index}`} className="backpack-cell empty" />;
               const qty = stack.quantity > 1 && <span className="backpack-qty">x{stack.quantity}</span>;
+              if (item.category === "box") {
+                return (
+                  <li key={`${stack.itemId}-${index}`} className="backpack-cell box">
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
+                      onClick={() => sendBoxOpen(room, item.id)}
+                      title={boxTitle(item)}
+                      aria-label={`${item.name}${stack.quantity > 1 ? `, ${stack.quantity} unidades` : ""}: abrir`}
+                    >
+                      <ItemIcon item={item} size={40} />
+                      <span className="backpack-cell-name">{item.name}</span>
+                      {qty}
+                    </button>
+                  </li>
+                );
+              }
+              if (item.category === "rod") {
+                const inUse = item.id === rodInUse?.id;
+                return (
+                  <li key={`${stack.itemId}-${index}`} className={`backpack-cell${inUse ? " rod-in-use" : ""}`}>
+                    <div
+                      className="backpack-cell-static"
+                      draggable
+                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
+                      title={`${rodTitle(item, inUse)}. Arrastrala a la barra 1–9 para pescar con un atajo.`}
+                    >
+                      <ItemIcon item={item} size={40} />
+                      <span className="backpack-cell-name">{item.name}</span>
+                      {qty}
+                      {inUse && <span className="backpack-badge">En uso</span>}
+                    </div>
+                  </li>
+                );
+              }
               if (item.category === "fish") {
-                // Los pescados no se usan: se venden en el Mercado del Puerto.
+                // Los pescados se venden en el Mercado del Puerto o se comen desde la barra rápida.
                 return (
                   <li key={`${stack.itemId}-${index}`} className="backpack-cell">
                     <div
                       className="backpack-cell-static"
-                      title={`${item.name} ${difficultyStars(item.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(item.price)}`}
+                      draggable
+                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
+                      title={`${item.name} ${difficultyStars(item.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(item.price)}. Arrastralo a la barra 1–9 para comerlo (+${fishStamina(item.difficulty)} de energía).`}
                     >
                       <ItemIcon item={item} size={40} />
                       <span className="backpack-cell-name">{item.name}</span>
@@ -133,6 +195,9 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
             })}
           </ul>
           {stacks.length === 0 && <p className="backpack-hint">Vacía. Lo que te saques se guarda acá.</p>}
+          {hasBox && (
+            <p className="backpack-hint">🎁 Para abrir una caja sorpresa, hacé clic o tirala fuera de la mochila.</p>
+          )}
         </div>
 
         <footer>
@@ -141,4 +206,18 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
       </section>
     </div>
   );
+}
+
+/** "Caja sorpresa — puede salir: Pejerrey 25 %, …" (las probabilidades reales del server). */
+function boxTitle(box: BoxItem): string {
+  const odds = lootChances(box)
+    .map(({ item, chance }) => `${item.name} ${Math.round(chance * 100)} %`)
+    .join(", ");
+  return `${box.name} — clic o tirala fuera de la mochila para abrirla. Puede salir: ${odds}`;
+}
+
+/** "Caña de fibra ★★☆☆ — se usa al pescar. Peces raros: 6,6 % · …" */
+function rodTitle(rod: RodItem, inUse: boolean): string {
+  const use = inUse ? "es la que usás al pescar" : "pescás con tu mejor caña, no con esta";
+  return `${rod.name} ${rodStars(rod.tier)} — ${use}. ${rodPerks(rod).join(" · ")}`;
 }

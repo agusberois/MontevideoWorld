@@ -16,6 +16,12 @@ export declare class CityMap {
      * este (de frente a la cámara) y después oeste y norte.
      */
     waterDirection(x: number, y: number): "south" | "east" | "west" | "north" | undefined;
+    /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
+    isPalm(x: number, y: number): boolean;
+    /** ¿El tile (x, y) está pegado a la palmera (incluye diagonales)? Desde ahí se la sacude. */
+    isNextTo(target: TilePoint, x: number, y: number): boolean;
+    /** Tile caminable pegado a `target` más cercano a `from` (para ir a una palmera). */
+    approachTile(target: TilePoint, from: TilePoint): TilePoint | undefined;
     shopAt(x: number, y: number): Shop | undefined;
     getShop(id: string): Shop | undefined;
     /** ¿El tile (x, y) está pegado a la tienda (incluye diagonales)? Desde ahí se puede comprar. */

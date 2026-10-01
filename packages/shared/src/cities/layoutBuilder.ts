@@ -74,6 +74,20 @@ export class LayoutBuilder {
     return this;
   }
 
+  /**
+   * Pone `char` en el borde del rectángulo con probabilidad `chance` (determinística por tile),
+   * sólo sobre tiles `onto`. Sirve para manzanas con edificios sueltos sobre la vereda y el centro libre.
+   */
+  edges({ x, y, width, height }: TileRect, char: TileCharValue, onto: TileCharValue, chance: number, seed: number) {
+    for (let ty = y; ty < y + height; ty++) {
+      for (let tx = x; tx < x + width; tx++) {
+        const border = tx === x || ty === y || tx === x + width - 1 || ty === y + height - 1;
+        if (border && this.grid[ty]?.[tx] === onto && hash01(tx, ty, seed) < chance) this.set(tx, ty, char);
+      }
+    }
+    return this;
+  }
+
   build(): string[] {
     return this.grid.map((row) => row.join(""));
   }

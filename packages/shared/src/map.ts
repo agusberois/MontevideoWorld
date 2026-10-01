@@ -74,6 +74,32 @@ export class CityMap {
     return options.find(([, dx, dy]) => this.tileAt(x + dx, y + dy) === TileChar.Water)?.[0];
   }
 
+  /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
+  isPalm(x: number, y: number): boolean {
+    return this.tileAt(x, y) === TileChar.Palm;
+  }
+
+  /** ¿El tile (x, y) está pegado a la palmera (incluye diagonales)? Desde ahí se la sacude. */
+  isNextTo(target: TilePoint, x: number, y: number): boolean {
+    return Math.max(Math.abs(target.x - x), Math.abs(target.y - y)) === 1;
+  }
+
+  /** Tile caminable pegado a `target` más cercano a `from` (para ir a una palmera). */
+  approachTile(target: TilePoint, from: TilePoint): TilePoint | undefined {
+    let best: TilePoint | undefined;
+    let bestDistance = Infinity;
+    for (const dir of DIRECTIONS) {
+      const tile = { x: target.x + dir.x, y: target.y + dir.y };
+      if (!this.isWalkable(tile.x, tile.y)) continue;
+      const distance = Math.abs(tile.x - from.x) + Math.abs(tile.y - from.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = tile;
+      }
+    }
+    return best;
+  }
+
   shopAt(x: number, y: number): Shop | undefined {
     return this.city.shops.find((shop) => inRect(shop.area, x, y));
   }

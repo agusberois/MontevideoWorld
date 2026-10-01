@@ -1,2 +1,4 @@
 /node_modules
 .next/
+# Datos persistidos de los jugadores (mochila, plata, ropa): nunca al repo.
+apps/server/data/

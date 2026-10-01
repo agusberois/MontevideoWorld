@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GameState = void 0;
 const schema_1 = require("@colyseus/schema");
 const Player_1 = require("./Player");
+const Weevil_1 = require("./Weevil");
 class GameState extends schema_1.Schema {
     constructor() {
         super(...arguments);
@@ -16,6 +17,8 @@ class GameState extends schema_1.Schema {
         this.players = new schema_1.MapSchema();
         /** Hora del juego, minuto del día 0–1439 (reloj global del server, ver `time.ts`). */
         this.minuteOfDay = 0;
+        /** Picudos rojos sueltos en el barrio. Clave = id del picudo. */
+        this.weevils = new schema_1.MapSchema();
     }
 }
 exports.GameState = GameState;
@@ -25,4 +28,7 @@ __decorate([
 __decorate([
     (0, schema_1.type)("uint16")
 ], GameState.prototype, "minuteOfDay", void 0);
+__decorate([
+    (0, schema_1.type)({ map: Weevil_1.Weevil })
+], GameState.prototype, "weevils", void 0);
 //# sourceMappingURL=GameState.js.map

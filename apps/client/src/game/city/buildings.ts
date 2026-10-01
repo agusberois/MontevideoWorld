@@ -1,5 +1,6 @@
 import { shade } from "../color";
-import { IsoPainter, boxColors } from "./IsoPainter";
+import type { ShopBuilding } from "@montevideo-world/shared";
+import { Face, IsoPainter, boxColors } from "./IsoPainter";
 
 /**
  * Volumen dibujable en coordenadas locales: el tile ancla está en (0, 0) y el área ocupa de
@@ -79,6 +80,54 @@ export function houseSpec(x: number, y: number): PieceSpec {
           });
         }
       }
+    },
+  };
+}
+
+/** Edificios de apartamentos: hormigón claro, ladrillo, revoque gris, algún vidriado. */
+const TOWER_COLORS = [0xe7e2d8, 0xc9b8a2, 0xb46a4c, 0xa9b0b6, 0xd8d0bf, 0x8fa3ad];
+const GLASS_COLORS = [0x3d5568, 0x2f3d4b, 0x4a6a7e];
+const TOWER_FLOOR = 13;
+
+/** Edificio de apartamentos en altura (Tres Cruces y barrios modernos): de 4 a 10 pisos. */
+export function towerSpec(x: number, y: number): PieceSpec {
+  const hash = tileHash(x, y, 3);
+  const floors = 4 + (hash % 7);
+  const colorIndex = (hash >>> 4) % TOWER_COLORS.length;
+  const glassIndex = (hash >>> 8) % GLASS_COLORS.length;
+  /** Ventanas corridas (moderno) o balcones (años 60–70). */
+  const ribbon = ((hash >>> 11) & 1) === 1;
+  const height = 10 + floors * TOWER_FLOOR;
+
+  return {
+    key: `tower-${floors}-${colorIndex}-${glassIndex}-${ribbon ? 1 : 0}`,
+    width: 1,
+    height: 1,
+    maxZ: height + 12,
+    draw: (p) => {
+      const facade = TOWER_COLORS[colorIndex];
+      const glass = GLASS_COLORS[glassIndex];
+      p.box(-0.42, -0.42, 0.42, 0.42, 0, height, boxColors(facade, shade(facade, -12)));
+      for (const face of [
+        { side: "south", y: 0.42 },
+        { side: "east", x: 0.42 },
+      ] as const) {
+        // Planta baja con vidrieras de locales.
+        p.faceRect(face, -0.42, 0.42, 0, 10, shade(facade, -30));
+        p.faceRect(face, -0.32, 0.32, 1, 8, glass);
+        for (let floor = 0; floor < floors; floor++) {
+          const z0 = 10 + floor * TOWER_FLOOR;
+          if (ribbon) {
+            p.faceRect(face, -0.38, 0.38, z0 + 3, z0 + TOWER_FLOOR - 2, glass);
+          } else {
+            p.windows(face, -0.4, 0.4, z0, z0 + TOWER_FLOOR, 2, 1, { color: glass, widthRatio: 0.55, heightRatio: 0.62 });
+            p.faceRect(face, -0.42, 0.42, z0 + 1, z0 + 3, shade(facade, 14));
+          }
+        }
+      }
+      // Azotea: tanque de agua y sala de máquinas.
+      p.box(-0.2, -0.2, 0.1, 0.1, height, height + 9, boxColors(shade(facade, -8)));
+      p.box(0.15, 0.12, 0.32, 0.3, height, height + 5, boxColors(0x9aa0a6));
     },
   };
 }
@@ -205,66 +254,122 @@ export function benchSpec(facing: "south" | "east"): PieceSpec {
   };
 }
 
-const SHOP_FACADE = 0xe9dcc0;
-const SHOP_TRIM = 0x2f6f5e;
-const SHOP_GLASS = 0x9fc9d9;
-/** Colores de las prendas que se ven en la vidriera. */
-const SHOWCASE_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2b3a55, 0xf1f1f1];
+/** Lo que cambia de una tienda a otra: colores y qué se ve en la vidriera. */
+interface ShopStyle {
+  facade: number;
+  trim: number;
+  glass: number;
+  awning: number;
+  /** Dibuja un objeto de la vidriera centrado en `u` (i = índice, para variar colores). */
+  showcase: (p: IsoPainter, face: Face, u: number, i: number) => void;
+}
 
-/** Tienda de ropa de 2×2 tiles: vidrieras con ropa, toldo a rayas, puerta y cartel. */
-export function clothingShopSpec(): PieceSpec {
+/** Colores de las prendas que se ven en la vidriera de la ropería. */
+const SHOWCASE_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2b3a55, 0xf1f1f1];
+/** Colores de las cañas de la vidriera de la tienda de pesca (los de las cañas del catálogo). */
+const ROD_COLORS = [0x8a6a45, 0x2a9d8f, 0x3a3f4c, 0xc9a227];
+
+const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
+  clothing: {
+    facade: 0xe9dcc0,
+    trim: 0x2f6f5e,
+    glass: 0x9fc9d9,
+    awning: 0xf4efe3,
+    // Prendas colgadas.
+    showcase: (p, face, u, i) =>
+      p.facePoly(
+        face,
+        [
+          [u - 0.08, 20],
+          [u + 0.08, 20],
+          [u + 0.06, 11],
+          [u - 0.06, 11],
+        ],
+        SHOWCASE_COLORS[i % SHOWCASE_COLORS.length],
+      ),
+  },
+  fishing: {
+    facade: 0xdfe8ee,
+    trim: 0x1d4f7a,
+    glass: 0xa9d6e5,
+    awning: 0xffffff,
+    // Cañas apoyadas en diagonal con el reel abajo, y un pez colgado en las pares.
+    showcase: (p, face, u, i) => {
+      const color = ROD_COLORS[i % ROD_COLORS.length];
+      p.facePoly(
+        face,
+        [
+          [u - 0.07, 7],
+          [u - 0.04, 7],
+          [u + 0.08, 24],
+          [u + 0.06, 24],
+        ],
+        color,
+      );
+      p.faceRect(face, u - 0.06, u - 0.01, 9, 11.5, 0x2b2b30);
+      if (i % 2 === 0) {
+        p.facePoly(
+          face,
+          [
+            [u + 0.02, 17],
+            [u + 0.1, 15],
+            [u + 0.02, 13],
+          ],
+          0xb8c4cc,
+        );
+      }
+    },
+  },
+};
+
+/**
+ * Tienda de 2×2 tiles: vidrieras con lo que vende (según `SHOP_STYLES`), toldo a rayas, puerta,
+ * cartel y planta alta con balcones.
+ */
+export function shopBuildingSpec(building: Exclude<ShopBuilding, "none">): PieceSpec {
+  const style = SHOP_STYLES[building];
   return {
-    key: "shop-clothing",
+    key: `shop-${building}`,
     width: 2,
     height: 2,
     maxZ: 60,
     draw: (p) => {
-      p.box(-0.5, -0.5, 1.5, 1.5, 0, 54, boxColors(SHOP_FACADE, 0x9c8f80));
+      p.box(-0.5, -0.5, 1.5, 1.5, 0, 54, boxColors(style.facade, shade(style.facade, -40)));
 
       const faces = [
         { side: "south", y: 1.5 },
         { side: "east", x: 1.5 },
       ] as const;
       for (const face of faces) {
-        p.faceRect(face, -0.5, 1.5, 0, 4, shade(SHOP_TRIM, -15));
+        p.faceRect(face, -0.5, 1.5, 0, 4, shade(style.trim, -15));
 
-        // Vidrieras con prendas colgadas (la puerta va en el centro de la cara sur).
+        // Vidrieras (la puerta va en el centro de la cara sur).
         const windows: Array<[number, number]> = face.side === "south" ? [[-0.38, 0.32], [0.68, 1.38]] : [[-0.38, 1.38]];
         windows.forEach(([u0, u1], w) => {
-          p.faceRect(face, u0 - 0.04, u1 + 0.04, 4, 27, SHOP_TRIM);
-          p.faceRect(face, u0, u1, 6, 25, SHOP_GLASS);
+          p.faceRect(face, u0 - 0.04, u1 + 0.04, 4, 27, style.trim);
+          p.faceRect(face, u0, u1, 6, 25, style.glass);
           const count = Math.max(2, Math.round((u1 - u0) / 0.28));
           for (let i = 0; i < count; i++) {
             const u = u0 + ((i + 0.5) * (u1 - u0)) / count;
-            const color = SHOWCASE_COLORS[(i + w * 2 + (face.side === "east" ? 3 : 0)) % SHOWCASE_COLORS.length];
-            p.facePoly(
-              face,
-              [
-                [u - 0.08, 20],
-                [u + 0.08, 20],
-                [u + 0.06, 11],
-                [u - 0.06, 11],
-              ],
-              color,
-            );
+            style.showcase(p, face, u, i + w * 2 + (face.side === "east" ? 3 : 0));
           }
           p.faceRect(face, u0, u1, 22.5, 23.5, 0x5b5b60);
         });
         if (face.side === "south") p.faceArch(face, 0.38, 0.62, 4, 26, 0x4a3426);
 
         // Cartel y toldo a rayas sobre la planta baja.
-        p.faceRect(face, -0.3, 1.3, 31, 38, SHOP_TRIM);
+        p.faceRect(face, -0.3, 1.3, 31, 38, style.trim);
         p.faceRect(face, -0.2, 1.2, 33.5, 35.5, 0xf4efe3, 0.85);
         const stripes = 8;
         for (let i = 0; i < stripes; i++) {
           const u0 = -0.5 + (i * 2) / stripes;
           const u1 = u0 + 2 / stripes;
-          p.faceRect(face, u0, u1, 27, 30.5, i % 2 === 0 ? SHOP_TRIM : 0xf4efe3);
+          p.faceRect(face, u0, u1, 27, 30.5, i % 2 === 0 ? style.trim : style.awning);
         }
 
         // Planta alta: ventanas con balcón.
-        p.windows(face, -0.45, 1.45, 40, 52, 3, 1, { color: 0x2b3442, widthRatio: 0.35, heightRatio: 0.8, shutters: SHOP_TRIM });
-        p.faceRect(face, -0.5, 1.5, 50, 53, shade(SHOP_FACADE, 15));
+        p.windows(face, -0.45, 1.45, 40, 52, 3, 1, { color: 0x2b3442, widthRatio: 0.35, heightRatio: 0.8, shutters: style.trim });
+        p.faceRect(face, -0.5, 1.5, 50, 53, shade(style.facade, 15));
       }
     },
   };

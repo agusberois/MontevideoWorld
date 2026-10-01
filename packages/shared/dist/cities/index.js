@@ -17,9 +17,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SPAWN_CITY_ID = exports.CITIES = void 0;
 exports.getCity = getCity;
 const ciudadVieja_1 = require("./ciudadVieja");
+const tresCruces_1 = require("./tresCruces");
 __exportStar(require("./types"), exports);
 /** Todos los barrios del juego, en el orden en que se muestran en la lista (tecla M). */
-exports.CITIES = [ciudadVieja_1.CIUDAD_VIEJA];
+exports.CITIES = [ciudadVieja_1.CIUDAD_VIEJA, tresCruces_1.TRES_CRUCES];
 /** Barrio donde aparece siempre el jugador al entrar al juego. */
 exports.SPAWN_CITY_ID = ciudadVieja_1.CIUDAD_VIEJA.id;
 function getCity(id) {

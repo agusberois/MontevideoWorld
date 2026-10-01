@@ -23,5 +23,13 @@ export const SIT_STAMINA_REGEN = 10;
  */
 export const EXHAUSTED_RECOVERY = 20;
 
+/**
+ * Energía que da comer un pescado: más cuanto más difícil (pejerrey +10 … corvina negra +30).
+ * Es un trade-off: el pescado que te comés no lo vendés.
+ */
+export function fishStamina(difficulty: number): number {
+  return 5 + difficulty * 5;
+}
+
 /** Por debajo de esto el HUD la muestra en rojo. */
 export const LOW_STAMINA = EXHAUSTED_RECOVERY;

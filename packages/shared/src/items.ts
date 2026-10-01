@@ -1,10 +1,11 @@
 /**
- * Catálogo de ítems: ropa (se pone en el avatar) y pescados (se sacan en la Escollera Sarandí y se
- * venden en el Mercado del Puerto). Cliente y servidor lo comparten: el server valida y el cliente
+ * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
+ * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
+ * mejoran la pesca) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
 
-export type ItemCategory = "clothing" | "fish";
+export type ItemCategory = "clothing" | "fish" | "rod" | "box";
 
 export const ITEM_SLOTS = ["hat", "top", "bottom", "shoes"] as const;
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
@@ -60,7 +61,43 @@ export interface FishItem extends ItemBase {
   catchWeight: number;
 }
 
-export type ItemDefinition = ClothingItem | FishItem;
+/** Nivel de una caña: 1 = básica … 4 = profesional. */
+export type RodTier = 1 | 2 | 3 | 4;
+
+/**
+ * Caña de pescar. Para pescar hay que tener una en la mochila; se usa siempre la de mayor nivel.
+ * Las mejores hacen que piquen más los peces difíciles, que no pique nada menos seguido, que piquen
+ * antes y a veces sacan dos peces de una (ver `fishing.ts`).
+ */
+export interface RodItem extends ItemBase {
+  category: "rod";
+  tier: RodTier;
+  /**
+   * Ventaja para los peces difíciles: el peso de cada pez se multiplica por
+   * `(1 + rareBoost) ^ (dificultad - 1)`. 0 = sin ventaja.
+   */
+  rareBoost: number;
+  /** Probabilidad (0–1) de que no pique nada. */
+  nothingChance: number;
+  /** Probabilidad (0–1) de sacar un segundo pez junto con el primero. */
+  doubleChance: number;
+  /** Multiplica la espera hasta que pica (menos de 1 = pica antes). */
+  waitFactor: number;
+}
+
+/** Premio posible de una caja: `weight` relativo (más alto = sale más seguido). */
+export interface LootEntry {
+  itemId: string;
+  weight: number;
+}
+
+/** Caja sorpresa: al abrirla se consume y da uno de sus `loot`, sorteado por peso. */
+export interface BoxItem extends ItemBase {
+  category: "box";
+  loot: readonly LootEntry[];
+}
+
+export type ItemDefinition = ClothingItem | FishItem | RodItem | BoxItem;
 
 type CatalogEntry<T> = Omit<T, "category">;
 
@@ -104,12 +141,96 @@ export const FISH: readonly FishItem[] = fish([
   { id: "corvina-negra", name: "Corvina negra", gender: "f", difficulty: 5, shape: "fish", color: "#3e3a38", price: 60, catchWeight: 2 },
 ]);
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH];
+/** Caña con la que arranca todo jugador nuevo (en la mochila). */
+export const BASIC_ROD_ID = "cana-basica";
+
+/** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
+export const RODS: readonly RodItem[] = [
+  { id: BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1 },
+  { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9 },
+  { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8 },
+  { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7 },
+];
+
+/** Caja que da el comando de admin `/box`. */
+export const MYSTERY_BOX_ID = "caja-sorpresa";
+
+/**
+ * Cajas sorpresa. No se compran ni se venden en tiendas: las reparte el admin y se pueden pasar por
+ * intercambio. Los pesos de la caja de peces suman 100, así cada número es directamente el %.
+ */
+export const BOXES: readonly BoxItem[] = [
+  {
+    id: MYSTERY_BOX_ID,
+    name: "Caja sorpresa",
+    category: "box",
+    color: "#c8553d",
+    price: 0,
+    loot: [
+      { itemId: "pejerrey", weight: 25 },
+      { itemId: "lisa", weight: 20 },
+      { itemId: "bagre", weight: 15 },
+      { itemId: "burriqueta", weight: 12 },
+      { itemId: "pescadilla", weight: 9 },
+      { itemId: "corvina-blanca", weight: 8 },
+      { itemId: "brotola", weight: 6 },
+      { itemId: "lenguado", weight: 4 },
+      { itemId: "corvina-negra", weight: 1 },
+    ],
+  },
+];
+
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...RODS, ...BOXES];
 
 export const ITEM_CATEGORY_LABELS: Record<ItemCategory, string> = {
   clothing: "ropa",
   fish: "pescado",
+  rod: "cañas",
+  box: "cajas",
 };
+
+export function isRod(item: ItemDefinition | undefined): item is RodItem {
+  return item?.category === "rod";
+}
+
+/** La caña de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguna. */
+export function bestRod(itemIds: Iterable<string>): RodItem | undefined {
+  let best: RodItem | undefined;
+  for (const id of itemIds) {
+    const item = getItem(id);
+    if (isRod(item) && (!best || item.tier > best.tier)) best = item;
+  }
+  return best;
+}
+
+/** "★★☆☆" para mostrar el nivel de una caña. */
+export function rodStars(tier: RodTier): string {
+  return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+
+export function isBox(item: ItemDefinition | undefined): item is BoxItem {
+  return item?.category === "box";
+}
+
+/** Probabilidad (0–1) de cada premio de una caja, para mostrarla en la UI. */
+export function lootChances(box: BoxItem): { item: ItemDefinition; chance: number }[] {
+  const total = box.loot.reduce((sum, entry) => sum + entry.weight, 0);
+  return box.loot.flatMap((entry) => {
+    const item = getItem(entry.itemId);
+    return item ? [{ item, chance: entry.weight / total }] : [];
+  });
+}
+
+/** Sortea el premio de una caja según los pesos de su `loot`. */
+export function rollLoot(box: BoxItem, random: () => number = Math.random): ItemDefinition {
+  const chances = lootChances(box);
+  let roll = random();
+  for (const { item, chance } of chances) {
+    roll -= chance;
+    if (roll < 0) return item;
+  }
+  return chances[chances.length - 1].item;
+}
 
 export function isClothing(item: ItemDefinition | undefined): item is ClothingItem {
   return item?.category === "clothing";
@@ -131,9 +252,12 @@ export function difficultyStars(difficulty: FishDifficulty): string {
   return "★".repeat(difficulty) + "☆".repeat(5 - difficulty);
 }
 
+/** Lo que tiene en la mochila un jugador nuevo: la caña básica para poder pescar. */
+export const STARTER_INVENTORY: readonly string[] = [BASIC_ROD_ID];
+
 /**
- * Kit con el que aparece un jugador nuevo: una remera, un short y chancletas, puestos, y la mochila
- * vacía. De cada lista se elige una opción al azar (para que no estén todos vestidos iguales).
+ * Kit con el que aparece un jugador nuevo: una remera, un short y chancletas, puestos (y en la
+ * mochila, `STARTER_INVENTORY`). De cada lista se elige una opción al azar (para que no estén todos vestidos iguales).
  */
 export const STARTER_KIT: Readonly<Partial<Record<ItemSlot, readonly string[]>>> = {
   top: ["remera-blanca", "remera-roja", "remera-negra"],

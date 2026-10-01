@@ -23,6 +23,8 @@ export declare const TileChar: {
     readonly Grass: "g";
     /** Manzana edificada: casas genéricas, no caminable. */
     readonly Block: "#";
+    /** Edificio de apartamentos en altura (barrios modernos), no caminable. */
+    readonly Tower: "H";
     /** Árbol de copa, no caminable. */
     readonly Tree: "T";
     /** Palmera, no caminable. */
@@ -33,7 +35,7 @@ export declare const TileChar: {
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -58,6 +60,8 @@ export interface Bench {
  * Se compra lo que está en `stock` (a `ItemDefinition.price`) y se le vende lo de la mochila
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
+/** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
+export type ShopBuilding = "clothing" | "fishing" | "none";
 export interface Shop {
     id: string;
     name: string;
@@ -67,7 +71,7 @@ export interface Shop {
      * "clothing": el cliente dibuja un local de ropa. "none": la tienda funciona dentro de un edificio
      * que ya está dibujado (p. ej. la pescadería en el Mercado del Puerto).
      */
-    building: "clothing" | "none";
+    building: ShopBuilding;
     /** Ids de `ITEMS` que vende. */
     stock: readonly string[];
     /** Categorías que compra. */

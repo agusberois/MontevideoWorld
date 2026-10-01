@@ -1,32 +1,34 @@
-import { FISH, FishItem } from "@montevideo-world/shared";
-
-/** Probabilidad de que no pique nada en un intento. */
-export const NOTHING_CHANCE = 0.2;
+import { FishItem, RodItem, catchWeight, FISH } from "@montevideo-world/shared";
 
 /** Resultado de un intento de pesca, decidido al tirar la línea. */
 export interface CatchRoll {
-  fish: FishItem | null;
+  /** Lo que picó: nada, un pez o (con suerte y buena caña) dos. */
+  fish: FishItem[];
   /** Cuánto hay que esperar hasta saber el resultado. */
   durationMs: number;
 }
 
 /**
- * Sortea qué pica: nada (`NOTHING_CHANCE`) o un pez según su `catchWeight` (los fáciles pican más).
- * La espera crece con la dificultad: un pez difícil tarda más en picar.
+ * Sortea qué pica con esta caña: nada (`rod.nothingChance`) o un pez según su peso con la caña
+ * (`catchWeight`: las mejores favorecen a los difíciles). Si picó, con `rod.doubleChance` sale un
+ * segundo pez. La espera crece con la dificultad del más difícil y se achica con `rod.waitFactor`.
  */
-export function rollCatch(random: () => number = Math.random): CatchRoll {
-  if (random() < NOTHING_CHANCE) {
-    return { fish: null, durationMs: 4000 + Math.floor(random() * 3000) };
+export function rollCatch(rod: RodItem, random: () => number = Math.random): CatchRoll {
+  if (random() < rod.nothingChance) {
+    return { fish: [], durationMs: Math.round((4000 + random() * 3000) * rod.waitFactor) };
   }
-  const total = FISH.reduce((sum, fish) => sum + fish.catchWeight, 0);
+  const fish = [pickFish(rod, random)];
+  if (random() < rod.doubleChance) fish.push(pickFish(rod, random));
+  const hardest = Math.max(...fish.map((f) => f.difficulty));
+  return { fish, durationMs: Math.round((2500 + hardest * 800 + random() * 2500) * rod.waitFactor) };
+}
+
+function pickFish(rod: RodItem, random: () => number): FishItem {
+  const total = FISH.reduce((sum, fish) => sum + catchWeight(fish, rod), 0);
   let roll = random() * total;
-  let picked = FISH[FISH.length - 1];
   for (const fish of FISH) {
-    roll -= fish.catchWeight;
-    if (roll < 0) {
-      picked = fish;
-      break;
-    }
+    roll -= catchWeight(fish, rod);
+    if (roll < 0) return fish;
   }
-  return { fish: picked, durationMs: 2500 + picked.difficulty * 800 + Math.floor(random() * 2500) };
+  return FISH[FISH.length - 1];
 }

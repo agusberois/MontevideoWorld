@@ -1,4 +1,4 @@
-import { FISH } from "../items";
+import { FISH, RODS } from "../items";
 import { LayoutBuilder } from "./layoutBuilder";
 import { CityDefinition, TileChar } from "./types";
 
@@ -52,6 +52,9 @@ for (const [x, y, width, height] of [
 
 // Vereda bajo la Ropería Sarandí (tienda de ropa, junto a la peatonal).
 builder.rect({ x: 26, y: 19, width: 2, height: 2 }, TileChar.Plaza);
+
+// Vereda bajo Pesca Sarandí (tienda de pesca) (sobre la rambla, frente a la Escollera Sarandí).
+builder.rect({ x: 7, y: 25, width: 2, height: 2 }, TileChar.Plaza);
 
 // Plaza Matriz (Constitución) con árboles en las esquinas y atrio de la Catedral.
 builder
@@ -229,6 +232,15 @@ export const CIUDAD_VIEJA: CityDefinition = {
       building: "none",
       stock: FISH.map((fish) => fish.id),
       buys: ["fish"],
+    },
+    {
+      id: "tienda-pesca",
+      name: "Pesca Sarandí",
+      description: "Frente a la Escollera Sarandí: vende cañas (las mejores pescan mejor) y compra las usadas.",
+      area: { x: 7, y: 25, width: 2, height: 2 },
+      building: "fishing",
+      stock: RODS.map((rod) => rod.id),
+      buys: ["rod"],
     },
   ],
   placeLabels: [

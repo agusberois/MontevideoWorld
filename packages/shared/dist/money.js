@@ -4,13 +4,17 @@
  * El saldo es autoritativo del servidor y privado de cada jugador (no viaja en el Schema).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_MONEY = exports.STARTING_MONEY = void 0;
+exports.TRAVEL_TICKET_MS = exports.TRAVEL_FARE = exports.MAX_MONEY = exports.STARTING_MONEY = void 0;
 exports.isValidAmount = isValidAmount;
 exports.formatMoney = formatMoney;
 /** Saldo con el que aparece un jugador nuevo. */
 exports.STARTING_MONEY = 100;
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 exports.MAX_MONEY = 1_000_000_000;
+/** Boleto de ómnibus (STM) para viajar de un barrio a otro. */
+exports.TRAVEL_FARE = 52;
+/** Cuánto vale un boleto ya pagado: hay que entrar al barrio de destino antes de que venza. */
+exports.TRAVEL_TICKET_MS = 30_000;
 /** ¿Es un monto válido para cobrar o pagar? (entero positivo y dentro del tope) */
 function isValidAmount(amount) {
     return typeof amount === "number" && Number.isSafeInteger(amount) && amount > 0 && amount <= exports.MAX_MONEY;

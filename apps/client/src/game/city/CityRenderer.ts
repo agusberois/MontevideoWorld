@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { PieceSpec, benchSpec, clothingShopSpec, houseSpec, palmSpec, tileHash, treeSpec } from "./buildings";
+import { PieceSpec, benchSpec, houseSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
 import { ROOF_SPOTS, landmarkPieces } from "./landmarks";
@@ -33,6 +33,7 @@ const GROUND_COLORS: Record<string, readonly [number, number]> = {
   [TileChar.Tree]: [0x6f9a4e, 0x689348],
   [TileChar.Palm]: [0x6f9a4e, 0x689348],
   [TileChar.Block]: [0x55555b, 0x55555b],
+  [TileChar.Tower]: [0x8a8c90, 0x8a8c90],
   [TileChar.Jetty]: [0x8f8b83, 0x87837b],
 };
 
@@ -85,8 +86,8 @@ export class CityRenderer {
     for (const shop of this.map.city.shops) {
       // Las tiendas "none" funcionan dentro de un edificio ya dibujado: el cartel va sobre la fachada.
       let signZ = 46;
-      if (shop.building === "clothing") {
-        const spec = clothingShopSpec();
+      if (shop.building !== "none") {
+        const spec = shopBuildingSpec(shop.building);
         this.placePiece(shop.area, spec);
         signZ = spec.maxZ;
       }
@@ -150,7 +151,7 @@ export class CityRenderer {
       lights.push({ ...lantern, radius: 90, color: 0xffd166 });
     }
     for (const shop of this.map.city.shops) {
-      if (shop.building !== "clothing") continue;
+      if (shop.building === "none") continue;
       const { x, y, width, height } = shop.area;
       const front = isoPoint(x + width - 1, y + height - 1, 16);
       lights.push({ ...front, radius: 70, color: 0xffe0a3 });
@@ -321,6 +322,7 @@ export class CityRenderer {
       for (let x = 0; x < this.map.width; x++) {
         const char = this.map.tileAt(x, y);
         if (char === TileChar.Block) this.placePiece({ x, y }, houseSpec(x, y));
+        else if (char === TileChar.Tower) this.placePiece({ x, y }, towerSpec(x, y));
         else if (char === TileChar.Tree) this.placePiece({ x, y }, treeSpec(x, y));
         else if (char === TileChar.Palm) this.placePiece({ x, y }, palmSpec(x, y));
       }

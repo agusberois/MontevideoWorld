@@ -29,6 +29,11 @@ export class Stamina {
     return true;
   }
 
+  /** Pierde energía sin que sea una acción propia (p. ej. picaduras). No baja de 0. */
+  drain(amount: number) {
+    this.amount = Math.max(0, this.amount - amount);
+  }
+
   recover(amount: number) {
     this.amount = Math.min(MAX_STAMINA, this.amount + amount);
     if (this.amount >= EXHAUSTED_RECOVERY) this.exhausted = false;

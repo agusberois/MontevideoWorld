@@ -147,6 +147,40 @@ function fishShape(shape: FishItem["shape"], fill: string, dark: string, light: 
   );
 }
 
+/** Caña en diagonal con reel y tanza; las de más nivel llevan más anillos dorados. */
+function rodShape(fill: string, dark: string, tier: number) {
+  return (
+    <>
+      <line x1={6} y1={28} x2={27} y2={4} stroke={dark} strokeWidth={3.6} strokeLinecap="round" />
+      <line x1={6} y1={28} x2={27} y2={4} stroke={fill} strokeWidth={2.2} strokeLinecap="round" />
+      <line x1={6} y1={28} x2={10.5} y2={23} stroke="#2b2b30" strokeWidth={3.4} strokeLinecap="round" />
+      {Array.from({ length: tier }, (_, i) => {
+        const t = 0.45 + i * 0.13;
+        return <circle key={i} cx={6 + 21 * t} cy={28 - 24 * t} r={1.3} fill="#ffd166" stroke={dark} strokeWidth={0.6} />;
+      })}
+      <circle cx={11} cy={20.5} r={3.2} fill="#5b6274" stroke="#2b2b30" strokeWidth={1.2} />
+      <path d="M27 4 Q 29 14 26 22" fill="none" stroke="#7d8496" strokeWidth={0.8} />
+      <circle cx={26} cy={23} r={1.4} fill="#e63946" />
+    </>
+  );
+}
+
+/** Caja de regalo con moño (cajas sorpresa). */
+function boxShape(fill: string, dark: string, light: string) {
+  const ribbon = "#ffd166";
+  return (
+    <>
+      <rect x={6} y={14} width={20} height={14} rx={1.5} fill={fill} stroke={dark} strokeWidth={1.5} />
+      <rect x={4.5} y={10} width={23} height={5.5} rx={1.2} fill={light} stroke={dark} strokeWidth={1.5} />
+      <rect x={14.2} y={10} width={3.6} height={18} fill={ribbon} stroke={dark} strokeWidth={0.8} />
+      <path d="M16 10 C 11 3, 7 7, 12 10 Z M16 10 C 21 3, 25 7, 20 10 Z" fill={ribbon} stroke={dark} strokeWidth={1.2} />
+      <text x={16} y={25} textAnchor="middle" fontSize={7} fontWeight={800} fill={dark}>
+        ?
+      </text>
+    </>
+  );
+}
+
 /** Prenda genérica de cada lugar (para lugares vacíos y placeholders). */
 const SLOT_PLACEHOLDER_STYLE: Record<ItemSlot, ItemStyle> = {
   hat: "cap",
@@ -167,7 +201,11 @@ export function ItemIcon({ item, size = 30 }: ItemIconProps) {
       <svg viewBox="0 0 32 32" width={size - 4} height={size - 4}>
         {item.category === "fish"
           ? fishShape(item.shape, item.color, mix(item.color, -0.45), mix(item.color, 0.55))
-          : shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55))}
+          : item.category === "box"
+            ? boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55))
+            : item.category === "rod"
+              ? rodShape(item.color, mix(item.color, -0.45), item.tier)
+              : shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55))}
       </svg>
     </span>
   );

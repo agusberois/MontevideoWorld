@@ -14,6 +14,8 @@ exports.TileChar = {
     Grass: "g",
     /** Manzana edificada: casas genéricas, no caminable. */
     Block: "#",
+    /** Edificio de apartamentos en altura (barrios modernos), no caminable. */
+    Tower: "H",
     /** Árbol de copa, no caminable. */
     Tree: "T",
     /** Palmera, no caminable. */

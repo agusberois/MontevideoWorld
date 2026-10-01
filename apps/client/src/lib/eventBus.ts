@@ -1,5 +1,7 @@
 import type {
   AnnouncementMessage,
+  BoxOpenedMessage,
+  TravelMessage,
   ChatBroadcastMessage,
   FishResultMessage,
   FishStartedMessage,
@@ -8,6 +10,9 @@ import type {
   OutfitIds,
   ShopOpenMessage,
   ShopResultMessage,
+  TradeClosedMessage,
+  TradeInviteMessage,
+  TradeStateMessage,
   WalletMessage,
 } from "@montevideo-world/shared";
 
@@ -48,6 +53,26 @@ export interface GameEvents {
   announcement: AnnouncementMessage;
   /** Phaser → React: hora del juego, minuto del día 0–1439 (Schema). */
   "city:clock": number;
+  /** Red → React: se abrió una caja sorpresa y salió `prizeId`. */
+  "box:opened": BoxOpenedMessage;
+  /** Red → React: boleto pagado, ya se puede viajar al barrio. */
+  "travel:approved": TravelMessage;
+  /** Phaser → React: clic sobre otro jugador (posición en pantalla para abrir su menú). */
+  "player:click": PlayerClick;
+  /** Red → React: alguien te invita a intercambiar. */
+  "trade:invite": TradeInviteMessage;
+  /** Red → React: estado del intercambio en curso (abre o actualiza el panel). */
+  "trade:state": TradeStateMessage;
+  /** Red → React: terminó el intercambio (hecho o cancelado). */
+  "trade:closed": TradeClosedMessage;
+}
+
+/** Clic sobre el avatar de otro jugador: quién es y dónde (px de la ventana) abrir el menú. */
+export interface PlayerClick {
+  sessionId: string;
+  name: string;
+  screenX: number;
+  screenY: number;
 }
 
 /** Lo que la UI necesita saber de cada jugador del barrio (sale del Schema). */

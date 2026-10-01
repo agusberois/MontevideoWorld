@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ItemDefinition } from "@montevideo-world/shared";
 import {
   InventoryMessage,
   MAX_STACK,
@@ -10,11 +11,16 @@ import {
   difficultyStars,
   FISH_BUY_MARKUP,
   formatMoney,
+  formatPercent,
   getItem,
+  haggleChance,
+  maxHagglePrice,
+  rodPerks,
+  rodStars,
   sellPrice,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
-import { CityRoom, sendShopTrade } from "@/lib/network";
+import { CityRoom, sendShopHaggle, sendShopTrade } from "@/lib/network";
 import { ItemIcon } from "./ItemIcon";
 import { UiIcon } from "./UiIcon";
 
@@ -37,6 +43,8 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
   const sellsSomething = shop.stock.length > 0;
   const [tab, setTab] = useState<Tab>(sellsSomething ? "buy" : "sell");
   const [result, setResult] = useState<ShopResultMessage | null>(null);
+  /** Ítem que se está regateando (se abre su formulario debajo de la fila). */
+  const [haggling, setHaggling] = useState<string | null>(null);
 
   useEffect(() => eventBus.on("shop:result", setResult), []);
 
@@ -108,6 +116,14 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
                         {difficultyStars(item.difficulty)}
                       </span>
                     )}
+                    {item.category === "rod" && (
+                      <>
+                        <span className="shop-stars" title={`Nivel ${item.tier} de 4`}>
+                          {rodStars(item.tier)}
+                        </span>
+                        <span className="shop-perks">{rodPerks(item).join(" · ")}</span>
+                      </>
+                    )}
                   </span>
                   <span className="shop-price">{formatMoney(price)}</span>
                   <button
@@ -126,8 +142,9 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
             sellable.map((stack) => {
               const item = getItem(stack.itemId);
               if (!item) return null;
+              const open = haggling === item.id;
               return (
-                <li key={stack.itemId}>
+                <li key={stack.itemId} className={open ? "haggling" : undefined}>
                   <ItemIcon item={item} size={36} />
                   <span className="shop-item-name">
                     {item.name}
@@ -139,9 +156,31 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
                     )}
                   </span>
                   <span className="shop-price">{formatMoney(sellPrice(item))}</span>
-                  <button type="button" onClick={() => trade("sell", item.id)}>
-                    Vender
-                  </button>
+                  <div className="shop-sell-actions">
+                    <button type="button" onClick={() => trade("sell", item.id)}>
+                      Vender
+                    </button>
+                    <button
+                      type="button"
+                      className="shop-haggle-toggle"
+                      aria-expanded={open}
+                      onClick={() => setHaggling(open ? null : item.id)}
+                      title="Pedí más plata: todo o nada"
+                    >
+                      Regatear
+                    </button>
+                  </div>
+                  {open && (
+                    <HaggleForm
+                      item={item}
+                      onHaggle={(price) => {
+                        setResult(null);
+                        sendShopHaggle(room, shop.id, item.id, price);
+                        // Si era la última unidad, la fila desaparece; si quedan, el formulario sigue abierto.
+                        if (stack.quantity <= 1) setHaggling(null);
+                      }}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -151,6 +190,8 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
           <p className="shop-hint">
             {shop.buys.includes("fish") ? (
               <>No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.</>
+            ) : shop.buys.includes("rod") ? (
+              <>No tenés cañas en la mochila para vender.</>
             ) : (
               <>
                 No tenés ropa en la mochila para vender. Lo que tenés puesto no se vende: sacátelo primero desde la
@@ -163,12 +204,65 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
         <footer>
           {tab === "sell" && shop.buys.includes("clothing") ? "Por la ropa usada te pagan la mitad. " : ""}
           {tab === "sell" && shop.buys.includes("fish") ? "El pescado se paga a precio completo. " : ""}
+          {tab === "sell" && shop.buys.includes("rod") ? "Por una caña usada te pagan la mitad. " : ""}
+          {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "rod")
+            ? "Pescás siempre con la mejor caña que tengas en la mochila. "
+            : ""}
           {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "fish")
             ? `Comprar pescado sale ${Math.round((FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado. `
             : ""}
           Apretá <kbd>Esc</kbd> para cerrar
         </footer>
       </section>
+    </div>
+  );
+}
+
+interface HaggleFormProps {
+  item: ItemDefinition;
+  onHaggle: (price: number) => void;
+}
+
+/**
+ * Regatear la venta de un ítem: elegís cuánto pedir (más que el precio normal, hasta el tope) y se
+ * ve en vivo la probabilidad de que acepten. Es todo o nada: si no aceptan, perdés el ítem.
+ */
+function HaggleForm({ item, onHaggle }: HaggleFormProps) {
+  const base = sellPrice(item);
+  const max = maxHagglePrice(base);
+  const [price, setPrice] = useState(() => Math.min(max, Math.max(base + 1, Math.ceil(base * 1.5))));
+  const chance = haggleChance(base, price);
+  const level = chance >= 0.6 ? "high" : chance >= 0.3 ? "mid" : "low";
+
+  return (
+    <div className="haggle">
+      <label className="haggle-price">
+        <span>Pedir</span>
+        <input
+          type="range"
+          min={base + 1}
+          max={max}
+          value={price}
+          onChange={(event) => setPrice(Number(event.target.value))}
+          aria-label="Precio que pedís"
+        />
+        <strong>{formatMoney(price)}</strong>
+      </label>
+      <div className="haggle-odds">
+        <span className={`haggle-chance ${level}`}>
+          {formatPercent(chance)} de que acepten
+        </span>
+        <span className="haggle-bar" aria-hidden="true">
+          <span className={level} style={{ width: `${chance * 100}%` }} />
+        </span>
+      </div>
+      <p className="haggle-warning">
+        Todo o nada: o te pagan {formatMoney(price)} o perdés {item.name} sin cobrar nada (vendiendo normal te dan{" "}
+        {formatMoney(base)}).
+      </p>
+      <button type="button" className="haggle-go" onClick={() => onHaggle(price)}>
+        🎲 Todo o nada por {formatMoney(price)}
+      </button>
     </div>
   );
 }

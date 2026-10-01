@@ -21,6 +21,11 @@ export declare class LayoutBuilder {
      * Sólo usa tiles cuyos 8 vecinos también son `onto`, para no cortar caminos angostos.
      */
     scatter(char: TileCharValue, onto: TileCharValue, chance: number, seed: number): this;
+    /**
+     * Pone `char` en el borde del rectángulo con probabilidad `chance` (determinística por tile),
+     * sólo sobre tiles `onto`. Sirve para manzanas con edificios sueltos sobre la vereda y el centro libre.
+     */
+    edges({ x, y, width, height }: TileRect, char: TileCharValue, onto: TileCharValue, chance: number, seed: number): this;
     build(): string[];
 }
 //# sourceMappingURL=layoutBuilder.d.ts.map

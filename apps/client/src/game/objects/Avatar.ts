@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { CHAT_BUBBLE_MS, ClothingItem, OutfitIds, STEP_MS, TILE_WIDTH } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
-import { AvatarLook, Outfit, lookFor, outfitFromIds } from "./avatarLook";
+import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
 
 /** Nombre sobre la cabeza (por encima del pelo más alto y de los gorros). */
 const NAME_Y = -92;
@@ -35,6 +35,10 @@ const BLINK_MS = 120;
  */
 const ARRIVE_GRACE_MS = STEP_MS * 0.6;
 
+/** Patada: duración y cuánto sube la pierna (radianes). */
+const KICK_MS = 300;
+const KICK_ANGLE = 1.25;
+
 /** Sentado: el cuerpo baja hasta el asiento y los muslos se acortan (apuntan hacia la cámara). */
 const SIT_DROP = 14;
 const SIT_LEG_SCALE = 0.6;
@@ -42,10 +46,16 @@ const SIT_ARM_ANGLE = 0.3;
 /** Sentado en el banco: se dibuja apenas por delante del banco, que está en el mismo tile. */
 const SIT_DEPTH_BIAS = 2;
 
+/** Caja de clic del cuerpo (px desde los pies): un poco más ancha que el torso, hasta el pelo. */
+const HIT_HALF_WIDTH = 17;
+const HIT_TOP = -86;
+const HIT_BOTTOM = 6;
+
 const OUTLINE = 0x000000;
 const OUTLINE_ALPHA = 0.28;
 const EYE_COLOR = 0x2b1d14;
 const MOUTH_COLOR = 0x7a3b2e;
+const LIPS_COLOR = 0xc0475a;
 const BELT_COLOR = 0x2a1d14;
 const UNDERWEAR_COLOR = 0xe4e1da;
 
@@ -59,8 +69,10 @@ const ROD_COLOR = 0x6b4a2f;
 const LINE_COLOR = 0xe8eef2;
 
 export interface AvatarConfig {
-  /** Semilla de los rasgos (piel, pelo): el sessionId, igual en todos los clientes. */
-  seed: string;
+  /** Rasgos elegidos al entrar (sexo, piel, pelo), del Schema. */
+  look: AvatarLook;
+  /** Color del jugador (`Player.color`): el de su nombre. */
+  color: string;
   name: string;
   outfit: OutfitIds;
   tileX: number;
@@ -119,6 +131,9 @@ export class Avatar extends Phaser.GameObjects.Container {
   private sitScaleX = 1;
   private fishing = false;
   private fishFacing: FishFacing = "south";
+  /** Tiempo que le queda a la patada en curso (ms); 0 = no está pateando. */
+  private kickLeft = 0;
+  private rodColor = ROD_COLOR;
   private fishTime = 0;
 
   constructor(scene: Phaser.Scene, config: AvatarConfig) {
@@ -126,7 +141,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     super(scene, start.x, start.y);
     this.targetX = start.x;
     this.targetY = start.y;
-    this.look = lookFor(config.seed);
+    this.look = config.look;
 
     const shadow = scene.add.ellipse(0, 0, 34, 14, 0x000000, 0.3);
 
@@ -154,6 +169,14 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.eyes.fillStyle(EYE_COLOR, 1);
     this.eyes.fillCircle(-1.3, 0.3, 1.5);
     this.eyes.fillCircle(6.7, 0.3, 1.5);
+    if (this.look.gender === "f") {
+      // Pestañas: dos trazos hacia afuera en cada ojo (se cierran con el parpadeo).
+      this.eyes.lineStyle(1.2, EYE_COLOR, 1);
+      this.eyes.lineBetween(-4, -1.6, -5.6, -3);
+      this.eyes.lineBetween(-3.2, -2.3, -4.2, -3.9);
+      this.eyes.lineBetween(8, -1.6, 9.6, -3);
+      this.eyes.lineBetween(7.2, -2.3, 8.2, -3.9);
+    }
     const face = scene.add.graphics();
     this.drawHeadFront(face, this.look);
     const frontHair = scene.add.graphics();
@@ -162,12 +185,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.headFront = scene.add.container(0, 0, [face, this.eyes, frontHair, this.hatFront]);
 
     this.rod = scene.add.graphics().setVisible(false);
-    this.rod.lineStyle(2.5, ROD_COLOR, 1);
-    this.rod.lineBetween(26, -42, 60, -88);
-    this.rod.lineStyle(1.5, 0x2b2b30, 1);
-    this.rod.lineBetween(52, -77, 60, -88);
-    this.rod.fillStyle(0x2b2b30, 1);
-    this.rod.fillCircle(30, -47, 2.5);
+    this.drawRod(ROD_COLOR);
     this.fishingLine = scene.add.graphics().setVisible(false);
 
     this.body_ = scene.add.container(0, 0, [
@@ -188,7 +206,7 @@ export class Avatar extends Phaser.GameObjects.Container {
         fontFamily: "system-ui, sans-serif",
         fontSize: "12px",
         fontStyle: "bold",
-        color: config.isAdmin ? "#ff9f1c" : config.isLocal ? "#ffd166" : "#ffffff",
+        color: config.isAdmin ? "#ff9f1c" : config.color,
         stroke: "#000000",
         strokeThickness: 3,
       })
@@ -238,13 +256,26 @@ export class Avatar extends Phaser.GameObjects.Container {
     if (sitting && facing) this.sitScaleX = facing === "east" ? 1 : -1;
   }
 
-  /** Pescando desde la escollera (`facing` = hacia el agua) o no. */
-  setFishing(fishing: boolean, facing: FishFacing = "south") {
+  /** Pescando desde la escollera (`facing` = hacia el agua) o no, con una caña de `rodColor`. */
+  setFishing(fishing: boolean, facing: FishFacing = "south", rodColor = ROD_COLOR) {
+    if (fishing && rodColor !== this.rodColor) this.drawRod(rodColor);
     this.fishing = fishing;
     this.fishFacing = facing;
     this.rod.setVisible(fishing);
     this.fishingLine.setVisible(fishing);
     if (!fishing) this.fishingLine.clear();
+  }
+
+  /** Caña en la mano: vara del color de la caña, puntera y reel oscuros. */
+  private drawRod(color: number) {
+    this.rodColor = color;
+    this.rod.clear();
+    this.rod.lineStyle(2.5, color, 1);
+    this.rod.lineBetween(26, -42, 60, -88);
+    this.rod.lineStyle(1.5, 0x2b2b30, 1);
+    this.rod.lineBetween(52, -77, 60, -88);
+    this.rod.fillStyle(0x2b2b30, 1);
+    this.rod.fillCircle(30, -47, 2.5);
   }
 
   /** Interpolación a velocidad constante hacia el último tile recibido del servidor. */
@@ -276,8 +307,33 @@ export class Avatar extends Phaser.GameObjects.Container {
       this.animateWalk();
     }
 
+    this.poseKick(delta);
     this.updateBlink(delta);
     this.syncDepth();
+  }
+
+  /** Patada (a un picudo): la pierna cercana va para adelante y vuelve. `dirX` = hacia dónde (+ derecha). */
+  kick(dirX: number) {
+    if (this.sitting) return;
+    if (Math.abs(dirX) > 0.01) this.body_.scaleX = dirX >= 0 ? 1 : -1;
+    this.setBackView(false);
+    this.kickLeft = KICK_MS;
+  }
+
+  /** Pisa la pose de la pierna mientras dura la patada (sirve igual caminando o quieto). */
+  private poseKick(delta: number) {
+    if (this.kickLeft <= 0) return;
+    this.kickLeft = Math.max(0, this.kickLeft - delta);
+    const progress = 1 - this.kickLeft / KICK_MS;
+    this.legs[1].rotation = -Math.sin(progress * Math.PI) * KICK_ANGLE;
+    this.legs[1].scaleY = 1;
+  }
+
+  /** ¿El punto del mundo cae sobre el cuerpo? (caja de pies a cabeza, para clics y hover) */
+  containsWorldPoint(worldX: number, worldY: number): boolean {
+    const dx = worldX - this.x;
+    const dy = worldY - (this.y + this.body_.y);
+    return Math.abs(dx) <= HIT_HALF_WIDTH && dy >= HIT_TOP && dy <= HIT_BOTTOM;
   }
 
   /** Profundidad por Y (los de adelante tapan a los de atrás) y overlay pegado a la cabeza. */
@@ -469,7 +525,13 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillStyle(base, 1);
     g.fillRoundedRect(-7.5, SHOULDER_Y - 3, 18.5, 27, 6);
 
-    if (!top) {
+    if (!top && this.look.gender === "f") {
+      // Sin remera, el avatar de mujer queda con una bikini.
+      g.fillStyle(UNDERWEAR_COLOR, 1);
+      g.fillRoundedRect(-9, SHOULDER_Y + 3, 19, 8, 3);
+      g.lineStyle(1, shade(UNDERWEAR_COLOR, -30), 0.8);
+      g.strokeRoundedRect(-9, SHOULDER_Y + 3, 19, 8, 3);
+    } else if (!top) {
       g.lineStyle(1.2, shade(skin, -22), 0.8);
       g.beginPath();
       g.arc(-2.5, SHOULDER_Y + 6, 5, Math.PI * 0.15, Math.PI * 0.85, false);
@@ -591,12 +653,14 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillEllipse(-HEAD_R + 0.5, HEAD_Y + 1, 2, 4);
     g.fillEllipse(4.5, HEAD_Y + 3.5, 3, 2.5);
 
-    g.lineStyle(1.5, MOUTH_COLOR, 1);
+    const female = look.gender === "f";
+    g.lineStyle(female ? 2 : 1.5, female ? LIPS_COLOR : MOUTH_COLOR, 1);
     g.beginPath();
-    g.arc(3, HEAD_Y + 5, 3, Math.PI * 0.2, Math.PI * 0.8, false);
+    g.arc(3, HEAD_Y + 5, female ? 2.6 : 3, Math.PI * 0.2, Math.PI * 0.8, false);
     g.strokePath();
 
-    g.lineStyle(1.8, shade(look.hair, -10), 1);
+    // Cejas: más finas y arqueadas en el avatar de mujer.
+    g.lineStyle(female ? 1.2 : 1.8, shade(look.hair, -10), 1);
     g.lineBetween(-4, HEAD_Y - 4, 0, HEAD_Y - 4.6);
     g.lineBetween(4, HEAD_Y - 4.6, 8, HEAD_Y - 4);
   }

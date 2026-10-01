@@ -4,6 +4,11 @@ export class Player extends Schema {
   @type("string") sessionId = "";
   @type("string") name = "";
   @type("string") color = "#ffffff";
+  /** Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado. */
+  @type("string") gender = "m";
+  @type("uint8") skin = 0;
+  @type("uint8") hairColor = 0;
+  @type("string") hairStyle = "short";
   /** Tile actual (coordenadas de grilla, no píxeles). */
   @type("uint8") x = 0;
   @type("uint8") y = 0;
@@ -11,6 +16,10 @@ export class Player extends Schema {
   @type("boolean") sitting = false;
   /** Pescando desde la escollera (los demás lo ven con la caña). */
   @type("boolean") fishing = false;
+  /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
+  @type("string") rod = "";
+  /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
+  @type("uint16") kicks = 0;
   /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `stamina.ts`. */
   @type("uint8") stamina = 100;
   /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */

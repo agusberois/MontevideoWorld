@@ -6,6 +6,10 @@
 export declare const STARTING_MONEY = 100;
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 export declare const MAX_MONEY = 1000000000;
+/** Boleto de ómnibus (STM) para viajar de un barrio a otro. */
+export declare const TRAVEL_FARE = 52;
+/** Cuánto vale un boleto ya pagado: hay que entrar al barrio de destino antes de que venza. */
+export declare const TRAVEL_TICKET_MS = 30000;
 /** ¿Es un monto válido para cobrar o pagar? (entero positivo y dentro del tope) */
 export declare function isValidAmount(amount: unknown): amount is number;
 /** "$1.250" — mismo formato en cliente y servidor (mensajes de tiendas, HUD…). */

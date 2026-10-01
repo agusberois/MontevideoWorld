@@ -1,17 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { FISH_STAMINA_COST, InventoryMessage, OutfitIds, getCity, getClothing } from "@montevideo-world/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FISH_STAMINA_COST, InventoryMessage, OutfitIds, bestRod, getCity, getItem } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "@/lib/hotbar";
 import type { PlayerSummary } from "@/lib/eventBus";
-import { CitySession, bindRoomMessages, sendEquip, sendFishing } from "@/lib/network";
+import { ItemActionContext, countInBag, isWorn, itemAction } from "@/lib/itemActions";
+import { CitySession, bindRoomMessages, sendFishing, sendTravelRequest, travelTo } from "@/lib/network";
 import { AdminPanel } from "./AdminPanel";
 import { Announcement } from "./Announcement";
 import { Backpack } from "./Backpack";
+import { BoxReveal } from "./BoxReveal";
 import { ChatBox } from "./ChatBox";
 import { FishingWidget } from "./FishingWidget";
 import { CityMenu } from "./CityMenu";
+import { CommandsPanel } from "./CommandsPanel";
 import { PlayersPanel } from "./PlayersPanel";
 import { ShopPanel } from "./ShopPanel";
 import { Hotbar } from "./Hotbar";
@@ -19,13 +22,31 @@ import { Hud } from "./Hud";
 import { Notices } from "./Notices";
 import { JoinScreen } from "./JoinScreen";
 import { PhaserGame } from "./PhaserGame";
+import { PlayerMenu } from "./PlayerMenu";
+import { TradeInvites } from "./TradeInvites";
+import { TradePanel } from "./TradePanel";
+import { TRAVEL_MS, TravelOverlay } from "./TravelOverlay";
+
+/** Cuánto tiene que seguir faltando un ítem para sacarlo de la barra rápida. */
+const HOTBAR_CLEANUP_MS = 1000;
+
+function cityName(cityId: string | undefined): string {
+  return (cityId && getCity(cityId)?.name) || "";
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
+}
+
+/** El server cierra con este código la sesión vieja cuando la misma clave entra de nuevo. */
+const DUPLICATE_SESSION_CODE = 4001;
 
 export function App() {
   const [session, setSession] = useState<CitySession | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const room = session?.room ?? null;
   /** Un solo panel abierto a la vez: barrios (M), mochila (H), jugadores (Tab) o una tienda. */
-  const [panel, setPanel] = useState<"cities" | "backpack" | "players" | "shop" | "admin" | null>(null);
+  const [panel, setPanel] = useState<"cities" | "backpack" | "players" | "shop" | "admin" | "commands" | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [clock, setClock] = useState<number | null>(null);
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
@@ -36,6 +57,12 @@ export function App() {
   const [inventory, setInventory] = useState<InventoryMessage | null>(null);
   const [money, setMoney] = useState<number | null>(null);
   const [hotbar, setHotbar] = useState<HotbarSlots>(emptyHotbar);
+  /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
+  const [trading, setTrading] = useState(false);
+  /** Saliendo de un barrio para entrar a otro: esa salida no vuelve a la pantalla de ingreso. */
+  const travelingRef = useRef(false);
+  /** Viaje en curso (pantalla del ómnibus): de qué barrio a cuál. */
+  const [traveling, setTraveling] = useState<{ from: string; to: string } | null>(null);
 
   // La barra se recuerda en el navegador; se lee al montar (no en el render, por SSR).
   useEffect(() => setHotbar(loadHotbar()), []);
@@ -45,15 +72,41 @@ export function App() {
     saveHotbar(slots);
   }, []);
 
-  /** Atajo 1–9: si la prenda está puesta, se guarda en la mochila; si está en la mochila, se pone. */
+  /**
+   * Lo que ya no tenés (ni en la mochila ni puesto: lo vendiste, lo comiste, lo intercambiaste) se
+   * saca de la barra y el casillero queda libre. Se espera un rato sin cambios porque al ponerse o
+   * sacarse algo la mochila y la ropa llegan por separado y, por un instante, la prenda no está en
+   * ningún lado.
+   */
+  useEffect(() => {
+    if (!inventory || !outfit) return;
+    const timer = window.setTimeout(() => {
+      setHotbar((slots) => {
+        const next = slots.map((itemId) => {
+          const item = itemId ? getItem(itemId) : undefined;
+          return item && (countInBag(inventory, item.id) > 0 || isWorn(item, outfit)) ? itemId : null;
+        });
+        if (next.every((itemId, index) => itemId === slots[index])) return slots;
+        saveHotbar(next);
+        return next;
+      });
+    }, HOTBAR_CLEANUP_MS);
+    return () => window.clearTimeout(timer);
+  }, [inventory, outfit]);
+
+  /** Lo que la barra necesita para saber qué hace cada ítem (ver `itemActions.ts`). */
+  const actionContext = useMemo<ItemActionContext | null>(
+    () => (room ? { room, outfit, inventory, fishing } : null),
+    [room, outfit, inventory, fishing],
+  );
+
+  /** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, comer, abrir una caja). */
   const activateHotbar = useCallback(
     (index: number) => {
-      const item = hotbar[index] ? getClothing(hotbar[index]) : undefined;
-      if (!item || !room) return;
-      if (outfit?.[item.slot] === item.id) sendEquip(room, item.slot, null);
-      else if (inventory?.stacks.some((stack) => stack.itemId === item.id)) sendEquip(room, item.slot, item.id);
+      const item = hotbar[index] ? getItem(hotbar[index]) : undefined;
+      if (item && actionContext) itemAction(item, actionContext)?.run();
     },
-    [hotbar, room, outfit, inventory],
+    [hotbar, actionContext],
   );
 
   // La conexión se abre en el submit (event handler), no en un efecto:
@@ -68,6 +121,7 @@ export function App() {
     const unbindMessages = bindRoomMessages(room);
 
     const handleLeave = (code: number) => {
+      if (travelingRef.current) return;
       setSession(null);
       setPanel(null);
       setOutfit(null);
@@ -78,7 +132,9 @@ export function App() {
       setStamina(null);
       setIsAdmin(false);
       setClock(null);
-      if (code !== 1000) setNotice(`Se perdió la conexión con el servidor (código ${code}).`);
+      setTrading(false);
+      if (code === DUPLICATE_SESSION_CODE) setNotice("Entraste desde otra pestaña o dispositivo: esta sesión se cerró.");
+      else if (code !== 1000) setNotice(`Se perdió la conexión con el servidor (código ${code}).`);
     };
     const handleError = (code: number, message?: string) => {
       console.error("[Montevideo World] room error", code, message);
@@ -107,6 +163,11 @@ export function App() {
       setShopId(message.shopId);
       setPanel("shop");
     });
+    const offTradeState = eventBus.on("trade:state", () => {
+      setTrading(true);
+      setPanel(null);
+    });
+    const offTradeClosed = eventBus.on("trade:closed", () => setTrading(false));
     return () => {
       offOutfit();
       offInventory();
@@ -117,6 +178,8 @@ export function App() {
       offAdmin();
       offTime();
       offShop();
+      offTradeState();
+      offTradeClosed();
     };
   }, []);
 
@@ -127,11 +190,11 @@ export function App() {
     else if (fishing.canFish) sendFishing(room, "cast");
   }, [room, fishing]);
 
-  // M: barrios, H: mochila, Tab: jugadores, F: pescar, 1–9: barra rápida, Esc: cerrar.
+  // M: barrios, H: mochila, C: comandos, Tab: jugadores, F: pescar, 1–9: barra rápida, Esc: cerrar.
   // No interfiere mientras se escribe en el chat (ahí Tab sigue moviendo el foco).
   useEffect(() => {
-    if (!session) return;
-    const toggle = (target: "cities" | "backpack" | "players" | "admin") =>
+    if (!session || trading) return;
+    const toggle = (target: "cities" | "backpack" | "players" | "admin" | "commands") =>
       setPanel((open) => (open === target ? null : target));
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -143,6 +206,9 @@ export function App() {
       } else if (event.code === "KeyH") {
         event.preventDefault();
         toggle("backpack");
+      } else if (event.code === "KeyC") {
+        event.preventDefault();
+        toggle("commands");
       } else if (event.code === "KeyP" && isAdmin) {
         event.preventDefault();
         toggle("admin");
@@ -161,7 +227,49 @@ export function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [session, activateHotbar, toggleFishing, isAdmin]);
+  }, [session, trading, activateHotbar, toggleFishing, isAdmin]);
+
+  /**
+   * Con el boleto pagado (lo cobra el server): salir de la sala y entrar a la del destino. El
+   * server sólo deja entrar a otro barrio con un boleto vigente.
+   */
+  const travel = useCallback(
+    async (cityId: string) => {
+      if (!room || travelingRef.current || cityId === session?.cityId) return;
+      travelingRef.current = true;
+      setTraveling({ from: cityName(session?.cityId), to: cityName(cityId) });
+      const startedAt = Date.now();
+      setPanel(null);
+      setPlayers([]);
+      setFishing({ canFish: false, fishing: false });
+      setTrading(false);
+      try {
+        await room.leave(true);
+        // El viaje dura al menos TRAVEL_MS (la animación del ómnibus); si el server tarda más, se espera.
+        const [next] = await Promise.all([travelTo(cityId), wait(TRAVEL_MS - (Date.now() - startedAt))]);
+        setSession(next);
+      } catch (error) {
+        console.error("[Montevideo World] travel failed", error);
+        setSession(null);
+        setNotice("No se pudo viajar al barrio. Volvé a entrar.");
+      } finally {
+        travelingRef.current = false;
+        setTraveling(null);
+      }
+    },
+    [room, session?.cityId],
+  );
+
+  // El server aprobó el boleto: recién ahí se viaja.
+  useEffect(() => eventBus.on("travel:approved", ({ cityId }) => void travel(cityId)), [travel]);
+
+  /** Botón "Ir" de la lista de barrios: pedir el boleto (el viaje arranca cuando el server lo cobra). */
+  const requestTravel = useCallback(
+    (cityId: string) => {
+      if (room && !travelingRef.current && cityId !== session?.cityId) sendTravelRequest(room, cityId);
+    },
+    [room, session?.cityId],
+  );
 
   const handleExit = useCallback(() => {
     room?.leave(true);
@@ -171,6 +279,7 @@ export function App() {
   const openBackpack = useCallback(() => setPanel("backpack"), []);
   const openPlayers = useCallback(() => setPanel("players"), []);
   const openAdmin = useCallback(() => setPanel("admin"), []);
+  const openCommands = useCallback(() => setPanel("commands"), []);
   const closePanel = useCallback(() => setPanel(null), []);
 
   const openShop = session && shopId ? getCity(session.cityId)?.shops.find((shop) => shop.id === shopId) : undefined;
@@ -191,6 +300,7 @@ export function App() {
         onOpenPlayers={openPlayers}
         onOpenMap={openCities}
         onOpenBackpack={openBackpack}
+        onOpenCommands={openCommands}
         onOpenAdmin={isAdmin ? openAdmin : undefined}
         onExit={handleExit}
       />
@@ -199,12 +309,29 @@ export function App() {
         canFish={fishing.canFish}
         fishing={fishing.fishing}
         hasEnergy={stamina === null || stamina >= FISH_STAMINA_COST}
+        rod={bestRod(inventory?.stacks.map((stack) => stack.itemId) ?? [])}
         onToggle={toggleFishing}
       />
       <Notices />
+      <BoxReveal />
+      <PlayerMenu room={room} players={players} />
+      <TradeInvites room={room} />
+      <TradePanel room={room} inventory={inventory} money={money} />
       <Announcement />
-      <Hotbar slots={hotbar} outfit={outfit} inventory={inventory} onChange={changeHotbar} onActivate={activateHotbar} />
-      {panel === "cities" && <CityMenu currentCityId={session.cityId} onClose={closePanel} />}
+      {actionContext && (
+        <Hotbar slots={hotbar} context={actionContext} onChange={changeHotbar} onActivate={activateHotbar} />
+      )}
+      {panel === "commands" && <CommandsPanel isAdmin={isAdmin} onClose={closePanel} />}
+      {panel === "cities" && (
+        <CityMenu
+          currentCityId={session.cityId}
+          money={money}
+          traveling={traveling !== null}
+          onTravel={requestTravel}
+          onClose={closePanel}
+        />
+      )}
+      {traveling && <TravelOverlay from={traveling.from} to={traveling.to} />}
       {panel === "admin" && isAdmin && (
         <AdminPanel
           room={room}

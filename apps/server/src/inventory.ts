@@ -1,4 +1,4 @@
-import { INVENTORY_CAPACITY, InventoryStack, MAX_STACK } from "@montevideo-world/shared";
+import { INVENTORY_CAPACITY, InventoryStack, MAX_STACK, getItem } from "@montevideo-world/shared";
 
 /**
  * Mochila de un jugador: casilleros con pilas de prendas iguales. Vive sólo en el servidor
@@ -38,6 +38,27 @@ export class Inventory {
     stack.quantity -= 1;
     if (stack.quantity === 0) this.stacks.splice(index, 1);
     return true;
+  }
+
+  /**
+   * Mochila guardada (p. ej. al volver a entrar): sólo ítems del catálogo, cantidades válidas y
+   * hasta `capacity` casilleros; lo que no cumple se descarta.
+   */
+  static restore(stacks: readonly InventoryStack[], capacity = INVENTORY_CAPACITY): Inventory {
+    const inventory = new Inventory(capacity);
+    for (const { itemId, quantity } of stacks) {
+      if (!getItem(itemId) || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_STACK) continue;
+      if (inventory.stacks.length >= capacity) break;
+      inventory.stacks.push({ itemId, quantity });
+    }
+    return inventory;
+  }
+
+  /** Copia independiente, para simular cambios sin tocar la mochila real (p. ej. un intercambio). */
+  clone(): Inventory {
+    const copy = new Inventory(this.capacity);
+    copy.stacks.push(...this.snapshot());
+    return copy;
   }
 
   /** Copia serializable para mandar al cliente. */

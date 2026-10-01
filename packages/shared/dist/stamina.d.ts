@@ -16,6 +16,11 @@ export declare const SIT_STAMINA_REGEN = 10;
  * al menos esto. Evita "arrastrarse" gastando lo poco que recupera cada tick.
  */
 export declare const EXHAUSTED_RECOVERY = 20;
+/**
+ * Energía que da comer un pescado: más cuanto más difícil (pejerrey +10 … corvina negra +30).
+ * Es un trade-off: el pescado que te comés no lo vendés.
+ */
+export declare function fishStamina(difficulty: number): number;
 /** Por debajo de esto el HUD la muestra en rojo. */
 export declare const LOW_STAMINA = 20;
 //# sourceMappingURL=stamina.d.ts.map
