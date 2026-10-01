@@ -1,0 +1,1 @@
+{"version":3,"file":"money.d.ts","sourceRoot":"","sources":["../src/money.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,iDAAiD;AACjD,eAAO,MAAM,cAAc,MAAM,CAAC;AAElC,mEAAmE;AACnE,eAAO,MAAM,SAAS,aAAgB,CAAC;AAEvC,mFAAmF;AACnF,wBAAgB,aAAa,CAAC,MAAM,EAAE,OAAO,GAAG,MAAM,IAAI,MAAM,CAE/D;AAED,kFAAkF;AAClF,wBAAgB,WAAW,CAAC,MAAM,EAAE,MAAM,GAAG,MAAM,CAGlD"}

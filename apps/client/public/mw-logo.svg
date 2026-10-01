@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Montevideo World</title>
+  <defs>
+    <linearGradient id="mw-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b8fd6"/>
+      <stop offset="1" stop-color="#0d3566"/>
+    </linearGradient>
+    <clipPath id="mw-clip"><rect x="4" y="4" width="120" height="120" rx="26"/></clipPath>
+  </defs>
+  <g clip-path="url(#mw-clip)">
+    <rect x="4" y="4" width="120" height="120" fill="url(#mw-bg)"/>
+    <!-- Sol de Mayo -->
+    <path fill="#f2b705" d="M76.8 24.8L85.0 27.0L76.8 29.2ZM76.7 29.9L80.2 33.7L75.0 33.9ZM74.6 34.5L78.8 41.8L71.5 37.6ZM70.9 38.0L70.7 43.2L66.9 39.7ZM66.2 39.8L64.0 48.0L61.8 39.8ZM61.1 39.7L57.3 43.2L57.1 38.0ZM56.5 37.6L49.2 41.8L53.4 34.5ZM53.0 33.9L47.8 33.7L51.3 29.9ZM51.2 29.2L43.0 27.0L51.2 24.8ZM51.3 24.1L47.8 20.3L53.0 20.1ZM53.4 19.5L49.2 12.2L56.5 16.4ZM57.1 16.0L57.3 10.8L61.1 14.3ZM61.8 14.2L64.0 6.0L66.2 14.2ZM66.9 14.3L70.7 10.8L70.9 16.0ZM71.5 16.4L78.8 12.2L74.6 19.5ZM75.0 20.1L80.2 20.3L76.7 24.1Z"/>
+    <circle cx="64" cy="27" r="12" fill="#f2b705"/>
+    <circle cx="64" cy="27" r="9" fill="#ffd34d"/>
+    <!-- Río de la Plata -->
+    <path fill="#6cace4" d="M4 104 Q20 96 36 104 T68 104 T100 104 T132 104 V128 H4 Z"/>
+    <path fill="#2f6fae" d="M4 114 Q20 106 36 114 T68 114 T100 114 T132 114 V128 H4 Z"/>
+  </g>
+  <!-- MW -->
+  <g fill="#ffffff" stroke="#0b2a52" stroke-width="3" stroke-linejoin="round" paint-order="stroke">
+    <path d="M14 94 L14 46 L27 46 L38 66 L49 46 L62 46 L62 94 L50 94 L50 69 L38 88 L26 69 L26 94 Z"/>
+    <path d="M66 46 L78 46 L82 73 L91 54 L99 54 L108 73 L112 46 L124 46 L114 94 L103 94 L95 74 L87 94 L76 94 Z" transform="translate(-6 0)"/>
+  </g>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="none" stroke="#0b2a52" stroke-width="4"/>
+</svg>

@@ -1,0 +1,31 @@
+{
+  "name": "montevideo-world",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Montevideo World — MMORPG web 2.5D isométrico (v1 prueba de concepto)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "npm run build:shared && concurrently -k -n shared,server,client -c magenta,cyan,green \"npm:dev:shared\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:shared": "npm run dev -w @montevideo-world/shared",
+    "dev:server": "npm run dev -w @montevideo-world/server",
+    "dev:client": "npm run dev -w @montevideo-world/client",
+    "build": "npm run build:shared && npm run build -w @montevideo-world/server && npm run build -w @montevideo-world/client",
+    "build:shared": "npm run build -w @montevideo-world/shared",
+    "build:server": "npm run build:shared && npm run build -w @montevideo-world/server",
+    "build:client": "npm run build:shared && npm run build -w @montevideo-world/client",
+    "start:server": "npm run start -w @montevideo-world/server",
+    "start:client": "npm run start -w @montevideo-world/client",
+    "typecheck": "npm run build:shared && npm run typecheck -w @montevideo-world/server && npm run typecheck -w @montevideo-world/client",
+    "clean": "rm -rf packages/shared/dist apps/server/dist apps/client/.next"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}

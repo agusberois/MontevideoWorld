@@ -1,0 +1,27 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PLAYER_COLORS = exports.CHAT_BUBBLE_MS = exports.CHAT_COOLDOWN_MS = exports.CHAT_MAX_LENGTH = exports.NAME_MAX_LENGTH = exports.STEP_MS = exports.TILE_HEIGHT = exports.TILE_WIDTH = exports.MAX_PLAYERS_PER_ROOM = exports.DEFAULT_PORT = exports.ROOM_NAME = void 0;
+/** Nombre con el que el servidor registra la sala principal. */
+exports.ROOM_NAME = "city";
+exports.DEFAULT_PORT = 2567;
+exports.MAX_PLAYERS_PER_ROOM = 50;
+/** Tamaño de un tile isométrico en píxeles (rombo 2:1, estilo Habbo). */
+exports.TILE_WIDTH = 64;
+exports.TILE_HEIGHT = 32;
+/** Milisegundos que tarda un avatar en avanzar un tile. Servidor y cliente lo usan igual. */
+exports.STEP_MS = 250;
+exports.NAME_MAX_LENGTH = 16;
+exports.CHAT_MAX_LENGTH = 120;
+exports.CHAT_COOLDOWN_MS = 400;
+exports.CHAT_BUBBLE_MS = 5000;
+exports.PLAYER_COLORS = [
+    "#e63946",
+    "#f4a261",
+    "#2a9d8f",
+    "#457b9d",
+    "#8338ec",
+    "#ff006e",
+    "#3a86ff",
+    "#06d6a0",
+];
+//# sourceMappingURL=constants.js.map

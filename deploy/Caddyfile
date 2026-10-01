@@ -1,0 +1,5 @@
+# Caddy obtiene el certificado TLS automáticamente y hace proxy de WebSocket sin config extra.
+# Reemplazá el dominio por el tuyo (registro A apuntando a la IP del VPS).
+game.example.com {
+	reverse_proxy 127.0.0.1:2567
+}
