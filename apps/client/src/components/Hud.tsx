@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { eventBus } from "@/lib/eventBus";
 import { LOW_STAMINA, MAX_STAMINA, darknessAt, formatClock, formatMoney } from "@montevideo-world/shared";
-import { UiIcon } from "./UiIcon";
+import { UiIcon, UiIconName } from "./UiIcon";
 
 interface HudProps {
   cityName: string;
@@ -21,10 +21,12 @@ interface HudProps {
   onOpenCommands: () => void;
   /** Sólo para el admin: abre sus controles. */
   onOpenAdmin?: () => void;
+  /** Sólo para el admin: abre el maker de ítems. */
+  onOpenMaker?: () => void;
   onExit: () => void;
 }
 
-export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayers, onOpenMap, onOpenBackpack, onOpenCommands, onOpenAdmin, onExit }: HudProps) {
+export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayers, onOpenMap, onOpenBackpack, onOpenCommands, onOpenAdmin, onOpenMaker, onExit }: HudProps) {
   const [self, setSelf] = useState<{ name: string; color: string } | null>(null);
 
   useEffect(() => {
@@ -33,50 +35,65 @@ export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayer
 
   return (
     <div className="hud">
-      <strong className="hud-item" style={self ? { color: self.color } : undefined} title="Tu personaje">
-        <UiIcon name="user" />
-        {self?.name ?? "…"}
-      </strong>
-      <span className="hud-item hud-city" title="Barrio actual">
-        <UiIcon name="pin" />
-        {cityName}
-      </span>
-      <span className="hud-item hud-clock" title="Hora del juego">
-        <UiIcon name={clock !== null && darknessAt(clock) > 0.5 ? "moon" : "sun"} />
-        {clock === null ? "--:--" : formatClock(clock)}
-      </span>
-      <span className="hud-item hud-money" title="Tu dinero">
-        <UiIcon name="moneyBag" className="hud-money-icon" />
-        {money === null ? "$…" : formatMoney(money)}
-      </span>
-      <StaminaMeter stamina={stamina} />
-      <button type="button" className="hud-item" onClick={onOpenPlayers} title="Jugadores en el barrio">
-        <UiIcon name="users" />
-        {playerCount} online <kbd>Tab</kbd>
-      </button>
-      <button type="button" className="hud-item" onClick={onOpenMap} title="Lista de barrios">
-        <UiIcon name="map" />
-        Barrios <kbd>M</kbd>
-      </button>
-      <button type="button" className="hud-item" onClick={onOpenBackpack} title="Mochila">
-        <UiIcon name="backpack" />
-        Mochila <kbd>H</kbd>
-      </button>
-      <button type="button" className="hud-item" onClick={onOpenCommands} title="Comandos de chat">
-        <UiIcon name="terminal" />
-        Comandos <kbd>C</kbd>
-      </button>
-      {onOpenAdmin && (
-        <button type="button" className="hud-item hud-admin" onClick={onOpenAdmin} title="Controles de admin">
-          <UiIcon name="shield" />
-          Admin <kbd>P</kbd>
-        </button>
-      )}
-      <button type="button" className="hud-item" onClick={onExit} title="Salir del juego">
-        <UiIcon name="exit" />
-        Salir
-      </button>
+      {/* Datos (arriba en celulares) y acciones (abajo, sólo íconos). En escritorio, una sola fila. */}
+      <div className="hud-info">
+        <strong className="hud-item hud-name" style={self ? { color: self.color } : undefined} title="Tu personaje">
+          <UiIcon name="user" />
+          {self?.name ?? "…"}
+        </strong>
+        <span className="hud-item hud-city" title="Barrio actual">
+          <UiIcon name="pin" />
+          <span className="hud-city-name">{cityName}</span>
+        </span>
+        <span className="hud-item hud-clock" title="Hora del juego">
+          <UiIcon name={clock !== null && darknessAt(clock) > 0.5 ? "moon" : "sun"} />
+          {clock === null ? "--:--" : formatClock(clock)}
+        </span>
+        <span className="hud-item hud-money" title="Tu dinero">
+          <UiIcon name="moneyBag" className="hud-money-icon" />
+          {money === null ? "$…" : formatMoney(money)}
+        </span>
+        <StaminaMeter stamina={stamina} />
+      </div>
+      <div className="hud-actions">
+        <HudButton icon="users" label="online" onClick={onOpenPlayers} title="Jugadores en el barrio" shortcut="Tab">
+          <span className="hud-count">{playerCount}</span>
+        </HudButton>
+        <HudButton icon="map" label="Barrios" onClick={onOpenMap} title="Lista de barrios" shortcut="M" />
+        <HudButton icon="backpack" label="Mochila" onClick={onOpenBackpack} title="Mochila" shortcut="H" />
+        <HudButton icon="terminal" label="Comandos" onClick={onOpenCommands} title="Comandos de chat" shortcut="C" />
+        {onOpenAdmin && (
+          <HudButton icon="shield" label="Admin" onClick={onOpenAdmin} title="Controles de admin" shortcut="P" admin />
+        )}
+        {onOpenMaker && (
+          <HudButton icon="wand" label="Maker" onClick={onOpenMaker} title="Maker: crear ítems (admin)" shortcut="I" admin />
+        )}
+        <HudButton icon="exit" label="Salir" onClick={onExit} title="Salir del juego" />
+      </div>
     </div>
+  );
+}
+
+interface HudButtonProps {
+  icon: UiIconName;
+  /** Texto del botón: en celulares se oculta y queda sólo el ícono (y el nombre para lectores de pantalla). */
+  label: string;
+  title: string;
+  shortcut?: string;
+  admin?: boolean;
+  onClick: () => void;
+  /** Algo que se ve siempre, también sin texto (p. ej. la cantidad de jugadores). */
+  children?: ReactNode;
+}
+
+function HudButton({ icon, label, title, shortcut, admin, onClick, children }: HudButtonProps) {
+  return (
+    <button type="button" className={`hud-item hud-button${admin ? " hud-admin" : ""}`} onClick={onClick} title={title} aria-label={title}>
+      <UiIcon name={icon} />
+      {children}
+      <span className="hud-label">{label}</span>
+      {shortcut && <kbd>{shortcut}</kbd>}
+    </button>
   );
 }
 
@@ -87,7 +104,7 @@ function StaminaMeter({ stamina }: { stamina: number | null }) {
   return (
     <span
       className={`hud-item hud-stamina ${level}`}
-      title="Energía: caminar y pescar la gastan; quedarte quieto o sentarte en un banco la recupera"
+      title="Energía: caminar, pescar y vender la gastan; quedarte quieto o sentarte en un banco la recupera"
       role="meter"
       aria-label="Energía"
       aria-valuemin={0}

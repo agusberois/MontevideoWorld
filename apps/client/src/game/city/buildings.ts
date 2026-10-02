@@ -1,6 +1,6 @@
 import { shade } from "../color";
 import type { ShopBuilding } from "@montevideo-world/shared";
-import { Face, IsoPainter, boxColors } from "./IsoPainter";
+import { BoxColors, Face, IsoPainter, boxColors } from "./IsoPainter";
 
 /**
  * Volumen dibujable en coordenadas locales: el tile ancla está en (0, 0) y el área ocupa de
@@ -254,6 +254,62 @@ export function benchSpec(facing: "south" | "east"): PieceSpec {
   };
 }
 
+const STOP_FRAME = 0x3a3f46;
+const STOP_ROOF = 0x2f4a5c;
+const STOP_GLASS = 0xa9d3e6;
+const STOP_SIGN = 0x1d5fa8;
+
+/**
+ * Parada de ómnibus: refugio con techo, vidrio atrás y a un costado, banco adentro y el poste con
+ * el cartel de la parada. `facing` es hacia dónde mira (la calle): el vidrio queda del lado opuesto.
+ */
+export function busStopSpec(facing: "south" | "east"): PieceSpec {
+  return {
+    key: `bus-stop-${facing}`,
+    width: 1,
+    height: 1,
+    maxZ: 56,
+    draw: (p) => {
+      // Igual que el banco: "a" a lo largo de la calle, "b" hacia la calle; se rotan según facing.
+      const box = (a0: number, a1: number, b0: number, b1: number, z0: number, z1: number, colors: BoxColors) => {
+        if (facing === "south") p.box(a0, b0, a1, b1, z0, z1, colors);
+        else p.box(b0, a0, b1, a1, z0, z1, colors);
+      };
+      /** Plano b = cte (de frente a la calle). */
+      const across = (b: number): Face => (facing === "south" ? { side: "south", y: b } : { side: "east", x: b });
+      /** Plano a = cte (costado del refugio). */
+      const along = (a: number): Face => (facing === "south" ? { side: "east", x: a } : { side: "south", y: a });
+      const frame = boxColors(STOP_FRAME);
+
+      // Vidrio de atrás y del costado (oeste o norte), con marco.
+      p.faceRect(across(-0.32), -0.42, 0.42, 4, 34, STOP_GLASS, 0.45);
+      p.faceRect(along(-0.42), -0.32, 0.22, 4, 34, STOP_GLASS, 0.45);
+      p.faceRect(across(-0.32), -0.42, 0.42, 30, 32, STOP_FRAME);
+      box(-0.44, -0.4, -0.34, -0.3, 0, 36, frame);
+      box(0.4, 0.44, -0.34, -0.3, 0, 36, frame);
+
+      // Banco adentro, contra el vidrio.
+      box(-0.3, -0.27, -0.24, -0.14, 0, 10, frame);
+      box(0.27, 0.3, -0.24, -0.14, 0, 10, frame);
+      box(-0.34, 0.34, -0.28, -0.1, 10, 13, boxColors(BENCH_WOOD));
+
+      // Parantes de adelante y techo.
+      box(-0.44, -0.4, 0.2, 0.24, 0, 36, frame);
+      box(0.4, 0.44, 0.2, 0.24, 0, 36, frame);
+      box(-0.48, 0.48, -0.38, 0.3, 36, 39, boxColors(STOP_ROOF));
+
+      // Poste con el cartel de la parada (azul, con un ómnibus blanco).
+      box(0.44, 0.47, 0.38, 0.41, 0, 54, frame);
+      const sign = across(0.42);
+      p.faceRect(sign, 0.3, 0.5, 40, 54, STOP_SIGN);
+      p.faceRect(sign, 0.34, 0.46, 44, 50, 0xffffff);
+      p.faceRect(sign, 0.35, 0.45, 47, 49, STOP_SIGN);
+      p.faceRect(sign, 0.36, 0.38, 43, 44, 0x1f1f22);
+      p.faceRect(sign, 0.42, 0.44, 43, 44, 0x1f1f22);
+    },
+  };
+}
+
 /** Lo que cambia de una tienda a otra: colores y qué se ve en la vidriera. */
 interface ShopStyle {
   facade: number;
@@ -268,6 +324,9 @@ interface ShopStyle {
 const SHOWCASE_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2b3a55, 0xf1f1f1];
 /** Colores de las cañas de la vidriera de la tienda de pesca (los de las cañas del catálogo). */
 const ROD_COLORS = [0x8a6a45, 0x2a9d8f, 0x3a3f4c, 0xc9a227];
+
+/** Colores de las botellas de refresco y las bolsas de garrapiñada de la vidriera del kiosco. */
+const KIOSK_COLORS = [0xe63946, 0x2a9d8f, 0xf2b705, 0x6cace4];
 
 const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
   clothing: {
@@ -317,6 +376,32 @@ const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
           ],
           0xb8c4cc,
         );
+      }
+    },
+  },
+  kiosk: {
+    facade: 0xf6e7c8,
+    trim: 0xc1440e,
+    glass: 0xbfe3ee,
+    awning: 0xffd166,
+    // Botellas de refresco (pares) y bolsitas de garrapiñada (impares) en el estante.
+    showcase: (p, face, u, i) => {
+      const color = KIOSK_COLORS[i % KIOSK_COLORS.length];
+      if (i % 2 === 0) {
+        p.faceRect(face, u - 0.04, u + 0.04, 9, 18, color);
+        p.faceRect(face, u - 0.02, u + 0.02, 18, 21, shade(color, -25));
+      } else {
+        p.facePoly(
+          face,
+          [
+            [u - 0.07, 9],
+            [u + 0.07, 9],
+            [u + 0.05, 17],
+            [u - 0.05, 17],
+          ],
+          0xb87333,
+        );
+        p.faceRect(face, u - 0.05, u + 0.05, 17, 18.5, color);
       }
     },
   },

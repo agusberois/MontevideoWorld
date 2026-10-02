@@ -14,6 +14,11 @@ export declare function catchWeight(fish: FishItem, rod: RodItem): number;
 export declare function fishChances(rod: RodItem): FishChance[];
 /** Probabilidad de sacar algún pez de dificultad `minDifficulty` o más en un intento. */
 export declare function rareChance(rod: RodItem, minDifficulty?: number): number;
+/**
+ * Plata que deja en promedio una tirada con esta caña: el precio de lo que pica en el Mercado del
+ * Puerto (contando que no pique nada y la doble pesca).
+ */
+export declare function catchValue(rod: RodItem): number;
 /** "12,5 %" con una cifra decimal si hace falta. */
 export declare function formatPercent(chance: number): string;
 /** Las ventajas de una caña en frases cortas, para la tienda y la mochila. */

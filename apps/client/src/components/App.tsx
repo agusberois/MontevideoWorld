@@ -1,19 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FISH_STAMINA_COST, InventoryMessage, OutfitIds, bestRod, getCity, getItem } from "@montevideo-world/shared";
+import {
+  FISH_STAMINA_COST,
+  InventoryMessage,
+  OutfitIds,
+  VEND_STAMINA_COST,
+  bestCart,
+  bestRod,
+  getCity,
+  getItem,
+  matchAt,
+  stackUses,
+  wornestStack,
+} from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "@/lib/hotbar";
 import type { PlayerSummary } from "@/lib/eventBus";
 import { ItemActionContext, countInBag, isWorn, itemAction } from "@/lib/itemActions";
-import { CitySession, bindRoomMessages, sendFishing, sendTravelRequest, travelTo } from "@/lib/network";
+import { trackKeyboardInset } from "@/lib/viewport";
+import { CitySession, bindRoomMessages, sendFishing, sendTravelRequest, sendVending, travelTo } from "@/lib/network";
 import { AdminPanel } from "./AdminPanel";
 import { Announcement } from "./Announcement";
 import { Backpack } from "./Backpack";
 import { BoxReveal } from "./BoxReveal";
 import { ChatBox } from "./ChatBox";
 import { FishingWidget } from "./FishingWidget";
+import { InteractPrompt } from "./InteractPrompt";
+import { VendingWidget } from "./VendingWidget";
+import { CameraButton } from "./CameraButton";
 import { CityMenu } from "./CityMenu";
+import { MakerPanel } from "./MakerPanel";
 import { CommandsPanel } from "./CommandsPanel";
 import { PlayersPanel } from "./PlayersPanel";
 import { ShopPanel } from "./ShopPanel";
@@ -46,11 +63,14 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const room = session?.room ?? null;
   /** Un solo panel abierto a la vez: barrios (M), mochila (H), jugadores (Tab) o una tienda. */
-  const [panel, setPanel] = useState<"cities" | "backpack" | "players" | "shop" | "admin" | "commands" | null>(null);
+  const [panel, setPanel] = useState<"cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [clock, setClock] = useState<number | null>(null);
   const [players, setPlayers] = useState<PlayerSummary[]>([]);
   const [fishing, setFishing] = useState({ canFish: false, fishing: false });
+  const [vending, setVending] = useState({ canVend: false, vending: false });
+  /** Con qué se puede interactuar con F ahora (lo decide la escena), o null. */
+  const [interaction, setInteraction] = useState<string | null>(null);
   const [stamina, setStamina] = useState<number | null>(null);
   const [shopId, setShopId] = useState<string | null>(null);
   const [outfit, setOutfit] = useState<OutfitIds | null>(null);
@@ -96,11 +116,11 @@ export function App() {
 
   /** Lo que la barra necesita para saber qué hace cada ítem (ver `itemActions.ts`). */
   const actionContext = useMemo<ItemActionContext | null>(
-    () => (room ? { room, outfit, inventory, fishing } : null),
-    [room, outfit, inventory, fishing],
+    () => (room ? { room, outfit, inventory, fishing, vending } : null),
+    [room, outfit, inventory, fishing, vending],
   );
 
-  /** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, comer, abrir una caja). */
+  /** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, vender, comer, abrir una caja). */
   const activateHotbar = useCallback(
     (index: number) => {
       const item = hotbar[index] ? getItem(hotbar[index]) : undefined;
@@ -108,6 +128,9 @@ export function App() {
     },
     [hotbar, actionContext],
   );
+
+  // Celulares: cuánto tapa el teclado en pantalla, para correr el chat arriba de él.
+  useEffect(() => trackKeyboardInset(), []);
 
   // La conexión se abre en el submit (event handler), no en un efecto:
   // así StrictMode no crea dos conexiones al montar dos veces.
@@ -129,6 +152,8 @@ export function App() {
       setMoney(null);
       setPlayers([]);
       setFishing({ canFish: false, fishing: false });
+      setVending({ canVend: false, vending: false });
+      setInteraction(null);
       setStamina(null);
       setIsAdmin(false);
       setClock(null);
@@ -155,6 +180,8 @@ export function App() {
     const offWallet = eventBus.on("wallet:update", ({ balance }) => setMoney(balance));
     const offPlayers = eventBus.on("players:list", setPlayers);
     const offFishing = eventBus.on("fishing:status", setFishing);
+    const offVending = eventBus.on("vending:status", setVending);
+    const offInteraction = eventBus.on("interact:prompt", (prompt) => setInteraction(prompt?.label ?? null));
     const offStamina = eventBus.on("player:stamina", setStamina);
     const offAdmin = eventBus.on("player:admin", setIsAdmin);
     const offTime = eventBus.on("city:clock", setClock);
@@ -174,6 +201,8 @@ export function App() {
       offWallet();
       offPlayers();
       offFishing();
+      offVending();
+      offInteraction();
       offStamina();
       offAdmin();
       offTime();
@@ -190,11 +219,32 @@ export function App() {
     else if (fishing.canFish) sendFishing(room, "cast");
   }, [room, fishing]);
 
-  // M: barrios, H: mochila, C: comandos, Tab: jugadores, F: pescar, 1–9: barra rápida, Esc: cerrar.
+  /** Botón (o F en la explanada): ofrecer la mercadería si estás en la explanada del Centenario, o dejar de vender. */
+  const toggleVending = useCallback(() => {
+    if (!room) return;
+    if (vending.vending) sendVending(room, "stop");
+    else if (vending.canVend) sendVending(room, "start");
+  }, [room, vending]);
+
+  /**
+   * F, en este orden: si estás pescando o vendiendo, lo corta; si tenés algo al lado (tienda,
+   * banco, palmera, parada, otro jugador, un picudo), interactúa con eso; si no, pesca en la
+   * escollera o vende en la explanada del Centenario.
+   */
+  const pressF = useCallback(() => {
+    if (fishing.fishing) toggleFishing();
+    else if (vending.vending) toggleVending();
+    else if (interaction) eventBus.emit("interact:use", null);
+    else if (fishing.canFish) toggleFishing();
+    else if (vending.canVend) toggleVending();
+  }, [fishing, vending, interaction, toggleFishing, toggleVending]);
+
+  // M: barrios, H: mochila, C: comandos, Tab: jugadores, F: interactuar / pescar / vender, 1–9: barra rápida, Esc: cerrar.
+  // Sólo admin: P controles, I maker.
   // No interfiere mientras se escribe en el chat (ahí Tab sigue moviendo el foco).
   useEffect(() => {
     if (!session || trading) return;
-    const toggle = (target: "cities" | "backpack" | "players" | "admin" | "commands") =>
+    const toggle = (target: "cities" | "backpack" | "players" | "admin" | "maker" | "commands") =>
       setPanel((open) => (open === target ? null : target));
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -212,9 +262,12 @@ export function App() {
       } else if (event.code === "KeyP" && isAdmin) {
         event.preventDefault();
         toggle("admin");
+      } else if (event.code === "KeyI" && isAdmin) {
+        event.preventDefault();
+        toggle("maker");
       } else if (event.code === "KeyF") {
         event.preventDefault();
-        toggleFishing();
+        pressF();
       } else if (event.key === "Tab") {
         event.preventDefault();
         toggle("players");
@@ -227,7 +280,7 @@ export function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [session, trading, activateHotbar, toggleFishing, isAdmin]);
+  }, [session, trading, activateHotbar, pressF, isAdmin]);
 
   /**
    * Con el boleto pagado (lo cobra el server): salir de la sala y entrar a la del destino. El
@@ -242,6 +295,8 @@ export function App() {
       setPanel(null);
       setPlayers([]);
       setFishing({ canFish: false, fishing: false });
+      setVending({ canVend: false, vending: false });
+      setInteraction(null);
       setTrading(false);
       try {
         await room.leave(true);
@@ -259,6 +314,12 @@ export function App() {
     },
     [room, session?.cityId],
   );
+
+  // Clic en una parada de ómnibus (y llegaste): lo mismo que la tecla M. No con un intercambio abierto.
+  useEffect(() => {
+    if (trading) return;
+    return eventBus.on("bus-stop:open", () => setPanel("cities"));
+  }, [trading]);
 
   // El server aprobó el boleto: recién ahí se viaja.
   useEffect(() => eventBus.on("travel:approved", ({ cityId }) => void travel(cityId)), [travel]);
@@ -279,8 +340,16 @@ export function App() {
   const openBackpack = useCallback(() => setPanel("backpack"), []);
   const openPlayers = useCallback(() => setPanel("players"), []);
   const openAdmin = useCallback(() => setPanel("admin"), []);
+  const openMaker = useCallback(() => setPanel("maker"), []);
   const openCommands = useCallback(() => setPanel("commands"), []);
   const closePanel = useCallback(() => setPanel(null), []);
+
+  /** Con qué se pesca y se vende: lo de mayor nivel y, entre iguales, lo más gastado (como el server). */
+  const stacks = inventory?.stacks ?? [];
+  const rod = bestRod(stacks.map((stack) => stack.itemId));
+  const rodStack = rod && wornestStack(stacks, rod.id);
+  const cart = bestCart(stacks.map((stack) => stack.itemId));
+  const cartStack = cart && wornestStack(stacks, cart.id);
 
   const openShop = session && shopId ? getCity(session.cityId)?.shops.find((shop) => shop.id === shopId) : undefined;
 
@@ -302,25 +371,46 @@ export function App() {
         onOpenBackpack={openBackpack}
         onOpenCommands={openCommands}
         onOpenAdmin={isAdmin ? openAdmin : undefined}
+        onOpenMaker={isAdmin ? openMaker : undefined}
         onExit={handleExit}
       />
-      <ChatBox room={room} />
-      <FishingWidget
-        canFish={fishing.canFish}
-        fishing={fishing.fishing}
-        hasEnergy={stamina === null || stamina >= FISH_STAMINA_COST}
-        rod={bestRod(inventory?.stacks.map((stack) => stack.itemId) ?? [])}
-        onToggle={toggleFishing}
-      />
+      {/*
+        Lo de abajo de la pantalla. En celulares se apila en una columna (pesca / venta, barra rápida,
+        chat) que sube con el teclado; en escritorio cada uno conserva su lugar (ver .dock en el CSS).
+      */}
+      <div className="dock">
+        <InteractPrompt label={interaction} />
+        <FishingWidget
+          canFish={fishing.canFish}
+          fishing={fishing.fishing}
+          hasEnergy={stamina === null || stamina >= FISH_STAMINA_COST}
+          rod={rod}
+          uses={rodStack ? stackUses(rodStack) : 0}
+          onToggle={toggleFishing}
+          keyHint={fishing.fishing || !interaction}
+        />
+        <VendingWidget
+          canVend={vending.canVend}
+          vending={vending.vending}
+          hasEnergy={stamina === null || stamina >= VEND_STAMINA_COST}
+          cart={cart}
+          uses={cartStack ? stackUses(cartStack) : 0}
+          match={clock === null ? undefined : matchAt(clock)}
+          onToggle={toggleVending}
+          keyHint={vending.vending || !interaction}
+        />
+        {actionContext && (
+          <Hotbar slots={hotbar} context={actionContext} onChange={changeHotbar} onActivate={activateHotbar} />
+        )}
+        <ChatBox room={room} isAdmin={isAdmin} />
+      </div>
+      <CameraButton />
       <Notices />
       <BoxReveal />
       <PlayerMenu room={room} players={players} />
       <TradeInvites room={room} />
       <TradePanel room={room} inventory={inventory} money={money} />
       <Announcement />
-      {actionContext && (
-        <Hotbar slots={hotbar} context={actionContext} onChange={changeHotbar} onActivate={activateHotbar} />
-      )}
       {panel === "commands" && <CommandsPanel isAdmin={isAdmin} onClose={closePanel} />}
       {panel === "cities" && (
         <CityMenu
@@ -340,6 +430,7 @@ export function App() {
           onClose={closePanel}
         />
       )}
+      {panel === "maker" && isAdmin && <MakerPanel room={room} onClose={closePanel} />}
       {panel === "players" && (
         <PlayersPanel cityName={getCity(session.cityId)?.name ?? session.cityId} players={players} onClose={closePanel} />
       )}

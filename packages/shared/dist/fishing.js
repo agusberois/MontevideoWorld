@@ -3,9 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.catchWeight = catchWeight;
 exports.fishChances = fishChances;
 exports.rareChance = rareChance;
+exports.catchValue = catchValue;
 exports.formatPercent = formatPercent;
 exports.rodPerks = rodPerks;
 const items_1 = require("./items");
+const money_1 = require("./money");
 /** Peso de un pez con esta caña: los difíciles ganan `(1 + rareBoost)` por cada nivel de dificultad. */
 function catchWeight(fish, rod) {
     return fish.catchWeight * Math.pow(1 + rod.rareBoost, fish.difficulty - 1);
@@ -21,6 +23,14 @@ function rareChance(rod, minDifficulty = 4) {
         .filter(({ fish }) => fish.difficulty >= minDifficulty)
         .reduce((sum, { chance }) => sum + chance, 0);
 }
+/**
+ * Plata que deja en promedio una tirada con esta caña: el precio de lo que pica en el Mercado del
+ * Puerto (contando que no pique nada y la doble pesca).
+ */
+function catchValue(rod) {
+    const single = fishChances(rod).reduce((sum, { fish, chance }) => sum + chance * fish.price, 0);
+    return single * (1 + rod.doubleChance);
+}
 /** "12,5 %" con una cifra decimal si hace falta. */
 function formatPercent(chance) {
     const value = Math.round(chance * 1000) / 10;
@@ -33,6 +43,7 @@ function rodPerks(rod) {
         perks.push(`Doble pesca (cuando pica): ${formatPercent(rod.doubleChance)}`);
     if (rod.waitFactor < 1)
         perks.push(`Pica ${Math.round((1 - rod.waitFactor) * 100)} % más rápido`);
+    perks.push(`Dura ${rod.maxUses} tiradas y rinde ~${(0, money_1.formatMoney)(Math.floor(catchValue(rod) * rod.maxUses))} en total`);
     return perks;
 }
 //# sourceMappingURL=fishing.js.map

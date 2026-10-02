@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "zap" | "shield" | "sun" | "moon" | "horizon" | "megaphone" | "terminal";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "wand" | "crosshair" | "zap" | "shield" | "sun" | "moon" | "horizon" | "megaphone" | "terminal";
 
 const PATHS: Record<UiIconName, ReactNode> = {
   user: (
@@ -59,6 +59,29 @@ const PATHS: Record<UiIconName, ReactNode> = {
       <path d="M18 4c1.5 3 2 8 1 12" />
       <circle cx={19} cy={18} r={2} />
       <path d="M6 15.5l2.5 2.5" />
+    </>
+  ),
+  cart: (
+    <>
+      <path d="M3 8h13v8H3z" />
+      <path d="M16 10h3l2 4v2h-5" />
+      <circle cx={7} cy={18.5} r={1.8} />
+      <circle cx={17} cy={18.5} r={1.8} />
+      <path d="M6 5h7" />
+    </>
+  ),
+  crosshair: (
+    <>
+      <circle cx={12} cy={12} r={7} />
+      <circle cx={12} cy={12} r={1.5} />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </>
+  ),
+  wand: (
+    <>
+      <path d="M4 20L15 9" />
+      <path d="M15 9l2 2" />
+      <path d="M18 3v3M16.5 4.5h3M20 9v2M19 10h2M12 3v2M11 4h2" />
     </>
   ),
   zap: <path d="M13 2L4 14h7l-1 8 9-12h-7z" />,

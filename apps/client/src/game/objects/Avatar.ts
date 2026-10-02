@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CHAT_BUBBLE_MS, ClothingItem, OutfitIds, STEP_MS, TILE_WIDTH } from "@montevideo-world/shared";
+import { CHAT_BUBBLE_MS, ClothingItem, OutfitIds, STEP_MS, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
@@ -8,6 +8,9 @@ import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
 const NAME_Y = -92;
 /** El globo de chat va encima del nombre. */
 const BUBBLE_OFFSET_Y = -116;
+/** Distintivo de donador: entre el nombre y el globo (que sube lo mismo para no taparlo). */
+const DONOR_TAG_Y = NAME_Y - 17;
+const DONOR_TAG_HEIGHT = 16;
 /**
  * Nombre y globo van en un Container aparte, por encima de todos los edificios
  * (que tapan al cuerpo del avatar cuando pasa por detrás, pero nunca su nombre ni lo que dice).
@@ -15,8 +18,15 @@ const BUBBLE_OFFSET_Y = -116;
 const OVERLAY_DEPTH = 1_000_000;
 const BUBBLE_MAX_WIDTH = 180;
 const BUBBLE_PADDING = 8;
-/** Si el objetivo está más lejos que esto, se teletransporta en lugar de interpolar. */
-const SNAP_DISTANCE = TILE_WIDTH * 3;
+/**
+ * Movimiento: el avatar recorre una cola de tiles, cada uno en STEP_MS (lo mismo que tarda el
+ * server en avanzar un tile), encadenados sin cortes. Si la cola se atrasa (la red trajo varios
+ * tiles juntos) se apura un poco para alcanzar; si se atrasa demasiado, salta.
+ */
+const CATCH_UP_FROM = 2;
+const CATCH_UP_PER_TILE = 0.3;
+const MAX_CATCH_UP = 2.5;
+const MAX_QUEUE = 8;
 
 /** Geometría del cuerpo (px, origen en los pies). */
 const HEAD_Y = -69;
@@ -68,6 +78,13 @@ const FISH_ARM_ANGLE = -1.0;
 const ROD_COLOR = 0x6b4a2f;
 const LINE_COLOR = 0xe8eef2;
 
+/** Vendiendo: cada cuánto ofrece la mercadería levantando el brazo, y cuánto dura el gesto. */
+const VEND_WAVE_EVERY_MS = 2400;
+const VEND_WAVE_MS = 600;
+const VEND_WAVE_ANGLE = -1.3;
+const CART_METAL = 0x9aa1a9;
+const CART_DARK = 0x2b2b30;
+
 export interface AvatarConfig {
   /** Rasgos elegidos al entrar (sexo, piel, pelo), del Schema. */
   look: AvatarLook;
@@ -80,6 +97,8 @@ export interface AvatarConfig {
   isLocal: boolean;
   /** Admin del servidor: el nombre se muestra con estrella y en naranja. */
   isAdmin?: boolean;
+  /** Donador del proyecto: lleva un distintivo dorado arriba del nombre. */
+  isDonor?: boolean;
 }
 
 function itemColor(item: ClothingItem): number {
@@ -115,14 +134,20 @@ export class Avatar extends Phaser.GameObjects.Container {
   /** Caña (fija) y tanza con boya (se redibuja para que se mezca). */
   private readonly rod: Phaser.GameObjects.Graphics;
   private readonly fishingLine: Phaser.GameObjects.Graphics;
+  /** Carrito de vendedor (al costado del avatar, sólo mientras vende). */
+  private readonly cart: Phaser.GameObjects.Graphics;
   private readonly overlay: Phaser.GameObjects.Container;
+  private readonly donorTag: Phaser.GameObjects.Text;
   private bubble: Phaser.GameObjects.Container | null = null;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
 
-  private targetX: number;
-  private targetY: number;
-  /** Píxeles por ms, recalculado en cada paso para llegar justo en STEP_MS. */
-  private speed = 0;
+  /** Tile donde está parado (o el último al que llegó). */
+  private tileX: number;
+  private tileY: number;
+  /** Tiles por recorrer, en orden. */
+  private queue: TilePoint[] = [];
+  /** Paso en curso: de dónde sale (px), a qué tile va y cuánto lleva / dura (ms). */
+  private segment: { fromX: number; fromY: number; to: TilePoint; elapsed: number; duration: number } | null = null;
   private walkTime = 0;
   private idleTime = 0;
   private blinkIn = Phaser.Math.Between(1500, 4000);
@@ -135,12 +160,15 @@ export class Avatar extends Phaser.GameObjects.Container {
   private kickLeft = 0;
   private rodColor = ROD_COLOR;
   private fishTime = 0;
+  private vending = false;
+  private cartKey = "";
+  private vendTime = 0;
 
   constructor(scene: Phaser.Scene, config: AvatarConfig) {
     const start = tileToWorld(config.tileX, config.tileY);
     super(scene, start.x, start.y);
-    this.targetX = start.x;
-    this.targetY = start.y;
+    this.tileX = config.tileX;
+    this.tileY = config.tileY;
     this.look = config.look;
 
     const shadow = scene.add.ellipse(0, 0, 34, 14, 0x000000, 0.3);
@@ -187,6 +215,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.rod = scene.add.graphics().setVisible(false);
     this.drawRod(ROD_COLOR);
     this.fishingLine = scene.add.graphics().setVisible(false);
+    this.cart = scene.add.graphics().setVisible(false);
 
     this.body_ = scene.add.container(0, 0, [
       ...this.legs,
@@ -198,6 +227,7 @@ export class Avatar extends Phaser.GameObjects.Container {
       this.fishingLine,
       this.rod,
       this.arms[1],
+      this.cart,
     ]);
     this.setOutfit(config.outfit);
 
@@ -212,27 +242,87 @@ export class Avatar extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5, 1);
 
+    this.donorTag = scene.add
+      .text(0, DONOR_TAG_Y, "♥ DONADOR", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "9px",
+        fontStyle: "bold",
+        color: "#3a2600",
+        backgroundColor: "#ffd166",
+        padding: { x: 5, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setVisible(Boolean(config.isDonor));
+
     this.add([shadow, this.body_]);
-    this.overlay = scene.add.container(this.x, this.y, [label]);
+    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, label]);
     this.syncDepth();
     scene.add.existing(this);
   }
 
-  /** Llamado cuando el Schema cambia x/y. */
-  setTargetTile(tileX: number, tileY: number) {
-    const target = tileToWorld(tileX, tileY);
-    if (target.x === this.targetX && target.y === this.targetY) return;
-    this.targetX = target.x;
-    this.targetY = target.y;
+  /** Donador o no (lo marca el admin; puede cambiar estando conectado). */
+  setDonor(donor: boolean) {
+    this.donorTag.setVisible(donor);
+  }
 
-    const distance = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
-    if (distance > SNAP_DISTANCE) {
-      this.setPosition(target.x, target.y);
-      this.speed = 0;
-    } else {
-      this.speed = distance / STEP_MS;
-      this.face(target.x - this.x, target.y - this.y);
+  /** Altura del globo de chat: más arriba si tiene el distintivo de donador. */
+  private bubbleY(): number {
+    return BUBBLE_OFFSET_Y - (this.donorTag.visible ? DONOR_TAG_HEIGHT : 0);
+  }
+
+  /**
+   * Suma un tile al final del recorrido (lo que llega del Schema, paso a paso). Si no es vecino del
+   * último (un salto: entró, viajó, el server lo corrigió lejos) se teletransporta.
+   */
+  pushTile(tileX: number, tileY: number) {
+    const end = this.endTile();
+    if (end.x === tileX && end.y === tileY) return;
+    if (Math.max(Math.abs(end.x - tileX), Math.abs(end.y - tileY)) > 1 || this.queue.length >= MAX_QUEUE) {
+      this.snapTo(tileX, tileY);
+      return;
     }
+    this.queue.push({ x: tileX, y: tileY });
+  }
+
+  /**
+   * Reemplaza lo que falta recorrer por `tiles` (el paso en curso se termina igual, para no cortar
+   * el movimiento a mitad de camino). Lo usa la predicción del avatar propio.
+   */
+  setPath(tiles: readonly TilePoint[]) {
+    this.queue = [];
+    for (const tile of tiles) this.pushTile(tile.x, tile.y);
+  }
+
+  /** Aparece directamente en el tile, sin caminar. */
+  snapTo(tileX: number, tileY: number) {
+    const world = tileToWorld(tileX, tileY);
+    this.queue = [];
+    this.segment = null;
+    this.tileX = tileX;
+    this.tileY = tileY;
+    this.setPosition(world.x, world.y);
+  }
+
+  /** El tile al que está yendo ahora (o en el que está, si está quieto). */
+  headingTile(): TilePoint {
+    return this.segment ? this.segment.to : { x: this.tileX, y: this.tileY };
+  }
+
+  /** Dónde termina el recorrido pendiente. */
+  endTile(): TilePoint {
+    return this.queue[this.queue.length - 1] ?? this.headingTile();
+  }
+
+  /** Arranca el paso hacia el próximo tile de la cola. `carry` = ms que sobraron del paso anterior. */
+  private startSegment(carry: number) {
+    const to = this.queue.shift();
+    if (!to) return;
+    // Atrasado (varios tiles en cola): se apura, así alcanza al server sin saltos.
+    const behind = Math.max(0, this.queue.length + 1 - CATCH_UP_FROM);
+    const factor = Math.min(MAX_CATCH_UP, 1 + behind * CATCH_UP_PER_TILE);
+    this.segment = { fromX: this.x, fromY: this.y, to, elapsed: carry, duration: STEP_MS / factor };
+    const target = tileToWorld(to.x, to.y);
+    this.face(target.x - this.x, target.y - this.y);
   }
 
   /** Llamado cuando el Schema cambia la ropa puesta. Sólo redibuja si algo cambió. */
@@ -266,6 +356,100 @@ export class Avatar extends Phaser.GameObjects.Container {
     if (!fishing) this.fishingLine.clear();
   }
 
+  /**
+   * Vendiendo en la explanada (o no), con un carrito de `color` y nivel `tier`: conservadora (1),
+   * carrito con ruedas y olla (2), con vitrina y sombrilla (3) o parrillita humeante (4).
+   */
+  setVending(vending: boolean, color = 0x2a7bd1, tier = 1) {
+    const key = `${color}|${tier}`;
+    if (vending && key !== this.cartKey) {
+      this.cartKey = key;
+      this.drawCart(color, tier);
+    }
+    if (vending && !this.vending) this.vendTime = 0;
+    this.vending = vending;
+    this.cart.setVisible(vending);
+  }
+
+  private drawCart(color: number, tier: number) {
+    const g = this.cart.clear();
+    const dark = shade(color, -35);
+    g.fillStyle(0x000000, 0.25);
+    g.fillEllipse(33, 1, 34, 8);
+
+    if (tier === 1) {
+      // Conservadora: caja de color con tapa blanca y manija.
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(21, -18, 22, 18, 3);
+      g.fillStyle(0xf4f4f4, 1);
+      g.fillRoundedRect(20, -22, 24, 5, 2);
+      g.lineStyle(2, CART_DARK, 1);
+      g.strokeRoundedRect(27, -27, 10, 6, 2);
+      g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
+      g.strokeRoundedRect(21, -18, 22, 18, 3);
+      return;
+    }
+
+    // Carrito: caja sobre dos ruedas, con manija atrás y una franja clara al frente.
+    g.lineStyle(2.5, CART_METAL, 1);
+    g.lineBetween(46, -24, 52, -32);
+    g.fillStyle(color, 1);
+    g.fillRoundedRect(18, -28, 28, 20, 3);
+    g.fillStyle(0xffffff, 0.85);
+    g.fillRect(20, -20, 24, 3);
+    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
+    g.strokeRoundedRect(18, -28, 28, 20, 3);
+    for (const x of [24, 40]) {
+      g.fillStyle(CART_DARK, 1);
+      g.fillCircle(x, -4, 4.5);
+      g.fillStyle(CART_METAL, 1);
+      g.fillCircle(x, -4, 1.6);
+    }
+
+    if (tier === 2) {
+      // Olla de cobre con la garrapiñada.
+      g.fillStyle(0xb87333, 1);
+      g.fillEllipse(32, -29, 18, 7);
+      g.fillStyle(0x8a4f1d, 1);
+      g.fillEllipse(32, -30, 13, 4);
+      return;
+    }
+
+    // Sombrilla a rayas sobre un parante (niveles 3 y 4).
+    g.lineStyle(2, CART_METAL, 1);
+    g.lineBetween(32, -28, 32, -64);
+    const stripes = 6;
+    for (let i = 0; i < stripes; i++) {
+      const x0 = 12 + (i * 40) / stripes;
+      const x1 = x0 + 40 / stripes;
+      g.fillStyle(i % 2 === 0 ? color : 0xffffff, 1);
+      g.fillTriangle(32, -72, x0, -60, x1, -60);
+    }
+
+    if (tier === 3) {
+      // Vitrina con los panchos.
+      g.fillStyle(0xbfe3ee, 0.75);
+      g.fillRect(20, -38, 24, 10);
+      g.fillStyle(0xd98b4a, 1);
+      for (const x of [24, 31, 38]) g.fillRoundedRect(x, -33, 5, 3, 1.5);
+      g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+      g.strokeRect(20, -38, 24, 10);
+      return;
+    }
+
+    // Parrilla con chorizos y humo.
+    g.fillStyle(dark, 1);
+    g.fillRect(17, -31, 30, 3);
+    g.lineStyle(1, 0x777777, 1);
+    for (let x = 19; x <= 45; x += 4) g.lineBetween(x, -31, x, -28);
+    g.fillStyle(0x8c2f1f, 1);
+    for (const x of [21, 29, 37]) g.fillRoundedRect(x, -34, 7, 3, 1.5);
+    g.fillStyle(0xdddddd, 0.45);
+    g.fillCircle(26, -42, 4);
+    g.fillCircle(30, -48, 5);
+    g.fillCircle(36, -53, 4);
+  }
+
   /** Caña en la mano: vara del color de la caña, puntera y reel oscuros. */
   private drawRod(color: number) {
     this.rodColor = color;
@@ -278,14 +462,30 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.rod.fillCircle(30, -47, 2.5);
   }
 
-  /** Interpolación a velocidad constante hacia el último tile recibido del servidor. */
-  tick(delta: number) {
-    const dx = this.targetX - this.x;
-    const dy = this.targetY - this.y;
-    const distance = Math.hypot(dx, dy);
+  /** Avanza el recorrido: interpola cada paso (lerp) y encadena el siguiente con el tiempo que sobró. */
+  private advance(delta: number) {
+    if (!this.segment && this.queue.length > 0) this.startSegment(0);
+    while (this.segment) {
+      const segment = this.segment;
+      segment.elapsed += delta;
+      delta = 0;
+      const target = tileToWorld(segment.to.x, segment.to.y);
+      const t = Math.min(1, segment.elapsed / segment.duration);
+      this.setPosition(Phaser.Math.Linear(segment.fromX, target.x, t), Phaser.Math.Linear(segment.fromY, target.y, t));
+      if (t < 1) return;
+      // Llegó a ese tile: el tiempo que sobró ya cuenta para el próximo, sin frenar entre tiles.
+      this.tileX = segment.to.x;
+      this.tileY = segment.to.y;
+      this.segment = null;
+      if (this.queue.length > 0) this.startSegment(segment.elapsed - segment.duration);
+    }
+  }
 
-    if (distance < 0.5 || this.speed === 0) {
-      this.setPosition(this.targetX, this.targetY);
+  /** Movimiento y poses de cada frame. */
+  tick(delta: number) {
+    this.advance(delta);
+
+    if (!this.segment) {
       this.walkTime = 0;
       this.idleTime += delta;
       if (this.sitting) {
@@ -294,14 +494,13 @@ export class Avatar extends Phaser.GameObjects.Container {
         this.poseLimbs(delta, SIT_DROP, SIT_LEG_SCALE, SIT_ARM_ANGLE);
       } else if (this.fishing) {
         this.poseFishing(delta);
+      } else if (this.vending) {
+        this.poseVending(delta);
       } else {
         if (this.idleTime >= ARRIVE_GRACE_MS) this.setBackView(false);
         this.poseLimbs(delta, 0, 1, 0);
       }
     } else {
-      const step = Math.min(distance, this.speed * delta);
-      this.x += (dx / distance) * step;
-      this.y += (dy / distance) * step;
       this.walkTime += delta;
       this.idleTime = 0;
       this.animateWalk();
@@ -408,6 +607,16 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillCircle(72 + sway, 10 + bob, 2.5);
     g.fillStyle(0xffffff, 1);
     g.fillCircle(72 + sway, 8 + bob, 1.4);
+  }
+
+  /** De frente con el carrito a la derecha; cada tanto levanta el brazo para ofrecer. */
+  private poseVending(delta: number) {
+    this.setBackView(false);
+    this.body_.scaleX = 1;
+    this.poseLimbs(delta, 0, 1, 0);
+    this.vendTime += delta;
+    const phase = this.vendTime % VEND_WAVE_EVERY_MS;
+    if (phase < VEND_WAVE_MS) this.arms[1].rotation = Math.sin((phase / VEND_WAVE_MS) * Math.PI) * VEND_WAVE_ANGLE;
   }
 
   private updateBlink(delta: number) {
@@ -770,18 +979,19 @@ export class Avatar extends Phaser.GameObjects.Container {
 
     label.setPosition(0, -BUBBLE_PADDING);
 
-    const bubble = scene.add.container(0, BUBBLE_OFFSET_Y, [background, label]);
+    const bubbleY = this.bubbleY();
+    const bubble = scene.add.container(0, bubbleY, [background, label]);
     bubble.setAlpha(0);
     this.overlay.add(bubble);
     this.bubble = bubble;
 
-    scene.tweens.add({ targets: bubble, alpha: 1, y: BUBBLE_OFFSET_Y - 4, duration: 150 });
+    scene.tweens.add({ targets: bubble, alpha: 1, y: bubbleY - 4, duration: 150 });
 
     this.bubbleTimer = scene.time.delayedCall(CHAT_BUBBLE_MS, () => {
       scene.tweens.add({
         targets: bubble,
         alpha: 0,
-        y: BUBBLE_OFFSET_Y - 16,
+        y: bubbleY - 16,
         duration: 300,
         onComplete: () => {
           if (this.bubble === bubble) this.bubble = null;

@@ -1,6 +1,6 @@
 import { InventoryMessage, ItemDefinition, OutfitIds, fishStamina } from "@montevideo-world/shared";
 import { eventBus } from "./eventBus";
-import { CityRoom, sendBoxOpen, sendEquip, sendFishEat, sendFishing } from "./network";
+import { CityRoom, sendBoxOpen, sendEquip, sendFishEat, sendFishing, sendVending } from "./network";
 
 /**
  * Qué hace cada tipo de ítem al usarlo desde la barra rápida (tecla 1–9 o clic). Es el único lugar
@@ -13,6 +13,8 @@ export interface ItemActionContext {
   inventory: InventoryMessage | null;
   /** Si el avatar propio está en la escollera y si tiene la línea en el agua. */
   fishing: { canFish: boolean; fishing: boolean };
+  /** Si el avatar propio está en la explanada del Centenario y si está vendiendo. */
+  vending: { canVend: boolean; vending: boolean };
 }
 
 export interface ItemAction {
@@ -33,7 +35,7 @@ export function isWorn(item: ItemDefinition, outfit: OutfitIds | null): boolean 
 
 /** La acción de este ítem ahora mismo, o null si no se puede usar (p. ej. no lo tenés). */
 export function itemAction(item: ItemDefinition, context: ItemActionContext): ItemAction | null {
-  const { room, outfit, inventory, fishing } = context;
+  const { room, outfit, inventory, fishing, vending } = context;
   const inBag = countInBag(inventory, item.id) > 0;
 
   switch (item.category) {
@@ -48,6 +50,15 @@ export function itemAction(item: ItemDefinition, context: ItemActionContext): It
       return {
         label: "pescar (parado en la escollera)",
         run: () => eventBus.emit("notice", { text: "Para pescar parate en la Escollera Sarandí." }),
+      };
+    case "cart":
+      // Se vende con el mejor carrito de la mochila; el atajo es lo mismo que la tecla F en la explanada.
+      if (!inBag) return null;
+      if (vending.vending) return { label: "dejar de vender", run: () => sendVending(room, "stop") };
+      if (vending.canVend) return { label: "vender", run: () => sendVending(room, "start") };
+      return {
+        label: "vender (en la explanada del Centenario)",
+        run: () => eventBus.emit("notice", { text: "Para vender parate en la Explanada del Centenario, en Tres Cruces." }),
       };
     case "fish":
       return inBag

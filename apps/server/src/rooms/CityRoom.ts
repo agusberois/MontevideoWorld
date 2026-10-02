@@ -10,6 +10,7 @@ import {
   InventoryMessage,
   JoinOptions,
   MAX_PLAYERS_PER_ROOM,
+  MAX_ROUTE_LENGTH,
   MessageType,
   MoveMessage,
   randomAppearance,
@@ -78,12 +79,25 @@ import {
   TradeRespondMessage,
   TradeStateMessage,
   normalizeTradeOffer,
+  VEND_STAMINA_COST,
+  VendResultMessage,
+  VendStartedMessage,
+  bestCart,
+  matchAt,
+  ToolItem,
+  TradeOffer,
+  AdminGiveMessage,
+  AdminNearbyMessage,
+  MAKER_MAX_QUANTITY,
+  MAKER_RANGE,
 } from "@montevideo-world/shared";
 import { GameState, Player } from "@montevideo-world/shared/schema";
 import { CommandHost, runCommand } from "../commands";
 import { rollCatch } from "../fishing";
+import { rollSale } from "../vending";
 import { WeevilManager } from "../weevils";
 import { SessionOwner, activeSessions, playerStore, travelTickets } from "../playerStore";
+import { PrivateMailbox, playerDirectory } from "../directory";
 import { isAdminName } from "../env";
 import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
@@ -106,7 +120,7 @@ const DUPLICATE_SESSION_CODE = 4001;
 /** Canal de presence por el que viajan los anuncios del admin a todas las salas (todos los barrios). */
 const ANNOUNCEMENT_TOPIC = "announcements";
 
-export class CityRoom extends Room<GameState> implements SessionOwner {
+export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMailbox {
   maxClients = MAX_PLAYERS_PER_ROOM;
 
   /** Estado sólo de servidor: no se sincroniza, por eso no vive en el Schema. */
@@ -124,6 +138,10 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
   private weevils!: WeevilManager;
   /** Línea en el agua: el timer que resuelve la pesca de cada jugador. */
   private fishingTimers = new Map<string, Delayed>();
+  /** Vendiendo: el timer que resuelve la venta de cada jugador. */
+  private vendingTimers = new Map<string, Delayed>();
+  /** Partido que se está jugando en el Centenario (sólo en el barrio con zona de venta), para anunciarlo. */
+  private currentMatch: string | null = null;
   private lastChatAt = new Map<string, number>();
   /** Clave secreta de cada sesión: con ella se guarda y se recupera su progreso (`playerStore`). */
   private playerKeys = new Map<string, string>();
@@ -154,7 +172,11 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     this.onMessage(MessageType.FishCast, (client) => this.handleFishCast(client));
     this.onMessage(MessageType.FishStop, (client) => this.stopFishing(client.sessionId));
     this.onMessage(MessageType.FishEat, (client, message: unknown) => this.handleFishEat(client, message));
+    this.onMessage(MessageType.VendStart, (client) => this.handleVendStart(client));
+    this.onMessage(MessageType.VendStop, (client) => this.stopVending(client.sessionId));
     this.onMessage(MessageType.AdminSetTime, (client, message: unknown) => this.handleAdminSetTime(client, message));
+    this.onMessage(MessageType.AdminNearbyRequest, (client) => this.sendNearby(client));
+    this.onMessage(MessageType.AdminGive, (client, message: unknown) => this.handleAdminGive(client, message));
     this.onMessage(MessageType.BoxOpen, (client, message: unknown) => this.handleBoxOpen(client, message));
     this.onMessage(MessageType.TravelRequest, (client, message: unknown) => this.handleTravelRequest(client, message));
     this.onMessage(MessageType.PalmShake, (client, message: unknown) => this.handlePalmShake(client, message));
@@ -176,6 +198,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     // Guardado periódico: si el proceso se corta, se pierde como mucho este intervalo.
     this.clock.setInterval(() => this.saveAllPlayers(), SAVE_INTERVAL_MS);
     // La hora del juego se copia al Schema una vez por segundo (avanza ~1 minuto del juego por segundo).
+    // Si arranca con un partido en juego, no se anuncia (nadie estaba para oírlo).
+    this.currentMatch = this.map.city.vending ? (matchAt(gameClock.minuteOfDay())?.name ?? null) : null;
     this.syncClock();
     this.clock.setInterval(() => this.syncClock(), 1000);
   }
@@ -215,6 +239,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     const saved = key ? playerStore.get(key) : undefined;
 
     if (saved) {
+      player.donor = saved.donor === true;
       for (const slot of ITEM_SLOTS) {
         const item = getClothing(saved.outfit?.[slot] ?? "");
         player[slot] = item && item.slot === slot ? item.id : "";
@@ -236,12 +261,14 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     this.staminas.set(client.sessionId, new Stamina());
 
     this.state.players.set(client.sessionId, player);
+    playerDirectory.add({ sessionId: client.sessionId, name: player.name, cityName: this.map.city.name, mailbox: this });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
     console.log(`[CityRoom ${this.roomId} ${this.map.city.id}] join ${client.sessionId} (${player.name})`);
   }
 
   onLeave(client: Client) {
-    this.stopFishing(client.sessionId);
+    playerDirectory.remove(client.sessionId);
+    this.stopActivities(client.sessionId);
     this.cancelTrade(client.sessionId, "leave");
     this.savePlayer(client.sessionId);
     const key = this.playerKeys.get(client.sessionId);
@@ -274,6 +301,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
       money: wallet.balance,
       inventory: inventory.snapshot(),
       outfit: { hat: player.hat, top: player.top, bottom: player.bottom, shoes: player.shoes },
+      donor: player.donor,
     });
   }
 
@@ -286,7 +314,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
    * clave antes de cerrarla para que su `onLeave` no pise después lo que haga la sesión nueva.
    */
   evictDuplicate(sessionId: string) {
-    this.stopFishing(sessionId);
+    this.stopActivities(sessionId);
     this.cancelTrade(sessionId, "leave");
     this.savePlayer(sessionId);
     this.playerKeys.delete(sessionId);
@@ -306,10 +334,18 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     if (!player || !isMoveMessage(message)) return;
     if (!this.map.isWalkable(message.x, message.y)) return;
     if (!this.staminas.get(client.sessionId)?.has(WALK_STAMINA_COST)) return this.notifyExhausted(client);
-    // Cualquier otra acción recoge la línea.
-    this.stopFishing(client.sessionId);
+    // Cualquier otra acción recoge la línea (o deja de vender).
+    this.stopActivities(client.sessionId);
 
-    const path = this.map.findPath({ x: player.x, y: player.y }, { x: message.x, y: message.y });
+    // El recorrido que propone el cliente (el que ya está mostrando), si arranca desde acá y es
+    // válido paso a paso; si no, el camino más corto. Igual se avanza un tile por tick: no da ventaja.
+    const from = { x: player.x, y: player.y };
+    const target = { x: message.x, y: message.y };
+    const route = message.path ? this.map.followRoute(from, message.path.slice(0, MAX_ROUTE_LENGTH)) : null;
+    let path = route ?? this.map.findPath(from, target);
+    // Si el recorrido no llega al destino (se cortó o se invalidó a mitad), el resto lo completa el server.
+    const end = path[path.length - 1] ?? from;
+    if (route && (end.x !== target.x || end.y !== target.y)) path = [...path, ...this.map.findPath(end, target)];
     if (path.length === 0) {
       // Clic en el propio tile o destino inalcanzable: frena donde está.
       this.paths.delete(client.sessionId);
@@ -333,7 +369,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     if (!player || !isTileMessage(message)) return;
     const bench = this.map.benchAt(message.x, message.y);
     if (!bench || this.isBenchTaken(bench, client.sessionId)) return;
-    this.stopFishing(client.sessionId);
+    this.stopActivities(client.sessionId);
     if (player.sitting && player.x === bench.x && player.y === bench.y) return;
 
     const approach = this.map.benchApproach(bench);
@@ -357,7 +393,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     const shop = this.map.shopAt(message.x, message.y);
     if (!shop) return;
 
-    this.stopFishing(client.sessionId);
+    this.stopActivities(client.sessionId);
     this.pendingSits.delete(client.sessionId);
     if (this.map.isNearShop(shop, player.x, player.y)) {
       this.paths.delete(client.sessionId);
@@ -403,7 +439,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     const trade = this.validateTrade(client, message);
     if (!trade) return;
     const { shop, item, wallet, inventory } = trade;
-    const price = sellPrice(item);
+    // Una herramienta gastada vale menos: se vende la más usada (la que sale primero).
+    const price = sellPrice(item, inventory.nextUses(item.id)[0]);
 
     if (!shop.buys.includes(item.category)) {
       return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORY_LABELS[item.category]}.`);
@@ -425,7 +462,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     const trade = this.validateTrade(client, message);
     if (!trade || !isShopHaggleMessage(message)) return;
     const { shop, item, wallet, inventory } = trade;
-    const base = sellPrice(item);
+    const base = sellPrice(item, inventory.nextUses(item.id)[0]);
 
     if (!shop.buys.includes(item.category)) {
       return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORY_LABELS[item.category]}.`);
@@ -671,11 +708,26 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
       const message: TradeStateMessage = {
         partnerId,
         partnerName: this.state.players.get(partnerId)?.name ?? "",
-        mine: { offer: trade.offers.get(id)!, accepted: trade.accepted.has(id) },
-        theirs: { offer: trade.offers.get(partnerId)!, accepted: trade.accepted.has(partnerId) },
+        mine: { offer: trade.offers.get(id)!, accepted: trade.accepted.has(id), uses: this.offerUses(id, trade.offers.get(id)!) },
+        theirs: {
+          offer: trade.offers.get(partnerId)!,
+          accepted: trade.accepted.has(partnerId),
+          uses: this.offerUses(partnerId, trade.offers.get(partnerId)!),
+        },
       };
       client.send(MessageType.TradeState, message);
     }
+  }
+
+  /** Usos de cada herramienta ofrecida (las que se pasarían: las más gastadas primero). */
+  private offerUses(sessionId: string, offer: TradeOffer): Record<string, number[]> {
+    const inventory = this.inventories.get(sessionId);
+    const uses: Record<string, number[]> = {};
+    for (const { itemId, quantity } of offer.items) {
+      const list = inventory?.nextUses(itemId, quantity) ?? [];
+      if (list.length > 0) uses[itemId] = list;
+    }
+    return uses;
   }
 
   private closeTrade(client: Client, ok: boolean, text: string) {
@@ -684,14 +736,17 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
   }
 
   /**
-   * Tirar la línea: hay que estar parado (sin camino pendiente) en la escollera, no estar pescando y
-   * tener una caña en la mochila (se usa la de mayor nivel). El resultado se sortea ahora con esa
-   * caña y se resuelve en `durationMs`; moverse antes lo cancela.
+   * Tirar la línea: hay que estar parado (sin camino pendiente) en la escollera, no estar pescando,
+   * tener una caña en la mochila (se usa la de mayor nivel) y energía. El resultado se sortea ahora
+   * con esa caña y se resuelve en `durationMs`; moverse antes lo cancela. La energía y el uso de la
+   * caña se cobran recién al terminar (`finishAttempt`): si se corta, no se pierde nada.
    */
   private handleFishCast(client: Client) {
     const player = this.state.players.get(client.sessionId);
     const inventory = this.inventories.get(client.sessionId);
-    if (!player || !inventory || player.fishing || this.paths.has(client.sessionId)) return;
+    if (!player || !inventory || player.fishing || player.vending || this.paths.has(client.sessionId)) return;
+    // Pescar gasta la caña: con un intercambio abierto cambiaría algo que quizás está ofrecido.
+    if (this.trades.get(client.sessionId)) return this.fishResult(client, false, "Terminá el intercambio antes de pescar.");
     if (!this.map.canFishAt(player.x, player.y)) {
       return this.fishResult(client, false, "Para pescar tenés que estar parado en la Escollera Sarandí.");
     }
@@ -700,7 +755,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
       return this.fishResult(client, false, "Necesitás una caña para pescar. Comprá una en Pesca Sarandí, la tienda frente a la escollera.");
     }
 
-    if (!this.staminas.get(client.sessionId)?.spend(FISH_STAMINA_COST)) {
+    if (!this.staminas.get(client.sessionId)?.has(FISH_STAMINA_COST)) {
       return this.fishResult(client, false, "Estás muy cansado para pescar. Descansá un rato: sentarte en un banco ayuda.");
     }
 
@@ -718,7 +773,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
       this.fishingTimers.delete(client.sessionId);
       player.fishing = false;
       player.rod = "";
-      this.resolveCatch(client, player, fish);
+      const finished = this.finishAttempt(client, rod, FISH_STAMINA_COST, "En Pesca Sarandí, frente a la escollera, venden cañas nuevas.");
+      if (finished) this.resolveCatch(client, player, fish);
+      else this.fishResult(client, false, "Ya no tenés esa caña: la tirada no cuenta.");
     }, durationMs);
     this.fishingTimers.set(client.sessionId, timer);
   }
@@ -780,6 +837,114 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     }
   }
 
+  /**
+   * Cobra una tirada / un intento que llegó al final: un uso de la herramienta (si se rompe, avisa
+   * dónde comprar otra, `whereToBuy`) y la energía. Lo que se corta antes (moverse, salir…) no llega
+   * acá y no cuesta nada. Devuelve false si la herramienta ya no está (se intercambió mientras tanto):
+   * entonces no cuenta y tampoco se cobra.
+   */
+  private finishAttempt(client: Client, tool: ToolItem, staminaCost: number, whereToBuy: string): boolean {
+    const inventory = this.inventories.get(client.sessionId);
+    const left = inventory?.wear(tool.id) ?? null;
+    if (left === null) return false;
+    this.staminas.get(client.sessionId)?.drain(staminaCost);
+    this.sendInventory(client);
+    if (left === 0) this.notice(client, `💥 Se rompió tu ${tool.name.toLowerCase()}: era su último uso. ${whereToBuy}`);
+    return true;
+  }
+
+  /** Cortar lo que esté haciendo el jugador (pescar o vender): moverse, sentarse, ir a una tienda, salir. */
+  private stopActivities(sessionId: string) {
+    this.stopFishing(sessionId);
+    this.stopVending(sessionId);
+  }
+
+  /**
+   * Ofrecer la mercadería: hay que estar parado (sin camino pendiente) en la zona de venta, no estar
+   * vendiendo ni pescando, tener un carrito en la mochila (se usa el de mayor nivel) y energía. La
+   * venta se sortea ahora (con partido rinde más) y se resuelve en `durationMs`; moverse antes la
+   * cancela. Como al pescar, energía y uso del carrito se cobran recién al terminar.
+   */
+  private handleVendStart(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    const inventory = this.inventories.get(client.sessionId);
+    const zone = this.map.city.vending;
+    if (!player || !inventory || player.vending || player.fishing || this.paths.has(client.sessionId)) return;
+    // Vender gasta el carrito: con un intercambio abierto cambiaría algo que quizás está ofrecido.
+    if (this.trades.get(client.sessionId)) return this.vendResult(client, false, "Terminá el intercambio antes de vender.");
+    if (!zone || !this.map.canVendAt(player.x, player.y)) {
+      return this.vendResult(client, false, "Para vender tenés que estar en la Explanada del Centenario, en Tres Cruces.");
+    }
+    const cart = bestCart(inventory.snapshot().map((stack) => stack.itemId));
+    if (!cart) {
+      return this.vendResult(client, false, "Necesitás un carrito para vender. Comprá uno en el Kiosco del Parque, al lado del estadio.");
+    }
+    if (!this.staminas.get(client.sessionId)?.has(VEND_STAMINA_COST)) {
+      return this.vendResult(client, false, "Estás muy cansado para vender. Descansá un rato: sentarte en un banco ayuda.");
+    }
+
+    const match = matchAt(this.state.minuteOfDay);
+    const sale = rollSale(cart, Boolean(match));
+    player.sitting = false;
+    player.vending = true;
+    player.cart = cart.id;
+    this.pendingSits.delete(client.sessionId);
+    this.pendingShops.delete(client.sessionId);
+    this.pendingPalms.delete(client.sessionId);
+    const started: VendStartedMessage = { durationMs: sale.durationMs };
+    client.send(MessageType.VendStarted, started);
+
+    const timer = this.clock.setTimeout(() => {
+      this.vendingTimers.delete(client.sessionId);
+      player.vending = false;
+      player.cart = "";
+      const finished = this.finishAttempt(client, cart, VEND_STAMINA_COST, "En el Kiosco del Parque, al lado del estadio, venden carritos nuevos.");
+      if (finished) this.resolveSale(client, player, cart.product, sale.earned, sale.giftId, Boolean(match));
+      else this.vendResult(client, false, "Ya no tenés ese carrito: el intento no cuenta.");
+    }, sale.durationMs);
+    this.vendingTimers.set(client.sessionId, timer);
+  }
+
+  /** Se cobra la venta y, si el hincha regaló algo y entra en la mochila, va ahí. */
+  private resolveSale(client: Client, player: Player, product: string, earned: number, giftId: string | undefined, match: boolean) {
+    if (earned === 0) {
+      const misses = ["Nadie te compró esta vez.", "Un hincha miró, dudó y siguió de largo.", "Pasaron de largo: probá de nuevo."];
+      return this.vendResult(client, false, misses[Math.floor(Math.random() * misses.length)]);
+    }
+    const wallet = this.wallets.get(client.sessionId);
+    if (!wallet?.credit(earned)) return this.vendResult(client, false, "No podés tener más plata.");
+    player.sales += 1;
+    this.sendWallet(client);
+
+    const gift = giftId ? getItem(giftId) : undefined;
+    const kept = gift && this.inventories.get(client.sessionId)?.add(gift.id);
+    if (kept) this.sendInventory(client);
+    const extra = !gift
+      ? ""
+      : kept
+        ? ` ¡Y de contento te regaló ${gift.name.toLowerCase()}!`
+        : ` Te quería regalar ${gift.name.toLowerCase()}, pero no tenías lugar en la mochila.`;
+    const bonus = match ? " (¡precio de partido!)" : "";
+    this.vendResult(client, true, `Le vendiste ${product} a un hincha: +${formatMoney(earned)}${bonus}.${extra}`, earned, kept ? gift.id : undefined);
+    if (kept) this.broadcastSystem(`🎁 Un hincha le regaló ${gift.name.toLowerCase()} a ${player.name} en el Centenario`);
+  }
+
+  /** Dejar de vender (moverse, sentarse, ir a una tienda, salir o cancelar a mano). */
+  private stopVending(sessionId: string) {
+    this.vendingTimers.get(sessionId)?.clear();
+    this.vendingTimers.delete(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (player) {
+      player.vending = false;
+      player.cart = "";
+    }
+  }
+
+  private vendResult(client: Client, ok: boolean, text: string, earned = 0, giftId?: string) {
+    const message: VendResultMessage = { ok, text, earned, giftId };
+    client.send(MessageType.VendResult, message);
+  }
+
   private fishResult(client: Client, ok: boolean, text: string, itemIds?: string[]) {
     const message: FishResultMessage = { ok, text, itemIds };
     client.send(MessageType.FishResult, message);
@@ -788,6 +953,72 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
   private syncClock() {
     const minute = Math.floor(gameClock.minuteOfDay());
     if (this.state.minuteOfDay !== minute) this.state.minuteOfDay = minute;
+    this.announceMatch(minute);
+  }
+
+  /** En el barrio con zona de venta se avisa por el chat cuando empieza y termina un partido. */
+  private announceMatch(minute: number) {
+    const zone = this.map.city.vending;
+    if (!zone) return;
+    const match = matchAt(minute)?.name ?? null;
+    if (match === this.currentMatch) return;
+    if (match) {
+      this.broadcastSystem(`⚽ ¡Arrancó ${match} en el Estadio Centenario! En la ${zone.name} se vende el doble.`);
+    } else if (this.currentMatch) {
+      this.broadcastSystem(`⚽ Terminó ${this.currentMatch}. Los hinchas se van del Centenario.`);
+    }
+    this.currentMatch = match;
+  }
+
+  /** Maker (sólo admin): los jugadores a `MAKER_RANGE` tiles o menos, del más cerca al más lejos. */
+  private sendNearby(client: Client) {
+    const admin = this.state.players.get(client.sessionId);
+    if (!admin?.admin) return;
+    const players: AdminNearbyMessage["players"] = [];
+    for (const [sessionId, other] of this.state.players) {
+      if (sessionId === client.sessionId) continue;
+      const distance = Math.max(Math.abs(other.x - admin.x), Math.abs(other.y - admin.y));
+      if (distance <= MAKER_RANGE) players.push({ sessionId, name: other.name, distance });
+    }
+    players.sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name, "es"));
+    const message: AdminNearbyMessage = { players };
+    client.send(MessageType.AdminNearby, message);
+  }
+
+  /**
+   * Maker (sólo admin): crea ítems del catálogo en la mochila propia o en la de un jugador cercano
+   * (se vuelve a medir la distancia acá: la lista del cliente puede estar vieja). Las herramientas
+   * salen nuevas; lo que no entra en la mochila no se crea. Queda en el log del server.
+   */
+  private handleAdminGive(client: Client, message: unknown) {
+    const admin = this.state.players.get(client.sessionId);
+    if (!admin?.admin || !isAdminGiveMessage(message)) return;
+    const item = getItem(message.itemId);
+    if (!item) return;
+
+    const targetId = message.targetId ?? client.sessionId;
+    const target = this.state.players.get(targetId);
+    const targetClient = this.clients.getById(targetId);
+    const inventory = this.inventories.get(targetId);
+    if (!target || !targetClient || !inventory) return this.notice(client, "Ese jugador ya no está en el barrio.");
+    if (Math.max(Math.abs(target.x - admin.x), Math.abs(target.y - admin.y)) > MAKER_RANGE) {
+      this.sendNearby(client);
+      return this.notice(client, `${target.name} se alejó: tiene que estar a ${MAKER_RANGE} tiles o menos.`);
+    }
+
+    let made = 0;
+    while (made < message.quantity && inventory.add(item.id)) made += 1;
+    if (made === 0) {
+      return this.notice(client, targetId === client.sessionId ? "No tenés lugar en la mochila." : `${target.name} no tiene lugar en la mochila.`);
+    }
+    this.sendInventory(targetClient);
+    console.log(`[Maker] ${admin.name} creó ${made} × ${item.id} para ${target.name}`);
+
+    const what = `${made} × ${item.name}`;
+    const full = made < message.quantity ? ` (${message.quantity - made} no entraron: mochila llena)` : "";
+    if (targetId === client.sessionId) return this.notice(client, `🛠️ Creaste ${what}${full}.`);
+    this.notice(client, `🛠️ Le creaste ${what} a ${target.name}${full}.`);
+    this.notice(targetClient, `🎁 ${admin.name} te dio ${what}.`);
   }
 
   /** Sólo un admin puede mover el reloj del juego; desde ahí sigue solo y lo ven todos (Schema). */
@@ -850,6 +1081,27 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
       }
       return found;
     },
+    findOnline: (name) => playerDirectory.find(name),
+    sendPrivate: (client, player, to, text) => {
+      const message: ChatBroadcastMessage = {
+        id: this.nextMessageId(),
+        kind: "private",
+        sessionId: client.sessionId,
+        name: player.name,
+        text,
+        timestamp: Date.now(),
+      };
+      to.mailbox.deliverPrivate(to.sessionId, message);
+      // Copia para quien lo mandó, con el destinatario (otro id: puede estar en el mismo barrio).
+      client.send(MessageType.Chat, { ...message, id: this.nextMessageId(), to: to.name } satisfies ChatBroadcastMessage);
+    },
+    setDonor: (client, donor) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return false;
+      player.donor = donor;
+      this.savePlayer(client.sessionId);
+      return this.playerKeys.has(client.sessionId);
+    },
     giveMoney: (client, amount) => {
       if (!this.wallets.get(client.sessionId)?.credit(amount)) return false;
       this.sendWallet(client);
@@ -890,7 +1142,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     const player = this.state.players.get(client.sessionId);
     if (!player || !isTileMessage(message) || !this.map.isPalm(message.x, message.y)) return;
     const palm = { x: message.x, y: message.y };
-    this.stopFishing(client.sessionId);
+    this.stopActivities(client.sessionId);
     this.pendingSits.delete(client.sessionId);
     this.pendingShops.delete(client.sessionId);
     if (this.map.isNextTo(palm, player.x, player.y)) {
@@ -948,6 +1200,11 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     if (prize.category === "fish" && prize.difficulty >= 4) {
       this.broadcastSystem(`🎁 ${player.name} abrió ${box.name.toLowerCase()} y le salió ${prizeName}`);
     }
+  }
+
+  /** Mensaje privado (`/mensaje`) para un jugador de esta sala: sólo a él. */
+  deliverPrivate(sessionId: string, message: ChatBroadcastMessage) {
+    this.clients.getById(sessionId)?.send(MessageType.Chat, message);
   }
 
   /** Lo llama presence en cada sala: reenvía el anuncio a sus jugadores. */
@@ -1012,13 +1269,13 @@ export class CityRoom extends Room<GameState> implements SessionOwner {
     this.recoverStamina();
   }
 
-  /** Quieto se recupera energía; sentado en un banco, mucho más rápido. Pescando, no. */
+  /** Quieto se recupera energía; sentado en un banco, mucho más rápido. Pescando o vendiendo, no. */
   private recoverStamina() {
     const seconds = STEP_MS / 1000;
     for (const [sessionId, player] of this.state.players) {
       const stamina = this.staminas.get(sessionId);
       if (!stamina) continue;
-      if (!this.paths.has(sessionId) && !player.fishing) {
+      if (!this.paths.has(sessionId) && !player.fishing && !player.vending) {
         stamina.recover((player.sitting ? SIT_STAMINA_REGEN : IDLE_STAMINA_REGEN) * seconds);
       }
       if (player.stamina !== stamina.rounded) player.stamina = stamina.rounded;
@@ -1067,7 +1324,12 @@ function isTileMessage(message: unknown): message is MoveMessage | SitMessage {
   return Number.isInteger(x) && Number.isInteger(y);
 }
 
-const isMoveMessage = isTileMessage;
+/** Un tile (x, y enteros) y, si viene, un recorrido de tiles (se valida paso a paso en `followRoute`). */
+function isMoveMessage(message: unknown): message is MoveMessage {
+  if (!isTileMessage(message)) return false;
+  const { path } = message as unknown as Record<string, unknown>;
+  return path === undefined || (Array.isArray(path) && path.length <= MAX_ROUTE_LENGTH * 2 && path.every(isTileMessage));
+}
 
 function isTravelMessage(message: unknown): message is TravelMessage {
   return typeof message === "object" && message !== null && typeof (message as Record<string, unknown>).cityId === "string";
@@ -1083,6 +1345,18 @@ function isFishEatMessage(message: unknown): message is FishEatMessage {
 
 function isBoxOpenMessage(message: unknown): message is BoxOpenMessage {
   return typeof message === "object" && message !== null && typeof (message as Record<string, unknown>).itemId === "string";
+}
+
+function isAdminGiveMessage(message: unknown): message is AdminGiveMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { itemId, quantity, targetId } = message as Record<string, unknown>;
+  return (
+    typeof itemId === "string" &&
+    Number.isInteger(quantity) &&
+    (quantity as number) >= 1 &&
+    (quantity as number) <= MAKER_MAX_QUANTITY &&
+    (targetId === undefined || typeof targetId === "string")
+  );
 }
 
 function isAdminSetTimeMessage(message: unknown): message is AdminSetTimeMessage {

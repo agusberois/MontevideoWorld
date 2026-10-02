@@ -1,4 +1,5 @@
 import { FISH, FishItem, RodItem } from "./items";
+import { formatMoney } from "./money";
 
 /**
  * Probabilidades de pesca según la caña. Las comparten el server (que sortea) y el cliente (que
@@ -29,6 +30,15 @@ export function rareChance(rod: RodItem, minDifficulty = 4): number {
     .reduce((sum, { chance }) => sum + chance, 0);
 }
 
+/**
+ * Plata que deja en promedio una tirada con esta caña: el precio de lo que pica en el Mercado del
+ * Puerto (contando que no pique nada y la doble pesca).
+ */
+export function catchValue(rod: RodItem): number {
+  const single = fishChances(rod).reduce((sum, { fish, chance }) => sum + chance * fish.price, 0);
+  return single * (1 + rod.doubleChance);
+}
+
 /** "12,5 %" con una cifra decimal si hace falta. */
 export function formatPercent(chance: number): string {
   const value = Math.round(chance * 1000) / 10;
@@ -40,5 +50,6 @@ export function rodPerks(rod: RodItem): string[] {
   const perks = [`Peces raros: ${formatPercent(rareChance(rod))}`, `Que no pique nada: ${formatPercent(rod.nothingChance)}`];
   if (rod.doubleChance > 0) perks.push(`Doble pesca (cuando pica): ${formatPercent(rod.doubleChance)}`);
   if (rod.waitFactor < 1) perks.push(`Pica ${Math.round((1 - rod.waitFactor) * 100)} % más rápido`);
+  perks.push(`Dura ${rod.maxUses} tiradas y rinde ~${formatMoney(Math.floor(catchValue(rod) * rod.maxUses))} en total`);
   return perks;
 }

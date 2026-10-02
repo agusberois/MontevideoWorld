@@ -61,8 +61,9 @@ export function CityMenu({ currentCityId, money, traveling, onTravel, onClose }:
           ))}
         </ul>
         <footer>
-          🚌 Moverse entre barrios cuesta un boleto de STM ({formatMoney(TRAVEL_FARE)}). Apretá <kbd>M</kbd> o <kbd>Esc</kbd>{" "}
-          para cerrar
+          🚌 Moverse entre barrios cuesta un boleto de STM ({formatMoney(TRAVEL_FARE)}). <span className="key-hint">
+            Apretá <kbd>M</kbd> o <kbd>Esc</kbd> para cerrar
+          </span>
         </footer>
       </section>
     </div>

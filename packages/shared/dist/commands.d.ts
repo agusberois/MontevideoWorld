@@ -23,6 +23,11 @@ export declare const COMMANDS: readonly [{
     readonly description: "Lista los comandos que podés usar.";
     readonly role: "user";
 }, {
+    readonly name: "mensaje";
+    readonly usage: "/mensaje <jugador> <texto>";
+    readonly description: "Mensaje privado a un jugador conectado, esté en el barrio que esté. Sólo lo ve él.";
+    readonly role: "user";
+}, {
     readonly name: "post";
     readonly usage: "/post <mensaje>";
     readonly description: "Anuncio en el medio de la pantalla para todos los barrios.";
@@ -36,6 +41,11 @@ export declare const COMMANDS: readonly [{
     readonly name: "plata";
     readonly usage: "/plata <monto> [jugador]";
     readonly description: "Carga plata a un jugador del barrio (sin nombre, a vos).";
+    readonly role: "admin";
+}, {
+    readonly name: "donador";
+    readonly usage: "/donador <si|no> [jugador]";
+    readonly description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).";
     readonly role: "admin";
 }];
 export type CommandName = (typeof COMMANDS)[number]["name"];

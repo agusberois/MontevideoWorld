@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MessageType = void 0;
+exports.MAKER_MAX_QUANTITY = exports.MAKER_RANGE = exports.MAX_ROUTE_LENGTH = exports.MessageType = void 0;
 exports.isPlayerKey = isPlayerKey;
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 exports.MessageType = {
@@ -37,10 +37,24 @@ exports.MessageType = {
     FishStarted: "fish:started",
     /** Servidor → Cliente: cómo terminó la pesca. */
     FishResult: "fish:result",
+    /** Cliente → Servidor: ofrecer la mercadería (hay que estar en la explanada del Centenario con un carrito). */
+    VendStart: "vend:start",
+    /** Cliente → Servidor: dejar de vender sin esperar al cliente. */
+    VendStop: "vend:stop",
+    /** Servidor → Cliente: estás vendiendo; en `durationMs` se sabe si alguien compró. */
+    VendStarted: "vend:started",
+    /** Servidor → Cliente: cómo salió la venta. */
+    VendResult: "vend:result",
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     Notice: "notice",
     /** Cliente (admin) → Servidor: mover el reloj del juego. */
     AdminSetTime: "admin:time",
+    /** Cliente (admin) → Servidor: pedir los jugadores cercanos (para el maker). */
+    AdminNearbyRequest: "admin:nearby:get",
+    /** Servidor → Cliente (admin): jugadores a `MAKER_RANGE` tiles o menos. */
+    AdminNearby: "admin:nearby",
+    /** Cliente (admin) → Servidor: crear ítems del catálogo en la mochila propia o de un jugador cercano. */
+    AdminGive: "admin:give",
     /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
     Announcement: "announcement",
     /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */
@@ -78,4 +92,10 @@ exports.MessageType = {
 function isPlayerKey(value) {
     return typeof value === "string" && /^[A-Za-z0-9_-]{32,64}$/.test(value);
 }
+/** Largo máximo de `MoveMessage.path` (lo de más se ignora y el server completa con `findPath`). */
+exports.MAX_ROUTE_LENGTH = 256;
+/** Tiles (en cualquier dirección, contando diagonales) a los que el admin puede darle ítems a otro con el maker. */
+exports.MAKER_RANGE = 6;
+/** Máximo de unidades por pedido del maker. */
+exports.MAKER_MAX_QUANTITY = 50;
 //# sourceMappingURL=messages.js.map

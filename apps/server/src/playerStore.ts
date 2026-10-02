@@ -11,6 +11,8 @@ export interface PlayerRecord {
   money: number;
   inventory: InventoryStack[];
   outfit: OutfitIds;
+  /** Donador del proyecto (lo marca el admin con /donador). Los guardados viejos no lo tienen. */
+  donor?: boolean;
   updatedAt: string;
 }
 

@@ -1,12 +1,14 @@
 /**
  * Stamina (energía) del jugador. Las actividades la gastan y descansar la recupera, así nadie puede
- * caminar ni pescar sin parar. La lleva el servidor; el cliente sólo la muestra.
+ * caminar, pescar ni vender sin parar. La lleva el servidor; el cliente sólo la muestra.
  */
 export declare const MAX_STAMINA = 100;
 /** Gasto por cada tile caminado (con el tanque lleno alcanza para ~165 pasos). */
 export declare const WALK_STAMINA_COST = 0.6;
 /** Gasto por cada vez que se tira la línea en la escollera. */
 export declare const FISH_STAMINA_COST = 10;
+/** Gasto por cada vez que se ofrece la mercadería en la explanada del Centenario. */
+export declare const VEND_STAMINA_COST = 6;
 /** Recuperación por segundo quieto (parado, sin pescar). */
 export declare const IDLE_STAMINA_REGEN = 2;
 /** Recuperación por segundo sentado en un banco: descansar de verdad rinde mucho más. */

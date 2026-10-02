@@ -2,14 +2,18 @@
 /**
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
- * mejoran la pesca) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
+ * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_LABELS = exports.ITEMS = exports.BOXES = exports.MYSTERY_BOX_ID = exports.RODS = exports.BASIC_ROD_ID = exports.FISH = exports.CLOTHING = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_LABELS = exports.ITEMS = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.FISH = exports.CLOTHING = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
 exports.isRod = isRod;
 exports.bestRod = bestRod;
 exports.rodStars = rodStars;
+exports.isCart = isCart;
+exports.bestCart = bestCart;
+exports.cartStars = cartStars;
 exports.isBox = isBox;
 exports.lootChances = lootChances;
 exports.rollLoot = rollLoot;
@@ -17,6 +21,11 @@ exports.isClothing = isClothing;
 exports.getClothing = getClothing;
 exports.fishWithArticle = fishWithArticle;
 exports.difficultyStars = difficultyStars;
+exports.isTool = isTool;
+exports.maxStack = maxStack;
+exports.stackUses = stackUses;
+exports.wornestStack = wornestStack;
+exports.usesLabel = usesLabel;
 exports.getItem = getItem;
 exports.isItemSlot = isItemSlot;
 exports.buyPrice = buyPrice;
@@ -68,11 +77,19 @@ exports.FISH = fish([
 exports.BASIC_ROD_ID = "cana-basica";
 /** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
 exports.RODS = [
-    { id: exports.BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1 },
-    { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9 },
-    { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8 },
-    { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7 },
+    { id: exports.BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1, maxUses: 40 },
+    { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9, maxUses: 80 },
+    { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8, maxUses: 110 },
+    { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7, maxUses: 150 },
 ];
+const cart = (items) => items.map((item) => ({ ...item, category: "cart" }));
+/** Carritos de venta, de la conservadora a la parrillita. Se compran en el Kiosco del Parque. */
+exports.CARTS = cart([
+    { id: "conservadora", name: "Conservadora", tier: 1, color: "#2a7bd1", price: 35, product: "un refresco", cry: "¡Refresco, refresquito frío!", saleMin: 3, saleMax: 6, noSaleChance: 0.25, giftChance: 0.01, waitFactor: 1, maxUses: 40 },
+    { id: "carrito-garrapinada", name: "Carrito de garrapiñada", tier: 2, color: "#c1440e", price: 160, product: "una garrapiñada", cry: "¡Garrapiñada, garrapiñada!", saleMin: 6, saleMax: 10, noSaleChance: 0.2, giftChance: 0.02, waitFactor: 0.9, maxUses: 80 },
+    { id: "carrito-panchos", name: "Carrito de panchos", tier: 3, color: "#e9b10a", price: 480, product: "un pancho", cry: "¡Panchos, panchos calentitos!", saleMin: 10, saleMax: 16, noSaleChance: 0.15, giftChance: 0.035, waitFactor: 0.8, maxUses: 110 },
+    { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 1250, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 16, saleMax: 26, noSaleChance: 0.1, giftChance: 0.05, waitFactor: 0.7, maxUses: 150 },
+]);
 /** Caja que da el comando de admin `/box`. */
 exports.MYSTERY_BOX_ID = "caja-sorpresa";
 /**
@@ -99,11 +116,12 @@ exports.BOXES = [
         ],
     },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.FISH, ...exports.RODS, ...exports.BOXES];
+exports.ITEMS = [...exports.CLOTHING, ...exports.FISH, ...exports.RODS, ...exports.CARTS, ...exports.BOXES];
 exports.ITEM_CATEGORY_LABELS = {
     clothing: "ropa",
     fish: "pescado",
     rod: "cañas",
+    cart: "carritos",
     box: "cajas",
 };
 function isRod(item) {
@@ -121,6 +139,23 @@ function bestRod(itemIds) {
 }
 /** "★★☆☆" para mostrar el nivel de una caña. */
 function rodStars(tier) {
+    return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+function isCart(item) {
+    return item?.category === "cart";
+}
+/** El carrito de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+function bestCart(itemIds) {
+    let best;
+    for (const id of itemIds) {
+        const item = getItem(id);
+        if (isCart(item) && (!best || item.tier > best.tier))
+            best = item;
+    }
+    return best;
+}
+/** "★★☆☆" para mostrar el nivel de un carrito. */
+function cartStars(tier) {
     return "★".repeat(tier) + "☆".repeat(4 - tier);
 }
 function isBox(item) {
@@ -175,6 +210,39 @@ exports.STARTER_KIT = {
 /** Casilleros de la mochila. Cada casillero guarda una pila de prendas iguales. */
 exports.INVENTORY_CAPACITY = 20;
 exports.MAX_STACK = 99;
+function isTool(item) {
+    return item?.category === "rod" || item?.category === "cart";
+}
+/** Cuántas unidades entran en un casillero: las herramientas van de a una (cada una con su desgaste). */
+function maxStack(item) {
+    return isTool(item) ? 1 : exports.MAX_STACK;
+}
+/** Usos que le quedan a una pila (una herramienta sin `uses` está nueva). */
+function stackUses(stack) {
+    const item = getItem(stack.itemId);
+    return isTool(item) ? (stack.uses ?? item.maxUses) : 0;
+}
+/**
+ * La unidad de `itemId` que se gasta, se vende o se intercambia primero: la más usada. Así una
+ * herramienta se termina antes de empezar la siguiente igual. Para lo que no es herramienta, la
+ * primera pila.
+ */
+function wornestStack(stacks, itemId) {
+    let found;
+    for (const stack of stacks) {
+        if (stack.itemId !== itemId)
+            continue;
+        if (!found || stackUses(stack) < stackUses(found))
+            found = stack;
+    }
+    return found;
+}
+/** Con estos usos o menos, la UI avisa que la herramienta está por romperse. */
+exports.LOW_USES = 5;
+/** "32/40 usos" para mostrar el desgaste de una herramienta. */
+function usesLabel(item, uses) {
+    return `${uses}/${item.maxUses} usos`;
+}
 function getItem(id) {
     return exports.ITEMS.find((item) => item.id === id);
 }
@@ -194,10 +262,15 @@ function buyPrice(item) {
         return Math.ceil(item.price * exports.FISH_BUY_MARKUP);
     return item.price;
 }
-/** Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. */
-function sellPrice(item) {
+/**
+ * Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. Una
+ * herramienta gastada vale en proporción a los `uses` que le quedan.
+ */
+function sellPrice(item, uses) {
     if (item.category === "fish")
         return item.price;
-    return Math.max(1, Math.floor(item.price * exports.SELL_RATIO));
+    const half = item.price * exports.SELL_RATIO;
+    const wear = isTool(item) && uses !== undefined ? Math.min(1, Math.max(0, uses / item.maxUses)) : 1;
+    return Math.max(1, Math.floor(half * wear));
 }
 //# sourceMappingURL=items.js.map

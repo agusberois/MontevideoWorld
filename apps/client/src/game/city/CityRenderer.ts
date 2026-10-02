@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { PieceSpec, benchSpec, houseSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec } from "./buildings";
+import { PieceSpec, benchSpec, busStopSpec, houseSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
 import { ROOF_SPOTS, landmarkPieces } from "./landmarks";
@@ -93,6 +93,11 @@ export class CityRenderer {
       }
       this.addSign(`Tienda · ${shop.name}`, shop.area, signZ, "#9ef0c9", "rgba(20, 60, 48, 0.88)");
     }
+    for (const stop of this.map.city.busStops) {
+      const spec = busStopSpec(stop.facing);
+      this.placePiece(stop, spec);
+      this.addSign(`Parada · ${stop.name}`, { x: stop.x, y: stop.y, width: 1, height: 1 }, spec.maxZ, "#ffffff", "rgba(29, 95, 168, 0.88)");
+    }
     this.drawPlaceLabels();
     if (logo) this.drawLogoSign(logo);
   }
@@ -141,7 +146,7 @@ export class CityRenderer {
 
   /**
    * Luces que se prenden de noche: la farola de la escollera, las vidrieras de las tiendas,
-   * el cartel "MW" y un farol junto a cada banco.
+   * el cartel "MW", un farol junto a cada banco y el refugio de cada parada de ómnibus.
    */
   nightLights(): NightLight[] {
     const lights: NightLight[] = [];
@@ -160,6 +165,9 @@ export class CityRenderer {
     if (logo) lights.push({ x: logo.roof.x, y: logo.roof.y - LOGO_POST_HEIGHT - LOGO_SIZE / 2, radius: 60, color: 0x9fd3ff });
     for (const bench of this.map.city.benches) {
       lights.push({ ...isoPoint(bench.x, bench.y, 34), radius: 55, color: 0xffcf7a });
+    }
+    for (const stop of this.map.city.busStops) {
+      lights.push({ ...isoPoint(stop.x, stop.y, 30), radius: 50, color: 0xdff1ff });
     }
     return lights;
   }

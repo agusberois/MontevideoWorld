@@ -86,12 +86,24 @@ export interface Bench {
 }
 
 /**
+ * Parada de ómnibus: ocupa un tile (no caminable). Al hacerle clic el jugador camina hasta ella y
+ * se abre la lista de barrios (lo mismo que la tecla M). `facing` es hacia dónde mira la parada
+ * (la calle); el refugio queda del lado opuesto. Sólo sur o este, como los bancos.
+ */
+export interface BusStop {
+  name: string;
+  x: number;
+  y: number;
+  facing: "south" | "east";
+}
+
+/**
  * Tienda: un área cuadrada no caminable a la que se hace clic para comprar y vender.
  * Se compra lo que está en `stock` (a `ItemDefinition.price`) y se le vende lo de la mochila
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "none";
 
 export interface Shop {
   id: string;
@@ -107,6 +119,15 @@ export interface Shop {
   stock: readonly string[];
   /** Categorías que compra. */
   buys: readonly ItemCategory[];
+}
+
+/**
+ * Zona donde se puede vender con un carrito (p. ej. la explanada del Estadio Centenario): los
+ * tiles caminables dentro de `areas`.
+ */
+export interface VendingZone {
+  name: string;
+  areas: readonly TileRect[];
 }
 
 /** Nombre pintado sobre el piso (plazas, calles, costa). */
@@ -125,7 +146,10 @@ export interface CityDefinition {
   spawnArea: TileRect;
   landmarks: readonly Landmark[];
   benches: readonly Bench[];
+  busStops: readonly BusStop[];
   shops: readonly Shop[];
+  /** Dónde se vende con carrito (sólo en algunos barrios). */
+  vending?: VendingZone;
   placeLabels: readonly PlaceLabel[];
   /** Edificio emblemático (`Landmark.id`) sobre cuyo techo va el cartel con el logo de Montevideo World. */
   logoSign?: { landmarkId: string };

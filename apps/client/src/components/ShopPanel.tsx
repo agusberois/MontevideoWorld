@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { ItemDefinition } from "@montevideo-world/shared";
 import {
   InventoryMessage,
-  MAX_STACK,
+  InventoryStack,
   Shop,
   ShopResultMessage,
   buyPrice,
@@ -17,7 +17,14 @@ import {
   maxHagglePrice,
   rodPerks,
   rodStars,
+  cartPerks,
+  cartStars,
+  isTool,
+  maxStack,
   sellPrice,
+  stackUses,
+  usesLabel,
+  wornestStack,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { CityRoom, sendShopHaggle, sendShopTrade } from "@/lib/network";
@@ -51,13 +58,21 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
   const stacks = inventory?.stacks ?? [];
   const capacity = inventory?.capacity ?? 0;
   const canStore = (itemId: string) =>
-    stacks.some((stack) => stack.itemId === itemId && stack.quantity < MAX_STACK) || stacks.length < capacity;
+    stacks.some((stack) => stack.itemId === itemId && stack.quantity < maxStack(getItem(itemId))) || stacks.length < capacity;
   const stock = shop.stock.map(getItem).filter((item) => item !== undefined);
-  /** Lo de la mochila que esta tienda compra (ropa en la ropería, pescado en la pescadería). */
-  const sellable = stacks.filter((stack) => {
+  /**
+   * Lo de la mochila que esta tienda compra (ropa en la ropería, pescado en la pescadería), una fila
+   * por ítem. Las herramientas van de a una por casillero: se juntan y se muestra el precio de la
+   * que se vende primero (la más gastada, como hace el server).
+   */
+  const sellable: InventoryStack[] = [];
+  for (const stack of stacks) {
     const item = getItem(stack.itemId);
-    return item !== undefined && shop.buys.includes(item.category);
-  });
+    if (!item || !shop.buys.includes(item.category)) continue;
+    const row = sellable.find((other) => other.itemId === stack.itemId);
+    if (row) row.quantity += stack.quantity;
+    else sellable.push({ itemId: stack.itemId, quantity: stack.quantity, uses: wornestStack(stacks, stack.itemId)?.uses });
+  }
 
   function trade(action: Tab, itemId: string) {
     setResult(null);
@@ -124,6 +139,14 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
                         <span className="shop-perks">{rodPerks(item).join(" · ")}</span>
                       </>
                     )}
+                    {item.category === "cart" && (
+                      <>
+                        <span className="shop-stars" title={`Nivel ${item.tier} de 4`}>
+                          {cartStars(item.tier)}
+                        </span>
+                        <span className="shop-perks">{cartPerks(item).join(" · ")}</span>
+                      </>
+                    )}
                   </span>
                   <span className="shop-price">{formatMoney(price)}</span>
                   <button
@@ -143,19 +166,28 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
               const item = getItem(stack.itemId);
               if (!item) return null;
               const open = haggling === item.id;
+              /** Usos que le quedan a la herramienta que se vende (undefined si no es herramienta). */
+              const uses = isTool(item) ? stackUses(stack) : undefined;
               return (
                 <li key={stack.itemId} className={open ? "haggling" : undefined}>
                   <ItemIcon item={item} size={36} />
                   <span className="shop-item-name">
                     {item.name}
                     {stack.quantity > 1 && <small> x{stack.quantity}</small>}
+                    {isTool(item) && uses !== undefined && (
+                      <span className="shop-uses">
+                        {" "}
+                        · {usesLabel(item, uses)}
+                        {stack.quantity > 1 ? " (se vende la más gastada)" : ""}
+                      </span>
+                    )}
                     {item.category === "fish" && (
                       <span className="shop-stars" title={`Dificultad ${item.difficulty} de 5`}>
                         {difficultyStars(item.difficulty)}
                       </span>
                     )}
                   </span>
-                  <span className="shop-price">{formatMoney(sellPrice(item))}</span>
+                  <span className="shop-price">{formatMoney(sellPrice(item, uses))}</span>
                   <div className="shop-sell-actions">
                     <button type="button" onClick={() => trade("sell", item.id)}>
                       Vender
@@ -173,6 +205,7 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
                   {open && (
                     <HaggleForm
                       item={item}
+                      base={sellPrice(item, uses)}
                       onHaggle={(price) => {
                         setResult(null);
                         sendShopHaggle(room, shop.id, item.id, price);
@@ -192,6 +225,8 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
               <>No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.</>
             ) : shop.buys.includes("rod") ? (
               <>No tenés cañas en la mochila para vender.</>
+            ) : shop.buys.includes("cart") ? (
+              <>No tenés carritos en la mochila para vender.</>
             ) : (
               <>
                 No tenés ropa en la mochila para vender. Lo que tenés puesto no se vende: sacátelo primero desde la
@@ -204,14 +239,24 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
         <footer>
           {tab === "sell" && shop.buys.includes("clothing") ? "Por la ropa usada te pagan la mitad. " : ""}
           {tab === "sell" && shop.buys.includes("fish") ? "El pescado se paga a precio completo. " : ""}
-          {tab === "sell" && shop.buys.includes("rod") ? "Por una caña usada te pagan la mitad. " : ""}
+          {tab === "sell" && shop.buys.includes("rod")
+            ? "Por una caña te pagan la mitad de su precio, menos cuanto más gastada esté. "
+            : ""}
+          {tab === "sell" && shop.buys.includes("cart")
+            ? "Por un carrito te pagan la mitad de su precio, menos cuanto más gastado esté. "
+            : ""}
           {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "rod")
-            ? "Pescás siempre con la mejor caña que tengas en la mochila. "
+            ? "Pescás siempre con la mejor caña que tengas en la mochila; cada tirada la gasta y al final se rompe. "
+            : ""}
+          {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "cart")
+            ? "Vendés siempre con el mejor carrito de la mochila, parado en la Explanada del Centenario; cada intento lo gasta y al final se rompe. "
             : ""}
           {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "fish")
             ? `Comprar pescado sale ${Math.round((FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado. `
             : ""}
-          Apretá <kbd>Esc</kbd> para cerrar
+          <span className="key-hint">
+            Apretá <kbd>Esc</kbd> para cerrar
+          </span>
         </footer>
       </section>
     </div>
@@ -220,6 +265,8 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
 
 interface HaggleFormProps {
   item: ItemDefinition;
+  /** Lo que pagan vendiendo normal (para una herramienta, según su desgaste). */
+  base: number;
   onHaggle: (price: number) => void;
 }
 
@@ -227,8 +274,7 @@ interface HaggleFormProps {
  * Regatear la venta de un ítem: elegís cuánto pedir (más que el precio normal, hasta el tope) y se
  * ve en vivo la probabilidad de que acepten. Es todo o nada: si no aceptan, perdés el ítem.
  */
-function HaggleForm({ item, onHaggle }: HaggleFormProps) {
-  const base = sellPrice(item);
+function HaggleForm({ item, base, onHaggle }: HaggleFormProps) {
   const max = maxHagglePrice(base);
   const [price, setPrice] = useState(() => Math.min(max, Math.max(base + 1, Math.ceil(base * 1.5))));
   const chance = haggleChance(base, price);

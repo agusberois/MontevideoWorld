@@ -38,7 +38,7 @@ export function CommandsPanel({ isAdmin, onClose }: CommandsPanelProps) {
         <p className="commands-intro">Escribilos en el chat. No se ven en el chat: la respuesta te llega como aviso.</p>
         <CommandList title="Para todos" commands={forEveryone} />
         {adminOnly.length > 0 && <CommandList title="Sólo admin" commands={adminOnly} admin />}
-        <footer>
+        <footer className="key-hint">
           Apretá <kbd>C</kbd> o <kbd>Esc</kbd> para cerrar
         </footer>
       </section>

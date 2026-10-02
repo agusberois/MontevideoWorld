@@ -1,4 +1,4 @@
-import { Bench, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS, getCity } from "./cities";
+import { Bench, BusStop, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS, getCity } from "./cities";
 
 const DIRECTIONS: readonly TilePoint[] = [
   { x: 1, y: 0 },
@@ -46,6 +46,11 @@ export class CityMap {
       if (this.inBounds(bench.x, bench.y)) this.walkable[bench.y * this.width + bench.x] = 0;
     }
 
+    // Las paradas de ómnibus tampoco: se llega a un tile pegado.
+    for (const stop of city.busStops) {
+      if (this.inBounds(stop.x, stop.y)) this.walkable[stop.y * this.width + stop.x] = 0;
+    }
+
     // Las tiendas son edificios: se atiende desde un tile pegado a su área.
     for (const shop of city.shops) {
       const { x, y, width, height } = shop.area;
@@ -58,6 +63,12 @@ export class CityMap {
   /** Se pesca parado en la escollera. */
   canFishAt(x: number, y: number): boolean {
     return this.tileAt(x, y) === TileChar.Jetty;
+  }
+
+  /** Se vende con carrito parado en la zona de venta del barrio (si tiene una). */
+  canVendAt(x: number, y: number): boolean {
+    const zone = this.city.vending;
+    return Boolean(zone && this.isWalkable(x, y) && zone.areas.some((area) => inRect(area, x, y)));
   }
 
   /**
@@ -145,6 +156,10 @@ export class CityMap {
     return candidates.find((tile) => this.isWalkable(tile.x, tile.y));
   }
 
+  busStopAt(x: number, y: number): BusStop | undefined {
+    return this.city.busStops.find((stop) => stop.x === x && stop.y === y);
+  }
+
   inBounds(x: number, y: number): boolean {
     return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.width && y < this.height;
   }
@@ -156,6 +171,43 @@ export class CityMap {
 
   isWalkable(x: number, y: number): boolean {
     return this.inBounds(x, y) && this.walkable[y * this.width + x] === 1;
+  }
+
+  /** ¿Se puede pasar de `from` a `to` en un paso? (vecino caminable; en diagonal sin cortar esquinas, como `findPath`) */
+  isStep(from: TilePoint, to: TilePoint): boolean {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) !== 1 || !this.isWalkable(to.x, to.y)) return false;
+    return dx === 0 || dy === 0 || (this.isWalkable(from.x + dx, from.y) && this.isWalkable(from.x, from.y + dy));
+  }
+
+  /**
+   * Recorrido que propone el cliente (`MoveMessage.path`), desde donde está `from`: si `from` está
+   * en el recorrido se sigue desde ahí (la primera vez que aparece: si el recorrido va y vuelve,
+   * el server hace la ida y la vuelta, igual que lo que ya muestra el cliente); si no, desde el primer tile del
+   * recorrido que le quede al lado (por la latencia el server pudo haber dado un paso de más por el
+   * recorrido anterior: así vuelve solo). Se corta en el primer paso inválido (no vecino, no
+   * caminable o cortando una esquina). Devuelve los tiles a recorrer, o null si el recorrido no
+   * pasa por al lado de `from` (ahí se usa `findPath`).
+   */
+  followRoute(from: TilePoint, route: readonly TilePoint[]): TilePoint[] | null {
+    const here = route.findIndex((tile) => tile.x === from.x && tile.y === from.y);
+    let rest: readonly TilePoint[];
+    if (here >= 0) {
+      rest = route.slice(here + 1);
+    } else {
+      const next = route.findIndex((tile) => this.isStep(from, tile));
+      if (next < 0) return null;
+      rest = route.slice(next);
+    }
+    const steps: TilePoint[] = [];
+    let previous = from;
+    for (const tile of rest) {
+      if (!this.isStep(previous, tile)) break;
+      steps.push({ x: tile.x, y: tile.y });
+      previous = tile;
+    }
+    return steps;
   }
 
   walkableTilesIn({ x, y, width, height }: TileRect): TilePoint[] {

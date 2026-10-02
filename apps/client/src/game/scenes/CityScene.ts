@@ -1,20 +1,27 @@
 import * as Phaser from "phaser";
 import { getStateCallbacks } from "colyseus.js";
 import {
+  BusStop,
   CityMap,
   MessageType,
   MoveMessage,
   OutfitIds,
   ShopVisitMessage,
   SitMessage,
+  TilePoint,
+  WALK_STAMINA_COST,
   WEEVIL_BITE_STAMINA,
+  WEEVIL_KICK_RANGE,
   WeevilKickMessage,
   getCityMap,
   getItem,
+  isCart,
 } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { PlayerSummary, eventBus } from "@/lib/eventBus";
 import type { CityRoom } from "@/lib/network";
+import { CameraControl, DRAG_SLOP, FOLLOW_OFFSET_Y, isTyping } from "../CameraControl";
+import { LocalMover, WASD_KEYS } from "../movement";
 import { CityRenderer, FLOOR_DEPTH, LOGO_TEXTURE } from "../city/CityRenderer";
 import { DayNight } from "../city/DayNight";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
@@ -27,25 +34,50 @@ const HOVER_COLOR = 0xffffff;
 const BENCH_HOVER_COLOR = 0xffd166;
 const SHOP_HOVER_COLOR = 0x9ef0c9;
 const PALM_HOVER_COLOR = 0xff8a5c;
+const BUS_STOP_HOVER_COLOR = 0x6cb4ff;
 /** Por encima de avatares y edificios: los textos flotantes ("-2", "¡Plaf!") se leen siempre. */
 const FLOAT_TEXT_DEPTH = 1_000_500;
+/** Cada cuánto se busca qué hay al lado para interactuar con F (y se actualiza el cartel). */
+const INTERACT_CHECK_MS = 100;
+/** Vecinos de un tile (8 direcciones). */
+const NEIGHBORS: readonly TilePoint[] = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+  { x: 1, y: 1 },
+  { x: 1, y: -1 },
+  { x: -1, y: 1 },
+  { x: -1, y: -1 },
+];
+
+/** Algo con lo que se puede interactuar con F desde donde está el avatar propio. */
+interface Interaction {
+  /** Identifica qué es (para avisarle a React sólo cuando cambia). */
+  key: string;
+  /** Lo que dice el cartel: "Sentarse", "Entrar a Ropería Sarandí"… */
+  label: string;
+  run: () => void;
+}
+
+/** "Acá estás": anillos que laten bajo el avatar propio al centrar la cámara en él. */
+const LOCATOR_COLOR = 0x4cc9f0;
+const LOCATOR_RINGS = 3;
+const LOCATOR_RING_MS = 900;
+/** Flecha en el borde de la pantalla que apunta al avatar propio cuando quedó afuera (cámara libre). */
+const ARROW_DEPTH = 2_000_000;
+const ARROW_RADIUS = 20;
+/** Margen para la flecha: lejos de los bordes y de lo que tapa el HUD (arriba) y el chat / la barra (abajo). */
+const ARROW_INSET = { side: 32, top: 80, bottom: 100 };
+const ARROW_INSET_SMALL = { side: 28, top: 150, bottom: 200 };
 /**
  * Una palmera es alta: un clic en las hojas cae en tiles "de atrás" (norte-oeste) del tronco. Se
  * buscan palmeras hasta estos pasos en diagonal hacia adelante.
  */
 const PALM_CLICK_REACH = 2;
-/** La cámara centra el torso del avatar propio, no sus pies. */
-const FOLLOW_OFFSET_Y = 40;
-/**
- * Zoom con la rueda del mouse. El mínimo no puede bajar de 1/3: el velo de la noche (`DayNight`)
- * mide 3 pantallas y Phaser lo escala con el zoom aunque esté fijo a la cámara.
- */
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2;
-/** Cuánto cambia el zoom por cada "clic" de la rueda. */
-const ZOOM_STEP = 1.12;
-/** El zoom elegido se recuerda en este navegador. */
-const ZOOM_STORAGE_KEY = "mw:zoom";
+/** Un toque que se movió más que esto (px de pantalla) fue un arrastre del mapa, no un clic: no se camina. */
+const TAP_SLOP = DRAG_SLOP;
+
 
 interface CitySceneData {
   room: CityRoom;
@@ -64,12 +96,35 @@ export class CityScene extends Phaser.Scene {
   private weevils = new Map<string, Weevil>();
   /** Último estado de pesca avisado a React, para emitir sólo cuando cambia. */
   private fishingStatus = "";
+  /** Último estado de venta avisado a React. */
+  private vendingStatus = "";
   private lastStamina = -1;
+  /**
+   * Parada a la que está caminando el avatar propio y el tile donde va a quedar: al llegar se abre
+   * la lista de barrios. Es sólo del cliente (viajar lo valida el server igual, desde donde sea).
+   */
+  private pendingBusStop: { stop: BusStop; x: number; y: number } | null = null;
   /** Quiénes están en el barrio, para la lista de jugadores de React (tecla Tab). */
   private roster = new Map<string, PlayerSummary>();
   private hover!: Phaser.GameObjects.Graphics;
   private disposers: Array<() => void> = [];
   private disposed = false;
+  /** Dónde empezó cada toque (por id de puntero), para distinguir un toque de un arrastre. */
+  private pressStarts = new Map<number, { x: number; y: number }>();
+  /** Cámara fija / libre, zoom y gestos de cámara (ver `CameraControl`). */
+  private cameraControl!: CameraControl;
+  /** Anillos de "acá estás" que siguen al avatar propio mientras laten. */
+  private locatorRings: Phaser.GameObjects.Ellipse[] = [];
+  /** Flecha hacia el avatar propio cuando está fuera de pantalla, y dónde quedó (px de pantalla) para tocarla. */
+  private offscreenArrow!: Phaser.GameObjects.Graphics;
+  private arrowSpot: { x: number; y: number } | null = null;
+  /** Teclas WASD apretadas ahora. */
+  private wasdKeys = new Set<string>();
+  /** Movimiento del avatar propio: predicción, recorrido al server y WASD (ver `movement.ts`). */
+  private mover!: LocalMover;
+  /** Lo que hay al lado para interactuar con F (ver `findInteraction`), y cuándo volver a buscar. */
+  private interaction: Interaction | null = null;
+  private nextInteractionCheck = 0;
 
   constructor() {
     super(CityScene.KEY);
@@ -85,9 +140,17 @@ export class CityScene extends Phaser.Scene {
     this.weevils = new Map();
     this.roster = new Map();
     this.fishingStatus = "";
+    this.vendingStatus = "";
     this.lastStamina = -1;
+    this.pendingBusStop = null;
     this.disposers = [];
     this.disposed = false;
+    this.pressStarts = new Map();
+    this.locatorRings = [];
+    this.arrowSpot = null;
+    this.wasdKeys = new Set();
+    this.interaction = null;
+    this.nextInteractionCheck = 0;
   }
 
   preload() {
@@ -108,12 +171,27 @@ export class CityScene extends Phaser.Scene {
     const spawnCenter = tileToWorld(spawn.x + (spawn.width - 1) / 2, spawn.y + (spawn.height - 1) / 2);
     camera.centerOn(spawnCenter.x, spawnCenter.y - FOLLOW_OFFSET_Y);
 
+    this.cameraControl = new CameraControl(this, () => this.showLocator());
+    this.mover = new LocalMover(this.map, {
+      sendMove: (target, route) => {
+        const message: MoveMessage = { x: target.x, y: target.y, path: route };
+        this.room.send(MessageType.Move, message);
+      },
+      now: () => this.time.now,
+      // Sin energía el server no lo mueve: no se predice nada.
+      canWalk: () => (this.room.state.players.get(this.room.sessionId)?.stamina ?? 0) >= WALK_STAMINA_COST,
+    });
+    this.offscreenArrow = this.add.graphics().setScrollFactor(0).setDepth(ARROW_DEPTH);
+    this.bindWasd();
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
+    this.input.on(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
     this.input.on(Phaser.Input.Events.POINTER_WHEEL, this.handleWheel, this);
-    camera.setZoom(loadZoom());
 
     this.bindState();
+
+    // F (o tocar el cartel): interactuar con lo que hay al lado, buscado de nuevo en este momento.
+    this.disposers.push(eventBus.on("interact:use", () => this.findInteraction()?.run()));
 
     this.disposers.push(
       eventBus.on("chat:message", (message) => {
@@ -127,11 +205,217 @@ export class CityScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    this.cameraControl.update(delta);
+    // WASD y predicción del avatar propio. Al empezar a caminar con WASD, la cámara vuelve a él.
+    const wasWasd = this.mover.isWasdActive();
+    this.mover.update(this.wasdKeys);
+    if (!wasWasd && this.mover.isWasdActive()) {
+      this.pendingBusStop = null;
+      this.cameraControl.returnToTarget();
+    }
     for (const avatar of this.avatars.values()) avatar.tick(delta);
+    this.updateLocator();
     for (const weevil of this.weevils.values()) weevil.tick(delta);
     this.dayNight.update(delta);
     const self = this.localAvatar;
     this.city.updateOcclusion(self ? { x: self.x, y: self.y, depth: self.depth } : null, delta);
+    this.updateOffscreenArrow();
+    this.updateInteraction();
+  }
+
+  /** Busca qué hay al lado (cada INTERACT_CHECK_MS) y le avisa a React si cambió, para el cartel "F · …". */
+  private updateInteraction() {
+    const now = this.time.now;
+    if (now < this.nextInteractionCheck) return;
+    this.nextInteractionCheck = now + INTERACT_CHECK_MS;
+    const found = this.findInteraction();
+    if ((found?.key ?? "") !== (this.interaction?.key ?? "")) {
+      eventBus.emit("interact:prompt", found ? { label: found.label } : null);
+    }
+    this.interaction = found;
+  }
+
+  /**
+   * Con qué puede interactuar el avatar propio desde su tile (el del server, que es el que valida),
+   * en orden de prioridad: levantarse del banco, patear un picudo al alcance, entrar a una tienda
+   * pegada, tomar el ómnibus, sentarse en un banco libre, sacudir una palmera, hablar con alguien.
+   */
+  private findInteraction(): Interaction | null {
+    const self = this.room.state.players.get(this.room.sessionId);
+    const at = this.mover.getServerTile();
+    if (!self || !at) return null;
+
+    if (self.sitting) {
+      const bench = this.map.benchAt(self.x, self.y);
+      const stand = bench ? this.map.benchApproach(bench) : undefined;
+      return stand ? { key: "stand", label: "Levantarse", run: () => this.requestMove(stand) } : null;
+    }
+
+    let weevilId: string | null = null;
+    let weevilDistance = WEEVIL_KICK_RANGE;
+    this.room.state.weevils.forEach((weevil, id) => {
+      const distance = Math.hypot(weevil.x - at.x, weevil.y - at.y);
+      if (weevil.mode !== "dead" && distance <= weevilDistance) {
+        weevilDistance = distance;
+        weevilId = id;
+      }
+    });
+    if (weevilId !== null) {
+      const id: string = weevilId;
+      return { key: `weevil:${id}`, label: "Patear al picudo", run: () => this.kickWeevil(id) };
+    }
+
+    const shop = this.map.city.shops.find((candidate) => this.map.isNearShop(candidate, at.x, at.y));
+    if (shop) {
+      const tile = { x: shop.area.x, y: shop.area.y };
+      return { key: `shop:${shop.id}`, label: `Entrar a ${shop.name}`, run: () => this.visitShop(tile) };
+    }
+
+    const around = NEIGHBORS.map((step) => ({ x: at.x + step.x, y: at.y + step.y }));
+    const stop = around.map((tile) => this.map.busStopAt(tile.x, tile.y)).find((found) => found !== undefined);
+    if (stop) return { key: `stop:${stop.name}`, label: "Tomar el ómnibus", run: () => this.goToBusStop(stop) };
+
+    const bench = around.find((tile) => {
+      if (!this.map.benchAt(tile.x, tile.y)) return false;
+      for (const [id, other] of this.room.state.players) {
+        if (id !== this.room.sessionId && other.sitting && other.x === tile.x && other.y === tile.y) return false;
+      }
+      return true;
+    });
+    if (bench) return { key: `bench:${bench.x},${bench.y}`, label: "Sentarse", run: () => this.sitOn(bench) };
+
+    const palm = around.find((tile) => this.map.isPalm(tile.x, tile.y));
+    if (palm) return { key: `palm:${palm.x},${palm.y}`, label: "Sacudir la palmera", run: () => this.shakePalm(palm) };
+
+    for (const [id, other] of this.room.state.players) {
+      if (id === this.room.sessionId || Math.max(Math.abs(other.x - at.x), Math.abs(other.y - at.y)) > 1) continue;
+      return {
+        key: `player:${id}`,
+        label: `Hablar con ${other.name}`,
+        run: () => {
+          // El menú se abre al lado del otro avatar, como con el clic.
+          const avatar = this.avatars.get(id);
+          const camera = this.cameras.main;
+          const x = avatar ? (avatar.x - camera.worldView.x) * camera.zoom : this.scale.width / 2;
+          const y = avatar ? (avatar.y - 50 - camera.worldView.y) * camera.zoom : this.scale.height / 2;
+          this.openPlayerMenu(id, x, y);
+        },
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Teclas WASD (por posición física, `event.code`: andan igual en cualquier distribución de
+   * teclado). No cuentan mientras se escribe ni con un panel abierto.
+   */
+  private bindWasd() {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.code in WASD_KEYS) || isTyping(event) || document.querySelector(".modal-backdrop")) return;
+      this.wasdKeys.add(event.code);
+    };
+    const onKeyUp = (event: KeyboardEvent) => this.wasdKeys.delete(event.code);
+    // Al cambiar de ventana no llega el keyup: que no siga caminando solo.
+    const onBlur = () => this.wasdKeys.clear();
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    this.disposers.push(
+      () => window.removeEventListener("keydown", onKeyDown),
+      () => window.removeEventListener("keyup", onKeyUp),
+      () => window.removeEventListener("blur", onBlur),
+    );
+  }
+
+
+
+
+
+
+
+
+
+  /** "¡Acá estás!": anillos que se agrandan y se desvanecen bajo el avatar propio (lo siguen si camina). */
+  private showLocator() {
+    const avatar = this.localAvatar;
+    if (!avatar) return;
+    for (let i = 0; i < LOCATOR_RINGS; i++) {
+      const ring = this.add
+        .ellipse(avatar.x, avatar.y, 64, 32)
+        .setStrokeStyle(3, LOCATOR_COLOR, 1)
+        .setDepth(avatar.depth - 1)
+        .setScale(0.3)
+        .setAlpha(0);
+      this.locatorRings.push(ring);
+      this.tweens.add({
+        targets: ring,
+        scale: 1.7,
+        alpha: { from: 1, to: 0 },
+        delay: i * (LOCATOR_RING_MS / 3),
+        duration: LOCATOR_RING_MS,
+        ease: "Sine.easeOut",
+        onComplete: () => {
+          ring.destroy();
+          this.locatorRings = this.locatorRings.filter((other) => other !== ring);
+        },
+      });
+    }
+  }
+
+  private updateLocator() {
+    const avatar = this.localAvatar;
+    if (!avatar) return;
+    for (const ring of this.locatorRings) ring.setPosition(avatar.x, avatar.y).setDepth(avatar.depth - 1);
+  }
+
+  /**
+   * Si el avatar propio quedó fuera de la pantalla (cámara libre), una flecha en el borde apunta
+   * hacia él; tocarla lleva la cámara hasta él. Los objetos fijos a la cámara igual se escalan con
+   * el zoom (desde el centro), así que se compensa posición y tamaño.
+   */
+  private updateOffscreenArrow() {
+    const arrow = this.offscreenArrow;
+    const avatar = this.localAvatar;
+    arrow.clear();
+    this.arrowSpot = null;
+    if (!avatar || !this.cameraControl.isFree()) return;
+
+    const camera = this.cameras.main;
+    const view = camera.worldView;
+    const zoom = camera.zoom;
+    const screenX = (avatar.x - view.x) * zoom;
+    const screenY = (avatar.y - FOLLOW_OFFSET_Y - view.y) * zoom;
+    const { width, height } = camera;
+    if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) return;
+
+    // Desde el centro de la pantalla hacia el avatar, hasta el borde del rectángulo permitido.
+    const inset = window.matchMedia("(max-width: 760px), (max-height: 500px)").matches ? ARROW_INSET_SMALL : ARROW_INSET;
+    const cx = width / 2;
+    const cy = height / 2;
+    const dx = screenX - cx;
+    const dy = screenY - cy;
+    const limitX = dx > 0 ? width - inset.side - cx : inset.side - cx;
+    const limitY = dy > 0 ? height - inset.bottom - cy : inset.top - cy;
+    const scale = Math.min(dx !== 0 ? limitX / dx : Infinity, dy !== 0 ? limitY / dy : Infinity);
+    const x = cx + dx * scale;
+    const y = cy + dy * scale;
+    this.arrowSpot = { x, y };
+
+    const angle = Math.atan2(dy, dx);
+    arrow.setPosition(cx + (x - cx) / zoom, cy + (y - cy) / zoom).setScale(1 / zoom);
+    arrow.fillStyle(0x12151f, 0.85).fillCircle(0, 0, ARROW_RADIUS);
+    arrow.lineStyle(2, LOCATOR_COLOR, 1).strokeCircle(0, 0, ARROW_RADIUS);
+    const tip = { x: Math.cos(angle) * 13, y: Math.sin(angle) * 13 };
+    const back = (offset: number) => ({ x: Math.cos(angle + offset) * 9, y: Math.sin(angle + offset) * 9 });
+    const left = back(2.5);
+    const right = back(-2.5);
+    arrow.fillStyle(LOCATOR_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+  }
+
+  /** ¿El puntero está sobre la flecha que apunta al avatar? */
+  private isOnArrow(pointer: Phaser.Input.Pointer): boolean {
+    const spot = this.arrowSpot;
+    return spot !== null && Math.hypot(pointer.x - spot.x, pointer.y - spot.y) <= ARROW_RADIUS + 8;
   }
 
   /** El Schema de Colyseus es la fuente de verdad; la escena sólo refleja sus cambios. */
@@ -160,13 +444,16 @@ export class CityScene extends Phaser.Scene {
           tileY: player.y,
           isLocal,
           isAdmin: player.admin,
+          isDonor: player.donor,
         });
         this.applySitting(avatar, player);
         this.applyFishing(avatar, player, isLocal);
+        this.applyVending(avatar, player, isLocal);
         this.avatars.set(sessionId, avatar);
         if (isLocal) {
           this.localAvatar = avatar;
-          this.cameras.main.startFollow(avatar, true, 0.15, 0.15).setFollowOffset(0, FOLLOW_OFFSET_Y);
+          this.mover.setAvatar(avatar, { x: player.x, y: player.y });
+          this.cameraControl.setTarget(avatar);
         }
 
         // Patada (a un picudo): se anima en todos los clientes, mirando al picudo más cercano.
@@ -178,14 +465,43 @@ export class CityScene extends Phaser.Scene {
           }),
         );
 
+        // Donador: lo marca el admin con /donador, también con el jugador ya conectado.
+        this.disposers.push(
+          $(player).listen("donor", (donor) => {
+            avatar.setDonor(donor);
+            const summary = this.roster.get(sessionId);
+            if (summary && summary.isDonor !== donor) {
+              this.roster.set(sessionId, { ...summary, isDonor: donor });
+              this.emitRoster();
+            }
+          }),
+        );
+
+        // Vendedor: grita lo que vende al empezar y muestra "¡Vendido!" en cada venta (lo ven todos).
+        this.disposers.push(
+          // El carrito se pone al empezar cada venta y se saca al terminar.
+          $(player).listen("cart", (cartId, previous) => {
+            if (previous === undefined || !cartId) return;
+            const cart = getItem(cartId);
+            if (isCart(cart)) this.floatText(avatar.x, avatar.y - 100, cart.cry, "#ffffff");
+          }),
+          $(player).listen("sales", (sales, previous) => {
+            if (previous === undefined || sales <= previous) return;
+            this.floatText(avatar.x + 30, avatar.y - 50, "¡Vendido!", "#9ef0c9");
+          }),
+        );
+
         this.disposers.push(
           $(player).onChange(() => {
-            avatar.setTargetTile(player.x, player.y);
+            if (isLocal) this.mover.onServerTile({ x: player.x, y: player.y });
+            else avatar.pushTile(player.x, player.y);
             this.applySitting(avatar, player);
             this.applyFishing(avatar, player, isLocal);
+            this.applyVending(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
             if (isLocal) this.emitStamina(player.stamina);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));
+            if (isLocal) this.checkBusStopArrival(player);
           }),
         );
 
@@ -195,7 +511,7 @@ export class CityScene extends Phaser.Scene {
           eventBus.emit("player:self", { name: player.name, color: player.color });
           eventBus.emit("player:outfit", outfitIds(player));
         }
-        this.roster.set(sessionId, { sessionId, name: player.name, color: player.color, isSelf: isLocal });
+        this.roster.set(sessionId, { sessionId, name: player.name, color: player.color, isSelf: isLocal, isDonor: player.donor });
         this.emitRoster();
       }),
     );
@@ -233,7 +549,8 @@ export class CityScene extends Phaser.Scene {
       $(this.room.state).players.onRemove((_player, sessionId) => {
         const avatar = this.avatars.get(sessionId);
         if (avatar === this.localAvatar) {
-          this.cameras.main.stopFollow();
+          this.cameraControl.setTarget(null);
+          this.mover.setAvatar(null, null);
           this.localAvatar = null;
         }
         avatar?.destroy();
@@ -256,6 +573,55 @@ export class CityScene extends Phaser.Scene {
     if (key === this.fishingStatus) return;
     this.fishingStatus = key;
     eventBus.emit("fishing:status", status);
+  }
+
+  /** Si el avatar propio llegó a la parada que se clickeó, React abre la lista de barrios. */
+  private checkBusStopArrival(player: Player) {
+    const pending = this.pendingBusStop;
+    if (!pending || player.x !== pending.x || player.y !== pending.y) return;
+    this.pendingBusStop = null;
+    eventBus.emit("bus-stop:open", { name: pending.stop.name });
+  }
+
+  /** Clic en una parada: si ya estás al lado se abre la lista de barrios; si no, se camina hasta ella. */
+  private goToBusStop(stop: BusStop) {
+    const self = this.room.state.players.get(this.room.sessionId);
+    if (!self) return;
+    if (this.map.isNextTo(stop, self.x, self.y)) {
+      eventBus.emit("bus-stop:open", { name: stop.name });
+      return;
+    }
+    const target = this.map.approachTile(stop, self);
+    if (!target) return;
+    this.pendingBusStop = { stop, ...target };
+    this.requestMove(target);
+  }
+
+  /** Caminar hasta `target`: el movimiento propio (predicción, recorrido al server) está en `LocalMover`. */
+  private requestMove(target: TilePoint) {
+    this.mover.requestMove(target);
+  }
+
+
+
+
+
+
+
+
+
+
+  /** Carrito al costado mientras vende; al avatar propio además le avisa a React si puede vender. */
+  private applyVending(avatar: Avatar, player: Player, isLocal: boolean) {
+    const cart = getItem(player.cart);
+    const color = isCart(cart) ? Phaser.Display.Color.HexStringToColor(cart.color).color : undefined;
+    avatar.setVending(player.vending, color, isCart(cart) ? cart.tier : undefined);
+    if (!isLocal) return;
+    const status = { canVend: this.map.canVendAt(player.x, player.y), vending: player.vending };
+    const key = `${status.canVend}|${status.vending}`;
+    if (key === this.vendingStatus) return;
+    this.vendingStatus = key;
+    eventBus.emit("vending:status", status);
   }
 
   private emitStamina(stamina: number) {
@@ -327,6 +693,15 @@ export class CityScene extends Phaser.Scene {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer) {
+    // Arrastre de la cámara (rueda apretada o dos dedos): ni hover ni caminar.
+    if (this.cameraControl.pointerMove(pointer)) return;
+    // Con el dedo no hay "hover": sólo se marca el tile mientras se arrastra, y no sirve de nada.
+    if (pointer.wasTouch) return;
+    if (this.isOnArrow(pointer)) {
+      this.hover.clear();
+      this.input.setDefaultCursor("pointer");
+      return;
+    }
     const tile = this.pointerTile(pointer);
     this.hover.clear();
     if (this.weevilAt(pointer) || this.otherPlayerAt(pointer)) {
@@ -338,6 +713,13 @@ export class CityScene extends Phaser.Scene {
       const { top, right, bottom, left } = tileDiamond(palm.x, palm.y);
       this.input.setDefaultCursor("pointer");
       this.hover.lineStyle(2, PALM_HOVER_COLOR, 0.95);
+      this.hover.strokePoints([top, right, bottom, left], true);
+      return;
+    }
+    if (this.map.busStopAt(tile.x, tile.y)) {
+      const { top, right, bottom, left } = tileDiamond(tile.x, tile.y);
+      this.input.setDefaultCursor("pointer");
+      this.hover.lineStyle(2, BUS_STOP_HOVER_COLOR, 0.95);
       this.hover.strokePoints([top, right, bottom, left], true);
       return;
     }
@@ -363,62 +745,128 @@ export class CityScene extends Phaser.Scene {
     this.hover.strokePoints([top, right, bottom, left], true);
   }
 
+  /** Empieza un toque / clic: se recuerda dónde (la cámara decide si termina siendo un arrastre del mapa). */
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    this.pressStarts.set(pointer.id, { x: pointer.x, y: pointer.y });
+    if (this.cameraControl.pointerDown(pointer)) this.hover.clear();
+  }
+
+  /**
+   * Se levanta el dedo / el botón: si fue un toque corto en el lugar (no un arrastre del mapa ni un
+   * pellizco) cuenta como clic. Se actúa al soltar (no al apoyar) para que arrastrar el mapa o
+   * pellizcar no camine: así se lleva la cámara a la otra punta y ahí se toca adónde ir.
+   */
+  private handlePointerUp(pointer: Phaser.Input.Pointer) {
+    const start = this.pressStarts.get(pointer.id);
+    this.pressStarts.delete(pointer.id);
+    // Fue un gesto de cámara (arrastrar el mapa, pellizco, rueda apretada): no es un clic.
+    if (this.cameraControl.pointerUp(this.pressStarts.size > 0)) return;
+    if (!start || Math.hypot(pointer.x - start.x, pointer.y - start.y) > TAP_SLOP) return;
+    this.handleTap(pointer);
+    if (pointer.wasTouch) this.hover.clear();
+  }
+
+
+  private handleTap(pointer: Phaser.Input.Pointer) {
+    // La flecha hacia el avatar (cuando quedó fuera de pantalla): la cámara vuelve a él.
+    if (this.isOnArrow(pointer)) {
+      this.cameraControl.returnToTarget();
+      this.showLocator();
+      return;
+    }
+    // Cualquier clic nuevo cancela la ida a una parada (si es otra parada, se vuelve a poner).
+    this.pendingBusStop = null;
+    // Y la predicción del camino anterior: si el clic es para caminar se vuelve a predecir; si es
+    // un banco, una tienda, una palmera… el camino lo decide el server y el avatar lo sigue a él.
+    this.mover.cancelPrediction();
+
     // Clic en un picudo: patada (va primero: es chiquito y suele estar encima de alguien).
     const weevilId = this.weevilAt(pointer);
     if (weevilId) {
-      const kick: WeevilKickMessage = { id: weevilId };
-      this.room.send(MessageType.WeevilKick, kick);
+      this.kickWeevil(weevilId);
       return;
     }
 
     // Clic en otro jugador: React abre su menú (Saludar / Intercambiar) y no se camina.
     const clicked = this.otherPlayerAt(pointer);
-    const player = clicked ? this.room.state.players.get(clicked) : undefined;
-    if (clicked && player) {
-      const canvas = this.game.canvas.getBoundingClientRect();
-      eventBus.emit("player:click", {
-        sessionId: clicked,
-        name: player.name,
-        screenX: canvas.left + (pointer.x * canvas.width) / this.scale.width,
-        screenY: canvas.top + (pointer.y * canvas.height) / this.scale.height,
-      });
+    if (clicked) {
+      this.openPlayerMenu(clicked, pointer.x, pointer.y);
       return;
     }
 
+    // Todo lo que lo hace caminar (piso, parada, tienda, palmera, banco) con la cámara libre: la
+    // cámara vuelve al avatar y lo sigue, así se ve cómo va hasta ahí.
     const tile = this.pointerTile(pointer);
+    const busStop = this.map.busStopAt(tile.x, tile.y);
+    if (busStop) {
+      this.goToBusStop(busStop);
+      this.cameraControl.returnToTarget();
+      this.showClickMarker(tile.x, tile.y);
+      return;
+    }
     if (this.map.shopAt(tile.x, tile.y)) {
-      const visit: ShopVisitMessage = { x: tile.x, y: tile.y };
-      this.room.send(MessageType.ShopVisit, visit);
+      this.visitShop(tile);
+      this.cameraControl.returnToTarget();
       this.showClickMarker(tile.x, tile.y);
       return;
     }
     const palm = this.palmAt(tile);
     if (palm) {
-      this.room.send(MessageType.PalmShake, palm);
+      this.shakePalm(palm);
+      this.cameraControl.returnToTarget();
       this.showClickMarker(palm.x, palm.y);
       return;
     }
     if (this.map.benchAt(tile.x, tile.y)) {
-      const sit: SitMessage = { x: tile.x, y: tile.y };
-      this.room.send(MessageType.Sit, sit);
+      this.sitOn(tile);
+      this.cameraControl.returnToTarget();
       this.showClickMarker(tile.x, tile.y);
       return;
     }
     if (!this.map.isWalkable(tile.x, tile.y)) return;
 
-    const message: MoveMessage = { x: tile.x, y: tile.y };
-    this.room.send(MessageType.Move, message);
+    this.requestMove(tile);
+    this.cameraControl.returnToTarget();
     this.showClickMarker(tile.x, tile.y);
   }
 
-  /** Rueda del mouse: acercar (hacia arriba) o alejar (hacia abajo), centrado en el avatar propio. */
+  // --- Acciones sobre las cosas del barrio (las usan el clic y la tecla de interactuar) ---------
+
+  private kickWeevil(id: string) {
+    const kick: WeevilKickMessage = { id };
+    this.room.send(MessageType.WeevilKick, kick);
+  }
+
+  /** Menú de otro jugador (Saludar / Intercambiar), abierto en (x, y) de la pantalla del juego. */
+  private openPlayerMenu(sessionId: string, x: number, y: number) {
+    const player = this.room.state.players.get(sessionId);
+    if (!player) return;
+    const canvas = this.game.canvas.getBoundingClientRect();
+    eventBus.emit("player:click", {
+      sessionId,
+      name: player.name,
+      screenX: canvas.left + (x * canvas.width) / this.scale.width,
+      screenY: canvas.top + (y * canvas.height) / this.scale.height,
+    });
+  }
+
+  private visitShop(tile: TilePoint) {
+    const visit: ShopVisitMessage = { x: tile.x, y: tile.y };
+    this.room.send(MessageType.ShopVisit, visit);
+  }
+
+  private shakePalm(palm: TilePoint) {
+    this.room.send(MessageType.PalmShake, palm);
+  }
+
+  private sitOn(bench: TilePoint) {
+    const sit: SitMessage = { x: bench.x, y: bench.y };
+    this.room.send(MessageType.Sit, sit);
+  }
+
+  /** Rueda del mouse: acercar (hacia arriba) o alejar (hacia abajo). */
   private handleWheel(_pointer: Phaser.Input.Pointer, _over: unknown[], _dx: number, dy: number) {
-    if (dy === 0) return;
-    const camera = this.cameras.main;
-    const zoom = Phaser.Math.Clamp(dy < 0 ? camera.zoom * ZOOM_STEP : camera.zoom / ZOOM_STEP, MIN_ZOOM, MAX_ZOOM);
-    camera.setZoom(zoom);
-    saveZoom(zoom);
+    this.cameraControl.wheel(dy);
     // El hover quedó dibujado donde estaba el puntero antes del zoom: se recalcula.
     this.handlePointerMove(this.input.activePointer);
   }
@@ -438,6 +886,8 @@ export class CityScene extends Phaser.Scene {
   private dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.pendingBusStop = null;
+    this.cameraControl?.dispose();
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
     this.dayNight.dispose();
@@ -453,21 +903,4 @@ export class CityScene extends Phaser.Scene {
 
 function outfitIds(player: Player): OutfitIds {
   return { hat: player.hat, top: player.top, bottom: player.bottom, shoes: player.shoes };
-}
-
-function loadZoom(): number {
-  try {
-    const saved = Number(window.localStorage.getItem(ZOOM_STORAGE_KEY));
-    return Number.isFinite(saved) && saved > 0 ? Phaser.Math.Clamp(saved, MIN_ZOOM, MAX_ZOOM) : 1;
-  } catch {
-    return 1;
-  }
-}
-
-function saveZoom(zoom: number) {
-  try {
-    window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
-  } catch {
-    // Sin almacenamiento: el zoom funciona igual, sólo no se recuerda.
-  }
 }

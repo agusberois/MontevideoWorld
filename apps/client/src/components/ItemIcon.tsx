@@ -165,6 +165,42 @@ function rodShape(fill: string, dark: string, tier: number) {
   );
 }
 
+/**
+ * Carrito de vendedor: la conservadora es una caja con tapa; los demás, carrito con ruedas, y desde
+ * el nivel 3 con sombrilla. Lleva tantas estrellitas doradas como su nivel.
+ */
+function cartShape(fill: string, dark: string, tier: number) {
+  if (tier === 1) {
+    return (
+      <>
+        <rect x={7} y={13} width={18} height={13} rx={2} fill={fill} stroke={dark} strokeWidth={1.5} />
+        <rect x={6} y={10} width={20} height={4.5} rx={1.5} fill="#f4f4f4" stroke={dark} strokeWidth={1.2} />
+        <rect x={12} y={6.5} width={8} height={4} rx={1.5} fill="none" stroke="#2b2b30" strokeWidth={1.6} />
+        <circle cx={16} cy={20.5} r={1.4} fill="#ffd166" stroke={dark} strokeWidth={0.6} />
+      </>
+    );
+  }
+  return (
+    <>
+      {tier >= 3 && (
+        <>
+          <line x1={15} y1={6} x2={15} y2={16} stroke="#9aa1a9" strokeWidth={1.4} />
+          <path d="M5 8 Q15 0 25 8 Z" fill={fill} stroke={dark} strokeWidth={1.2} />
+          <path d="M11.5 5.2 Q15 1.5 18.5 5.2 L17 8 L13 8 Z" fill="#ffffff" opacity={0.85} />
+        </>
+      )}
+      <line x1={25} y1={17} x2={29} y2={12} stroke="#9aa1a9" strokeWidth={2} strokeLinecap="round" />
+      <rect x={4} y={15} width={22} height={10} rx={2} fill={fill} stroke={dark} strokeWidth={1.5} />
+      <rect x={5.5} y={19} width={19} height={2} fill="#ffffff" opacity={0.85} />
+      <circle cx={9} cy={27} r={2.8} fill="#2b2b30" />
+      <circle cx={21} cy={27} r={2.8} fill="#2b2b30" />
+      {Array.from({ length: tier }, (_, i) => (
+        <circle key={i} cx={8 + i * 4.5} cy={17} r={1.2} fill="#ffd166" stroke={dark} strokeWidth={0.5} />
+      ))}
+    </>
+  );
+}
+
 /** Caja de regalo con moño (cajas sorpresa). */
 function boxShape(fill: string, dark: string, light: string) {
   const ribbon = "#ffd166";
@@ -194,7 +230,7 @@ interface ItemIconProps {
   size?: number;
 }
 
-/** Ícono de un ítem (prenda o pescado) con su forma y su color reales. */
+/** Ícono de un ítem (prenda, pescado, caña, carrito o caja) con su forma y su color reales. */
 export function ItemIcon({ item, size = 30 }: ItemIconProps) {
   return (
     <span className="item-icon" style={{ width: size, height: size }} aria-hidden="true">
@@ -205,7 +241,9 @@ export function ItemIcon({ item, size = 30 }: ItemIconProps) {
             ? boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55))
             : item.category === "rod"
               ? rodShape(item.color, mix(item.color, -0.45), item.tier)
-              : shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55))}
+              : item.category === "cart"
+                ? cartShape(item.color, mix(item.color, -0.45), item.tier)
+                : shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55))}
       </svg>
     </span>
   );

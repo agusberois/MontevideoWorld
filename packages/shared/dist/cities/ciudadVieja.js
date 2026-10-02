@@ -183,6 +183,11 @@ exports.CIUDAD_VIEJA = {
         { x: 26, y: 29, facing: "south" },
         { x: 33, y: 29, facing: "south" },
     ],
+    busStops: [
+        { name: "Rambla 25 de Agosto", x: 24, y: 6, facing: "south" },
+        { name: "Escollera Sarandí", x: 12, y: 26, facing: "south" },
+        { name: "Plaza Independencia", x: 36, y: 26, facing: "south" },
+    ],
     // Cartel "MW" sobre el techo del Cabildo, frente a la Plaza Matriz.
     logoSign: { landmarkId: "cabildo" },
     shops: [

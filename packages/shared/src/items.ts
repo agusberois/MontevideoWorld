@@ -1,11 +1,12 @@
 /**
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
- * mejoran la pesca) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
+ * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
 
-export type ItemCategory = "clothing" | "fish" | "rod" | "box";
+export type ItemCategory = "clothing" | "fish" | "rod" | "cart" | "box";
 
 export const ITEM_SLOTS = ["hat", "top", "bottom", "shoes"] as const;
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
@@ -83,7 +84,44 @@ export interface RodItem extends ItemBase {
   doubleChance: number;
   /** Multiplica la espera hasta que pica (menos de 1 = pica antes). */
   waitFactor: number;
+  /** Tiradas que aguanta (cada tirada gasta un uso, pique o no); después se rompe. */
+  maxUses: number;
 }
+
+/** Nivel de un carrito: 1 = conservadora … 4 = parrillita. */
+export type CartTier = 1 | 2 | 3 | 4;
+
+/**
+ * Carrito de vendedor ambulante. Para vender en la explanada del Estadio Centenario hay que tener
+ * uno en la mochila; se usa siempre el de mayor nivel. Los mejores venden algo más caro, los
+ * hinchas compran más seguido y más rápido, y regalan ropa más seguido (ver `vending.ts`).
+ */
+export interface CartItem extends ItemBase {
+  category: "cart";
+  tier: CartTier;
+  /** Lo que se vende, con artículo: "un refresco", "una garrapiñada". */
+  product: string;
+  /** Lo que grita el vendedor al empezar a vender. */
+  cry: string;
+  /** Lo que paga un hincha por unidad, en pesos enteros (sin partido). */
+  saleMin: number;
+  saleMax: number;
+  /** Probabilidad (0–1) de que nadie compre. */
+  noSaleChance: number;
+  /** Probabilidad (0–1) de que, además de comprar, el hincha te regale una prenda (sin partido). */
+  giftChance: number;
+  /** Multiplica la espera hasta que llega un cliente (menos de 1 = antes). */
+  waitFactor: number;
+  /** Intentos de venta que aguanta (cada intento gasta un uso, compren o no); después se rompe. */
+  maxUses: number;
+}
+
+/**
+ * Herramientas: cañas y carritos. Se gastan con el uso (`maxUses`), no se apilan (cada una ocupa su
+ * casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a comprarlas: eso
+ * mantiene vivo el mercado.
+ */
+export type ToolItem = RodItem | CartItem;
 
 /** Premio posible de una caja: `weight` relativo (más alto = sale más seguido). */
 export interface LootEntry {
@@ -97,7 +135,7 @@ export interface BoxItem extends ItemBase {
   loot: readonly LootEntry[];
 }
 
-export type ItemDefinition = ClothingItem | FishItem | RodItem | BoxItem;
+export type ItemDefinition = ClothingItem | FishItem | RodItem | CartItem | BoxItem;
 
 type CatalogEntry<T> = Omit<T, "category">;
 
@@ -146,11 +184,21 @@ export const BASIC_ROD_ID = "cana-basica";
 
 /** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
 export const RODS: readonly RodItem[] = [
-  { id: BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1 },
-  { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9 },
-  { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8 },
-  { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7 },
+  { id: BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1, maxUses: 40 },
+  { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9, maxUses: 80 },
+  { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8, maxUses: 110 },
+  { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7, maxUses: 150 },
 ];
+
+const cart = (items: CatalogEntry<CartItem>[]): CartItem[] => items.map((item) => ({ ...item, category: "cart" }));
+
+/** Carritos de venta, de la conservadora a la parrillita. Se compran en el Kiosco del Parque. */
+export const CARTS: readonly CartItem[] = cart([
+  { id: "conservadora", name: "Conservadora", tier: 1, color: "#2a7bd1", price: 35, product: "un refresco", cry: "¡Refresco, refresquito frío!", saleMin: 3, saleMax: 6, noSaleChance: 0.25, giftChance: 0.01, waitFactor: 1, maxUses: 40 },
+  { id: "carrito-garrapinada", name: "Carrito de garrapiñada", tier: 2, color: "#c1440e", price: 160, product: "una garrapiñada", cry: "¡Garrapiñada, garrapiñada!", saleMin: 6, saleMax: 10, noSaleChance: 0.2, giftChance: 0.02, waitFactor: 0.9, maxUses: 80 },
+  { id: "carrito-panchos", name: "Carrito de panchos", tier: 3, color: "#e9b10a", price: 480, product: "un pancho", cry: "¡Panchos, panchos calentitos!", saleMin: 10, saleMax: 16, noSaleChance: 0.15, giftChance: 0.035, waitFactor: 0.8, maxUses: 110 },
+  { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 1250, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 16, saleMax: 26, noSaleChance: 0.1, giftChance: 0.05, waitFactor: 0.7, maxUses: 150 },
+]);
 
 /** Caja que da el comando de admin `/box`. */
 export const MYSTERY_BOX_ID = "caja-sorpresa";
@@ -180,12 +228,13 @@ export const BOXES: readonly BoxItem[] = [
   },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...RODS, ...BOXES];
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...RODS, ...CARTS, ...BOXES];
 
 export const ITEM_CATEGORY_LABELS: Record<ItemCategory, string> = {
   clothing: "ropa",
   fish: "pescado",
   rod: "cañas",
+  cart: "carritos",
   box: "cajas",
 };
 
@@ -205,6 +254,25 @@ export function bestRod(itemIds: Iterable<string>): RodItem | undefined {
 
 /** "★★☆☆" para mostrar el nivel de una caña. */
 export function rodStars(tier: RodTier): string {
+  return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+
+export function isCart(item: ItemDefinition | undefined): item is CartItem {
+  return item?.category === "cart";
+}
+
+/** El carrito de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+export function bestCart(itemIds: Iterable<string>): CartItem | undefined {
+  let best: CartItem | undefined;
+  for (const id of itemIds) {
+    const item = getItem(id);
+    if (isCart(item) && (!best || item.tier > best.tier)) best = item;
+  }
+  return best;
+}
+
+/** "★★☆☆" para mostrar el nivel de un carrito. */
+export function cartStars(tier: CartTier): string {
   return "★".repeat(tier) + "☆".repeat(4 - tier);
 }
 
@@ -273,6 +341,45 @@ export const MAX_STACK = 99;
 export interface InventoryStack {
   itemId: string;
   quantity: number;
+  /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
+  uses?: number;
+}
+
+export function isTool(item: ItemDefinition | undefined): item is ToolItem {
+  return item?.category === "rod" || item?.category === "cart";
+}
+
+/** Cuántas unidades entran en un casillero: las herramientas van de a una (cada una con su desgaste). */
+export function maxStack(item: ItemDefinition | undefined): number {
+  return isTool(item) ? 1 : MAX_STACK;
+}
+
+/** Usos que le quedan a una pila (una herramienta sin `uses` está nueva). */
+export function stackUses(stack: InventoryStack): number {
+  const item = getItem(stack.itemId);
+  return isTool(item) ? (stack.uses ?? item.maxUses) : 0;
+}
+
+/**
+ * La unidad de `itemId` que se gasta, se vende o se intercambia primero: la más usada. Así una
+ * herramienta se termina antes de empezar la siguiente igual. Para lo que no es herramienta, la
+ * primera pila.
+ */
+export function wornestStack(stacks: readonly InventoryStack[], itemId: string): InventoryStack | undefined {
+  let found: InventoryStack | undefined;
+  for (const stack of stacks) {
+    if (stack.itemId !== itemId) continue;
+    if (!found || stackUses(stack) < stackUses(found)) found = stack;
+  }
+  return found;
+}
+
+/** Con estos usos o menos, la UI avisa que la herramienta está por romperse. */
+export const LOW_USES = 5;
+
+/** "32/40 usos" para mostrar el desgaste de una herramienta. */
+export function usesLabel(item: ToolItem, uses: number): string {
+  return `${uses}/${item.maxUses} usos`;
 }
 
 /** Prenda puesta en cada lugar ("" = nada). Es la forma en que viaja en el Schema. */
@@ -301,8 +408,13 @@ export function buyPrice(item: ItemDefinition): number {
   return item.price;
 }
 
-/** Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. */
-export function sellPrice(item: ItemDefinition): number {
+/**
+ * Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. Una
+ * herramienta gastada vale en proporción a los `uses` que le quedan.
+ */
+export function sellPrice(item: ItemDefinition, uses?: number): number {
   if (item.category === "fish") return item.price;
-  return Math.max(1, Math.floor(item.price * SELL_RATIO));
+  const half = item.price * SELL_RATIO;
+  const wear = isTool(item) && uses !== undefined ? Math.min(1, Math.max(0, uses / item.maxUses)) : 1;
+  return Math.max(1, Math.floor(half * wear));
 }

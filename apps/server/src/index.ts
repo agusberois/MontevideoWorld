@@ -5,9 +5,17 @@ import cors, { CorsOptions } from "cors";
 import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { DEFAULT_PORT, ROOM_NAME } from "@montevideo-world/shared";
+import { DEFAULT_PORT, ROOM_NAME, formatMoney, lifetimeValue, unprofitableTools } from "@montevideo-world/shared";
 import { playerStore } from "./playerStore";
 import { CityRoom } from "./rooms/CityRoom";
+
+// Cañas y carritos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
+// precios, usos o probabilidades y uno deja de ser rentable, se avisa al arrancar.
+for (const tool of unprofitableTools()) {
+  console.warn(
+    `[Balance] ${tool.name} no es rentable: deja ~${formatMoney(Math.floor(lifetimeValue(tool)))} en ${tool.maxUses} usos y cuesta ${formatMoney(tool.price)}.`,
+  );
+}
 
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
 const HOST = process.env.HOST ?? "0.0.0.0";

@@ -1,10 +1,11 @@
 /**
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
- * mejoran la pesca) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
+ * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
-export type ItemCategory = "clothing" | "fish" | "rod" | "box";
+export type ItemCategory = "clothing" | "fish" | "rod" | "cart" | "box";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
@@ -55,7 +56,41 @@ export interface RodItem extends ItemBase {
     doubleChance: number;
     /** Multiplica la espera hasta que pica (menos de 1 = pica antes). */
     waitFactor: number;
+    /** Tiradas que aguanta (cada tirada gasta un uso, pique o no); después se rompe. */
+    maxUses: number;
 }
+/** Nivel de un carrito: 1 = conservadora … 4 = parrillita. */
+export type CartTier = 1 | 2 | 3 | 4;
+/**
+ * Carrito de vendedor ambulante. Para vender en la explanada del Estadio Centenario hay que tener
+ * uno en la mochila; se usa siempre el de mayor nivel. Los mejores venden algo más caro, los
+ * hinchas compran más seguido y más rápido, y regalan ropa más seguido (ver `vending.ts`).
+ */
+export interface CartItem extends ItemBase {
+    category: "cart";
+    tier: CartTier;
+    /** Lo que se vende, con artículo: "un refresco", "una garrapiñada". */
+    product: string;
+    /** Lo que grita el vendedor al empezar a vender. */
+    cry: string;
+    /** Lo que paga un hincha por unidad, en pesos enteros (sin partido). */
+    saleMin: number;
+    saleMax: number;
+    /** Probabilidad (0–1) de que nadie compre. */
+    noSaleChance: number;
+    /** Probabilidad (0–1) de que, además de comprar, el hincha te regale una prenda (sin partido). */
+    giftChance: number;
+    /** Multiplica la espera hasta que llega un cliente (menos de 1 = antes). */
+    waitFactor: number;
+    /** Intentos de venta que aguanta (cada intento gasta un uso, compren o no); después se rompe. */
+    maxUses: number;
+}
+/**
+ * Herramientas: cañas y carritos. Se gastan con el uso (`maxUses`), no se apilan (cada una ocupa su
+ * casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a comprarlas: eso
+ * mantiene vivo el mercado.
+ */
+export type ToolItem = RodItem | CartItem;
 /** Premio posible de una caja: `weight` relativo (más alto = sale más seguido). */
 export interface LootEntry {
     itemId: string;
@@ -66,7 +101,7 @@ export interface BoxItem extends ItemBase {
     category: "box";
     loot: readonly LootEntry[];
 }
-export type ItemDefinition = ClothingItem | FishItem | RodItem | BoxItem;
+export type ItemDefinition = ClothingItem | FishItem | RodItem | CartItem | BoxItem;
 export declare const CLOTHING: readonly ClothingItem[];
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
@@ -77,6 +112,8 @@ export declare const FISH: readonly FishItem[];
 export declare const BASIC_ROD_ID = "cana-basica";
 /** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
 export declare const RODS: readonly RodItem[];
+/** Carritos de venta, de la conservadora a la parrillita. Se compran en el Kiosco del Parque. */
+export declare const CARTS: readonly CartItem[];
 /** Caja que da el comando de admin `/box`. */
 export declare const MYSTERY_BOX_ID = "caja-sorpresa";
 /**
@@ -91,6 +128,11 @@ export declare function isRod(item: ItemDefinition | undefined): item is RodItem
 export declare function bestRod(itemIds: Iterable<string>): RodItem | undefined;
 /** "★★☆☆" para mostrar el nivel de una caña. */
 export declare function rodStars(tier: RodTier): string;
+export declare function isCart(item: ItemDefinition | undefined): item is CartItem;
+/** El carrito de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+export declare function bestCart(itemIds: Iterable<string>): CartItem | undefined;
+/** "★★☆☆" para mostrar el nivel de un carrito. */
+export declare function cartStars(tier: CartTier): string;
 export declare function isBox(item: ItemDefinition | undefined): item is BoxItem;
 /** Probabilidad (0–1) de cada premio de una caja, para mostrarla en la UI. */
 export declare function lootChances(box: BoxItem): {
@@ -120,7 +162,24 @@ export declare const MAX_STACK = 99;
 export interface InventoryStack {
     itemId: string;
     quantity: number;
+    /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
+    uses?: number;
 }
+export declare function isTool(item: ItemDefinition | undefined): item is ToolItem;
+/** Cuántas unidades entran en un casillero: las herramientas van de a una (cada una con su desgaste). */
+export declare function maxStack(item: ItemDefinition | undefined): number;
+/** Usos que le quedan a una pila (una herramienta sin `uses` está nueva). */
+export declare function stackUses(stack: InventoryStack): number;
+/**
+ * La unidad de `itemId` que se gasta, se vende o se intercambia primero: la más usada. Así una
+ * herramienta se termina antes de empezar la siguiente igual. Para lo que no es herramienta, la
+ * primera pila.
+ */
+export declare function wornestStack(stacks: readonly InventoryStack[], itemId: string): InventoryStack | undefined;
+/** Con estos usos o menos, la UI avisa que la herramienta está por romperse. */
+export declare const LOW_USES = 5;
+/** "32/40 usos" para mostrar el desgaste de una herramienta. */
+export declare function usesLabel(item: ToolItem, uses: number): string;
 /** Prenda puesta en cada lugar ("" = nada). Es la forma en que viaja en el Schema. */
 export type OutfitIds = Record<ItemSlot, string>;
 export declare function getItem(id: string): ItemDefinition | undefined;
@@ -134,7 +193,10 @@ export declare const SELL_RATIO = 0.5;
 export declare const FISH_BUY_MARKUP = 1.5;
 /** Lo que cuesta comprar un ítem en una tienda: la ropa a su precio, el pescado con recargo. */
 export declare function buyPrice(item: ItemDefinition): number;
-/** Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. */
-export declare function sellPrice(item: ItemDefinition): number;
+/**
+ * Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. Una
+ * herramienta gastada vale en proporción a los `uses` que le quedan.
+ */
+export declare function sellPrice(item: ItemDefinition, uses?: number): number;
 export {};
 //# sourceMappingURL=items.d.ts.map

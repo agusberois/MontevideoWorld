@@ -1,5 +1,6 @@
 import type { Client } from "@colyseus/core";
 import type { Player } from "@montevideo-world/shared/schema";
+import type { OnlinePlayer } from "../directory";
 
 /** Quién ejecutó el comando y con qué argumentos. */
 export interface CommandContext {
@@ -26,6 +27,15 @@ export interface CommandHost {
   findPlayers(name: string): Array<{ client: Client; player: Player }>;
   /** Suma `amount` al saldo (y le reenvía el saldo); false si se pasa del tope. */
   giveMoney(client: Client, amount: number): boolean;
+  /**
+   * Marca o desmarca al jugador como donador (lo ven todos) y lo guarda ya. Devuelve false si el
+   * jugador no tiene clave: se ve ahora, pero no queda guardado para la próxima vez.
+   */
+  setDonor(client: Client, donor: boolean): boolean;
+  /** Jugadores conectados en cualquier barrio con ese nombre (sin distinguir mayúsculas). */
+  findOnline(name: string): OnlinePlayer[];
+  /** Mensaje privado de `player` a `to` (esté en el barrio que esté); a quien lo manda le vuelve una copia. */
+  sendPrivate(client: Client, player: Player, to: OnlinePlayer, text: string): void;
 }
 
 export type CommandHandler = (context: CommandContext, host: CommandHost) => void;

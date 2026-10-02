@@ -1,5 +1,6 @@
 import {
   EMPTY_TRADE_OFFER,
+  InventoryStack,
   MAX_MONEY,
   TRADE_INVITE_MS,
   TradeOffer,
@@ -133,43 +134,54 @@ export function clampOffer(party: TradeParty): TradeOffer | null {
 /**
  * Hace el intercambio si todo cierra: cada uno tiene lo que ofreció, a los dos les entra lo que
  * reciben y nadie pasa el tope de plata. Primero se simula con copias de las mochilas; si algo
- * falla no se toca nada y se devuelve el motivo. Devuelve null si se hizo.
+ * falla no se toca nada y se devuelve el motivo. Devuelve null si se hizo. Las herramientas pasan
+ * con el desgaste que tienen (las más usadas primero, como muestra `uses` en el estado).
  */
 export function executeTrade(a: TradeParty, b: TradeParty): string | null {
   const missing = checkOffer(a, `${a.name} ya no tiene`) ?? checkOffer(b, `${b.name} ya no tiene`);
   if (missing) return missing;
 
+  // Simulación: lo que da cada uno (con sus usos) sale de una copia de su mochila…
+  const afterA = a.inventory.clone();
+  const afterB = b.inventory.clone();
+  const fromA = takeOffer(afterA, a.offer);
+  const fromB = takeOffer(afterB, b.offer);
+  // …y tiene que entrar en la copia de la del otro.
+  for (const [self, after, received] of [
+    [a, afterA, fromB],
+    [b, afterB, fromA],
+  ] as const) {
+    if (!received.every((unit) => after.add(unit.itemId, unit.uses))) return `${self.name} no tiene lugar en la mochila.`;
+  }
   for (const [self, other] of [
     [a, b],
     [b, a],
   ] as const) {
-    const after = self.inventory.clone();
-    for (const { itemId, quantity } of self.offer.items) repeat(quantity, () => after.remove(itemId));
-    for (const { itemId, quantity } of other.offer.items) {
-      for (let i = 0; i < quantity; i += 1) {
-        if (!after.add(itemId)) return `${self.name} no tiene lugar en la mochila.`;
-      }
-    }
     if (self.wallet.balance - self.offer.money + other.offer.money > MAX_MONEY) {
       return `${self.name} no puede tener tanta plata.`;
     }
   }
 
   // Todo cierra: se aplica de verdad, en el mismo orden que la simulación.
-  for (const party of [a, b]) {
-    for (const { itemId, quantity } of party.offer.items) repeat(quantity, () => party.inventory.remove(itemId));
-    if (party.offer.money > 0) party.wallet.debit(party.offer.money);
-  }
-  for (const [self, other] of [
-    [a, b],
-    [b, a],
-  ] as const) {
-    for (const { itemId, quantity } of other.offer.items) repeat(quantity, () => self.inventory.add(itemId));
-    if (other.offer.money > 0) self.wallet.credit(other.offer.money);
-  }
+  const givenA = takeOffer(a.inventory, a.offer);
+  const givenB = takeOffer(b.inventory, b.offer);
+  for (const unit of givenB) a.inventory.add(unit.itemId, unit.uses);
+  for (const unit of givenA) b.inventory.add(unit.itemId, unit.uses);
+  if (a.offer.money > 0) a.wallet.debit(a.offer.money);
+  if (b.offer.money > 0) b.wallet.debit(b.offer.money);
+  if (b.offer.money > 0) a.wallet.credit(b.offer.money);
+  if (a.offer.money > 0) b.wallet.credit(a.offer.money);
   return null;
 }
 
-function repeat(times: number, fn: () => void) {
-  for (let i = 0; i < times; i += 1) fn();
+/** Saca de la mochila lo ofrecido, unidad por unidad, y devuelve esas unidades (con sus usos). */
+function takeOffer(inventory: Inventory, offer: TradeOffer): InventoryStack[] {
+  const units: InventoryStack[] = [];
+  for (const { itemId, quantity } of offer.items) {
+    for (let i = 0; i < quantity; i += 1) {
+      const unit = inventory.remove(itemId);
+      if (unit) units.push(unit);
+    }
+  }
+  return units;
 }

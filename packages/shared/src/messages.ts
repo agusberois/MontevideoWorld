@@ -1,5 +1,6 @@
 import type { Appearance } from "./appearance";
 import type { InventoryStack, ItemSlot } from "./items";
+import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
 
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
@@ -37,10 +38,24 @@ export const MessageType = {
   FishStarted: "fish:started",
   /** Servidor → Cliente: cómo terminó la pesca. */
   FishResult: "fish:result",
+  /** Cliente → Servidor: ofrecer la mercadería (hay que estar en la explanada del Centenario con un carrito). */
+  VendStart: "vend:start",
+  /** Cliente → Servidor: dejar de vender sin esperar al cliente. */
+  VendStop: "vend:stop",
+  /** Servidor → Cliente: estás vendiendo; en `durationMs` se sabe si alguien compró. */
+  VendStarted: "vend:started",
+  /** Servidor → Cliente: cómo salió la venta. */
+  VendResult: "vend:result",
   /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
   Notice: "notice",
   /** Cliente (admin) → Servidor: mover el reloj del juego. */
   AdminSetTime: "admin:time",
+  /** Cliente (admin) → Servidor: pedir los jugadores cercanos (para el maker). */
+  AdminNearbyRequest: "admin:nearby:get",
+  /** Servidor → Cliente (admin): jugadores a `MAKER_RANGE` tiles o menos. */
+  AdminNearby: "admin:nearby",
+  /** Cliente (admin) → Servidor: crear ítems del catálogo en la mochila propia o de un jugador cercano. */
+  AdminGive: "admin:give",
   /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
   Announcement: "announcement",
   /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */
@@ -100,7 +115,16 @@ export function isPlayerKey(value: unknown): value is string {
 export interface MoveMessage {
   x: number;
   y: number;
+  /**
+   * Opcional: el recorrido que planeó el cliente para llegar a (x, y) (ver `CityMap.followRoute`).
+   * Así el server camina exactamente lo que el cliente ya está mostrando (predicción). El server lo
+   * valida paso a paso; si no arranca desde donde está, calcula su propio camino (`findPath`).
+   */
+  path?: TilePoint[];
 }
+
+/** Largo máximo de `MoveMessage.path` (lo de más se ignora y el server completa con `findPath`). */
+export const MAX_ROUTE_LENGTH = 256;
 
 /** Cliente → Servidor: ir a sentarse en el banco del tile (x, y). */
 export interface SitMessage {
@@ -122,7 +146,11 @@ export interface ChatInputMessage {
   text: string;
 }
 
-export type ChatKind = "player" | "system";
+/**
+ * "player": mensaje al barrio (con globo); "system": aviso del juego; "private": mensaje privado
+ * (`/mensaje`), sólo lo ven quien lo manda y quien lo recibe, sin globo.
+ */
+export type ChatKind = "player" | "system" | "private";
 
 /** Servidor → Clientes: mensaje de chat difundido a la sala. */
 export interface ChatBroadcastMessage {
@@ -132,6 +160,11 @@ export interface ChatBroadcastMessage {
   name: string;
   text: string;
   timestamp: number;
+  /**
+   * Sólo en un "private" que mandaste vos (la copia que te vuelve): a quién se lo mandaste. En uno
+   * que recibiste no viene, y `name` es quién te lo mandó.
+   */
+  to?: string;
 }
 
 /** Servidor → Cliente: la mochila del jugador (privada, no viaja en el Schema). */
@@ -190,6 +223,22 @@ export interface FishResultMessage {
   itemIds?: string[];
 }
 
+/** Servidor → Cliente: estás ofreciendo; el resultado llega en `durationMs`. */
+export interface VendStartedMessage {
+  durationMs: number;
+}
+
+/**
+ * Servidor → Cliente: resultado de la venta. `earned` = lo que cobraste (0 si nadie compró);
+ * `giftId` = la prenda que te regaló un hincha (ya está en la mochila).
+ */
+export interface VendResultMessage {
+  ok: boolean;
+  text: string;
+  earned: number;
+  giftId?: string;
+}
+
 /** Servidor → Cliente: aviso breve que sólo ve ese jugador. */
 export interface NoticeMessage {
   text: string;
@@ -198,6 +247,35 @@ export interface NoticeMessage {
 /** Cliente (admin) → Servidor: poner el reloj del juego en `minuteOfDay` (0–1439); desde ahí sigue solo. */
 export interface AdminSetTimeMessage {
   minuteOfDay: number;
+}
+
+/** Tiles (en cualquier dirección, contando diagonales) a los que el admin puede darle ítems a otro con el maker. */
+export const MAKER_RANGE = 6;
+/** Máximo de unidades por pedido del maker. */
+export const MAKER_MAX_QUANTITY = 50;
+
+/** Un jugador cerca del admin, para elegirlo en el maker. */
+export interface NearbyPlayer {
+  sessionId: string;
+  name: string;
+  /** Tiles de distancia (contando diagonales). */
+  distance: number;
+}
+
+/** Servidor → Cliente (admin): jugadores cercanos, del más cerca al más lejos. */
+export interface AdminNearbyMessage {
+  players: NearbyPlayer[];
+}
+
+/**
+ * Cliente (admin) → Servidor: crear `quantity` unidades de `itemId` (1 a `MAKER_MAX_QUANTITY`). Sin
+ * `targetId`, a la mochila propia; con él, a la de ese jugador (tiene que estar a `MAKER_RANGE`).
+ * Las herramientas salen nuevas. Lo que no entra en la mochila no se crea.
+ */
+export interface AdminGiveMessage {
+  itemId: string;
+  quantity: number;
+  targetId?: string;
 }
 
 /** Servidor → Todos: anuncio del admin ("AGOSHO: hola que tal"), no va al chat. */
@@ -239,6 +317,11 @@ export interface TradeRespondMessage {
 export interface TradeSide {
   offer: TradeOffer;
   accepted: boolean;
+  /**
+   * Herramientas ofrecidas: usos que le quedan a cada unidad que se va a pasar (las más gastadas
+   * primero), por `itemId`. Así nadie recibe una caña casi rota sin saberlo.
+   */
+  uses: Record<string, number[]>;
 }
 
 /** Servidor → Cliente: el intercambio visto por quien lo recibe (`mine` = lo propio). */
@@ -282,7 +365,11 @@ export interface ClientToServerMessages {
   [MessageType.FishCast]: undefined;
   [MessageType.FishStop]: undefined;
   [MessageType.FishEat]: FishEatMessage;
+  [MessageType.VendStart]: undefined;
+  [MessageType.VendStop]: undefined;
   [MessageType.AdminSetTime]: AdminSetTimeMessage;
+  [MessageType.AdminNearbyRequest]: undefined;
+  [MessageType.AdminGive]: AdminGiveMessage;
   [MessageType.BoxOpen]: BoxOpenMessage;
   [MessageType.TravelRequest]: TravelMessage;
   [MessageType.PalmShake]: { x: number; y: number };
@@ -303,7 +390,10 @@ export interface ServerToClientMessages {
   [MessageType.ShopResult]: ShopResultMessage;
   [MessageType.FishStarted]: FishStartedMessage;
   [MessageType.FishResult]: FishResultMessage;
+  [MessageType.VendStarted]: VendStartedMessage;
+  [MessageType.VendResult]: VendResultMessage;
   [MessageType.Notice]: NoticeMessage;
+  [MessageType.AdminNearby]: AdminNearbyMessage;
   [MessageType.Announcement]: AnnouncementMessage;
   [MessageType.BoxOpened]: BoxOpenedMessage;
   [MessageType.TravelApproved]: TravelMessage;

@@ -27,6 +27,8 @@ __exportStar(require("./money"), exports);
 __exportStar(require("./sanitize"), exports);
 __exportStar(require("./stamina"), exports);
 __exportStar(require("./time"), exports);
+__exportStar(require("./tools"), exports);
 __exportStar(require("./trade"), exports);
+__exportStar(require("./vending"), exports);
 __exportStar(require("./weevils"), exports);
 //# sourceMappingURL=index.js.map

@@ -11,6 +11,8 @@ export * from "./money";
 export * from "./sanitize";
 export * from "./stamina";
 export * from "./time";
+export * from "./tools";
 export * from "./trade";
+export * from "./vending";
 export * from "./weevils";
 //# sourceMappingURL=index.d.ts.map

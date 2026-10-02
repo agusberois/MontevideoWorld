@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FishResultMessage, RodItem, rodPerks } from "@montevideo-world/shared";
+import { FishResultMessage, LOW_USES, RodItem, rodPerks, usesLabel } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { UiIcon } from "./UiIcon";
 
@@ -14,8 +14,12 @@ interface FishingWidgetProps {
   hasEnergy: boolean;
   /** La caña con la que se pesca (la mejor de la mochila); undefined si no tiene ninguna. */
   rod: RodItem | undefined;
+  /** Usos que le quedan a esa caña (se rompe al llegar a 0). */
+  uses: number;
   /** Tirar o recoger la línea (lo mismo que la tecla F). */
   onToggle: () => void;
+  /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
+  keyHint?: boolean;
 }
 
 const RESULT_MS = 5000;
@@ -24,7 +28,7 @@ const RESULT_MS = 5000;
  * Pesca en la escollera: botón "Pescar (F)", barra de espera mientras la línea está en el agua
  * (la duración la decide el server) y aviso con lo que picó.
  */
-export function FishingWidget({ canFish, fishing, hasEnergy, rod, onToggle }: FishingWidgetProps) {
+export function FishingWidget({ canFish, fishing, hasEnergy, rod, uses, onToggle, keyHint = true }: FishingWidgetProps) {
   const [wait, setWait] = useState<{ id: number; durationMs: number } | null>(null);
   const [result, setResult] = useState<FishResultMessage | null>(null);
 
@@ -65,7 +69,7 @@ export function FishingWidget({ canFish, fishing, hasEnergy, rod, onToggle }: Fi
             </span>
           )}
           <button type="button" onClick={onToggle}>
-            Recoger <kbd>F</kbd>
+            Recoger {keyHint && <kbd>F</kbd>}
           </button>
         </div>
       ) : (
@@ -80,7 +84,7 @@ export function FishingWidget({ canFish, fishing, hasEnergy, rod, onToggle }: Fi
                 !rod
                   ? "Necesitás una caña: comprá una en Pesca Sarandí, la tienda frente a la escollera"
                   : hasEnergy
-                    ? rodPerks(rod).join(" · ")
+                    ? `${usesLabel(rod, uses)} · ${rodPerks(rod).join(" · ")}`
                     : "Estás muy cansado para pescar: descansá un rato"
               }
             >
@@ -90,12 +94,13 @@ export function FishingWidget({ canFish, fishing, hasEnergy, rod, onToggle }: Fi
               ) : hasEnergy ? (
                 // Un solo hijo: el botón separa sus hijos con `gap` y quedaría un espacio de más.
                 <span>
-                  Pescar con <strong className="fishing-rod-name">{rod.name}</strong>
+                  Pescar con <strong className="fishing-rod-name">{rod.name}</strong>{" "}
+                  <small className={`fishing-uses${uses <= LOW_USES ? " low" : ""}`}>· {uses} usos</small>
                 </span>
               ) : (
                 "Sin energía"
               )}{" "}
-              <kbd>F</kbd>
+              {keyHint && <kbd>F</kbd>}
             </button>
           </>
         )

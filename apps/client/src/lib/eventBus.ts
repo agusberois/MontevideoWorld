@@ -1,10 +1,13 @@
 import type {
+  AdminNearbyMessage,
   AnnouncementMessage,
   BoxOpenedMessage,
   TravelMessage,
   ChatBroadcastMessage,
   FishResultMessage,
   FishStartedMessage,
+  VendResultMessage,
+  VendStartedMessage,
   InventoryMessage,
   NoticeMessage,
   OutfitIds,
@@ -43,12 +46,20 @@ export interface GameEvents {
   "fishing:started": FishStartedMessage;
   /** Red → React: cómo terminó la pesca. */
   "fishing:result": FishResultMessage;
+  /** Phaser → React: si el avatar propio está en la zona de venta y si está vendiendo. */
+  "vending:status": { canVend: boolean; vending: boolean };
+  /** Red → React: estás ofreciendo; el resultado llega en `durationMs`. */
+  "vending:started": VendStartedMessage;
+  /** Red → React: cómo salió la venta. */
+  "vending:result": VendResultMessage;
   /** Phaser → React: energía del avatar propio (0–100), cada vez que cambia. */
   "player:stamina": number;
   /** Red → React: aviso breve del server para este jugador. */
   notice: NoticeMessage;
   /** Phaser → React: el avatar propio es admin (entró con `ADMIN_NAME`). */
   "player:admin": boolean;
+  /** Red → React (sólo admin): jugadores cercanos, para elegir a quién darle ítems en el maker. */
+  "admin:nearby": AdminNearbyMessage;
   /** Red → React: anuncio del admin (/post) para mostrar en el medio de la pantalla. */
   announcement: AnnouncementMessage;
   /** Phaser → React: hora del juego, minuto del día 0–1439 (Schema). */
@@ -57,6 +68,16 @@ export interface GameEvents {
   "box:opened": BoxOpenedMessage;
   /** Red → React: boleto pagado, ya se puede viajar al barrio. */
   "travel:approved": TravelMessage;
+  /** Phaser → React: el avatar propio llegó a la parada de ómnibus que clickeaste (abrir la lista de barrios). */
+  "bus-stop:open": { name: string };
+  /** Phaser → React: la cámara quedó libre (true) o fija siguiendo al avatar (false). */
+  "camera:free": boolean;
+  /** React → Phaser: botón "Centrar personaje": la cámara vuelve al avatar y lo marca. */
+  "camera:command": "center";
+  /** Phaser → React: con qué se puede interactuar ahora (cartel "F · Sentarse"), o null si con nada. */
+  "interact:prompt": { label: string } | null;
+  /** React → Phaser: F (o tocar el cartel): interactuar con lo que hay al lado. */
+  "interact:use": null;
   /** Phaser → React: clic sobre otro jugador (posición en pantalla para abrir su menú). */
   "player:click": PlayerClick;
   /** Red → React: alguien te invita a intercambiar. */
@@ -81,6 +102,8 @@ export interface PlayerSummary {
   name: string;
   color: string;
   isSelf: boolean;
+  /** Donador del proyecto (distintivo arriba del nombre). */
+  isDonor: boolean;
 }
 
 type Handler<T> = (payload: T) => void;

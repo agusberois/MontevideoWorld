@@ -24,6 +24,12 @@ export interface CommandDefinition {
 export const COMMANDS = [
   { name: "help", usage: "/help", description: "Lista los comandos que podés usar.", role: "user" },
   {
+    name: "mensaje",
+    usage: "/mensaje <jugador> <texto>",
+    description: "Mensaje privado a un jugador conectado, esté en el barrio que esté. Sólo lo ve él.",
+    role: "user",
+  },
+  {
     name: "post",
     usage: "/post <mensaje>",
     description: "Anuncio en el medio de la pantalla para todos los barrios.",
@@ -39,6 +45,12 @@ export const COMMANDS = [
     name: "plata",
     usage: "/plata <monto> [jugador]",
     description: "Carga plata a un jugador del barrio (sin nombre, a vos).",
+    role: "admin",
+  },
+  {
+    name: "donador",
+    usage: "/donador <si|no> [jugador]",
+    description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).",
     role: "admin",
   },
 ] as const satisfies readonly CommandDefinition[];

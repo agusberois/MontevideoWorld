@@ -29,7 +29,10 @@ export class Stamina {
     return true;
   }
 
-  /** Pierde energía sin que sea una acción propia (p. ej. picaduras). No baja de 0. */
+  /**
+   * Pierde energía sin chequear si alcanza: picaduras, o el costo de una tirada / venta que ya
+   * terminó (se validó con `has` al empezar). No baja de 0.
+   */
   drain(amount: number) {
     this.amount = Math.max(0, this.amount - amount);
   }

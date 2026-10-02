@@ -1,4 +1,4 @@
-import { CLOTHING } from "../items";
+import { CARTS, CLOTHING } from "../items";
 import { LayoutBuilder } from "./layoutBuilder";
 import { CityDefinition, TileChar, TileRect } from "./types";
 
@@ -154,6 +154,11 @@ export const TRES_CRUCES: CityDefinition = {
     { x: 24, y: 34, facing: "south" },
     { x: 45, y: 34, facing: "south" },
   ],
+  busStops: [
+    { name: "Terminal Tres Cruces", x: 25, y: 8, facing: "east" },
+    { name: "Avenida Italia", x: 27, y: 13, facing: "south" },
+    { name: "Bulevar Artigas", x: 13, y: 19, facing: "east" },
+  ],
   // Cartel "MW" sobre el techo del shopping, frente a la explanada.
   logoSign: { landmarkId: "shopping-tres-cruces" },
   shops: [
@@ -166,12 +171,24 @@ export const TRES_CRUCES: CityDefinition = {
       buys: ["clothing"],
       stock: CLOTHING.map((item) => item.id),
     },
+    {
+      id: "kiosco-parque",
+      name: "Kiosco del Parque",
+      description: "Frente al Estadio Centenario: vende carritos para vender en la explanada y compra los usados.",
+      area: { x: 52, y: 21, width: 2, height: 2 },
+      building: "kiosk",
+      stock: CARTS.map((item) => item.id),
+      buys: ["cart"],
+    },
   ],
+  // El anillo de plaza alrededor del Estadio Centenario: con un carrito se le vende a los hinchas.
+  vending: { name: "Explanada del Centenario", areas: [{ x: 38, y: 20, width: 14, height: 14 }] },
   placeLabels: [
     { name: "Bulevar Artigas", x: 14.5, y: 38 },
     { name: "Avenida Italia", x: 41, y: 14.5 },
     { name: "Av. 18 de Julio", x: 4, y: 24.5 },
     { name: "Explanada Tres Cruces", x: 20.5, y: 11.6 },
     { name: "Parque Batlle", x: 38, y: 40 },
+    { name: "Explanada del Centenario", x: 45, y: 33 },
   ],
 };

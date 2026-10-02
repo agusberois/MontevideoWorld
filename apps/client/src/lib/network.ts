@@ -9,8 +9,12 @@ import {
   EquipMessage,
   FishResultMessage,
   FishStartedMessage,
+  VendResultMessage,
+  VendStartedMessage,
   InventoryMessage,
   AdminSetTimeMessage,
+  AdminGiveMessage,
+  AdminNearbyMessage,
   AnnouncementMessage,
   ItemSlot,
   NoticeMessage,
@@ -115,6 +119,15 @@ export function bindRoomMessages(room: CityRoom): () => void {
   const unbindFishResult = room.onMessage(MessageType.FishResult, (message: FishResultMessage) => {
     eventBus.emit("fishing:result", message);
   });
+  const unbindVendStarted = room.onMessage(MessageType.VendStarted, (message: VendStartedMessage) => {
+    eventBus.emit("vending:started", message);
+  });
+  const unbindVendResult = room.onMessage(MessageType.VendResult, (message: VendResultMessage) => {
+    eventBus.emit("vending:result", message);
+  });
+  const unbindAdminNearby = room.onMessage(MessageType.AdminNearby, (message: AdminNearbyMessage) => {
+    eventBus.emit("admin:nearby", message);
+  });
   const unbindNotice = room.onMessage(MessageType.Notice, (message: NoticeMessage) => {
     eventBus.emit("notice", message);
   });
@@ -148,6 +161,9 @@ export function bindRoomMessages(room: CityRoom): () => void {
     unbindShopResult();
     unbindFishStarted();
     unbindFishResult();
+    unbindVendStarted();
+    unbindVendResult();
+    unbindAdminNearby();
     unbindNotice();
     unbindAnnouncement();
     unbindTravel();
@@ -181,6 +197,11 @@ export function sendFishing(room: CityRoom, action: "cast" | "stop") {
   room.send(action === "cast" ? MessageType.FishCast : MessageType.FishStop);
 }
 
+/** Ofrecer la mercadería (`start`) o dejar de vender (`stop`). */
+export function sendVending(room: CityRoom, action: "start" | "stop") {
+  room.send(action === "start" ? MessageType.VendStart : MessageType.VendStop);
+}
+
 /** Comerse un pescado de la mochila (recupera energía). */
 export function sendFishEat(room: CityRoom, itemId: string) {
   const message: FishEatMessage = { itemId };
@@ -191,6 +212,17 @@ export function sendFishEat(room: CityRoom, itemId: string) {
 export function sendAdminSetTime(room: CityRoom, minuteOfDay: number) {
   const message: AdminSetTimeMessage = { minuteOfDay };
   room.send(MessageType.AdminSetTime, message);
+}
+
+/** Admin: pedir los jugadores cercanos (llegan por `admin:nearby`). */
+export function requestNearbyPlayers(room: CityRoom) {
+  room.send(MessageType.AdminNearbyRequest);
+}
+
+/** Admin (maker): crear `quantity` unidades de `itemId` para vos o para un jugador cercano (`targetId`). */
+export function sendAdminGive(room: CityRoom, itemId: string, quantity: number, targetId?: string) {
+  const message: AdminGiveMessage = targetId ? { itemId, quantity, targetId } : { itemId, quantity };
+  room.send(MessageType.AdminGive, message);
 }
 
 /** Saludar a otro jugador (sale en el chat como mensaje propio). */

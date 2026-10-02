@@ -60,7 +60,7 @@ export function AdminPanel({ room, cityName, clock, onClose }: AdminPanelProps) 
             aclara al amanecer.
           </p>
         </div>
-        <footer>
+        <footer className="key-hint">
           Apretá <kbd>P</kbd> o <kbd>Esc</kbd> para cerrar
         </footer>
       </section>

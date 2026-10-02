@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { getItem } from "@montevideo-world/shared";
 import { HotbarSlots, isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
 import { ItemActionContext, countInBag, isWorn, itemAction } from "@/lib/itemActions";
+import { isTouchDevice } from "@/lib/viewport";
+import { HotbarPicker } from "./HotbarPicker";
 import { ItemIcon } from "./ItemIcon";
+
+/** Mantener apretado un casillero este tiempo abre el selector (para cambiarlo o quitarlo). */
+const LONG_PRESS_MS = 450;
 
 interface HotbarProps {
   slots: HotbarSlots;
@@ -18,11 +23,24 @@ interface HotbarProps {
 /**
  * Barra de acceso rápido 1–9. Se configura arrastrando ítems desde la mochila (ropa, cañas,
  * pescados, cajas); entre casilleros se reordena arrastrando, y se saca un atajo arrastrándolo
- * afuera o con clic derecho. Cada casillero muestra si la prenda está puesta, cuántos hay en la
- * mochila o si ya no lo tenés.
+ * afuera o con clic derecho. Sin arrastrar (celulares): tocar un casillero vacío o mantener
+ * apretado uno lleno abre `HotbarPicker` para elegir qué va ahí o quitarlo. Cada casillero muestra
+ * si la prenda está puesta, cuántos hay en la mochila o si ya no lo tenés.
  */
 export function Hotbar({ slots, context, onChange, onActivate }: HotbarProps) {
   const [dropTarget, setDropTarget] = useState<number | null>(null);
+  /** Casillero con el selector abierto. */
+  const [picking, setPicking] = useState<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  /** El toque largo ya abrió el selector: el "clic" que viene al soltar no usa el ítem. */
+  const longPressed = useRef(false);
+  // En pantallas táctiles el arrastre nativo no anda: los casilleros no se arrastran.
+  const touch = isTouchDevice();
+
+  function cancelPress() {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  }
 
   function drop(index: number, itemId: string, fromHotbar?: number) {
     const next = [...slots];
@@ -59,20 +77,43 @@ export function Hotbar({ slots, context, onChange, onActivate }: HotbarProps) {
             key={index}
             type="button"
             className={classes}
-            draggable={Boolean(item)}
+            draggable={Boolean(item) && !touch}
             title={
               item
                 ? `${item.name}${worn ? " (puesto)" : missing ? " (no lo tenés)" : ""}${
                     action ? ` — ${index + 1} o clic para ${action.label}` : ""
-                  }. Clic derecho: quitar atajo`
-                : `Casillero ${index + 1}: arrastrá algo desde la mochila`
+                  }. Mantené apretado o clic derecho para cambiarlo`
+                : `Casillero ${index + 1}: tocá para elegir qué poner (o arrastrá algo desde la mochila)`
             }
-            onClick={() => item && onActivate(index)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              if (item) clear(index);
+            onClick={() => {
+              if (longPressed.current) {
+                longPressed.current = false;
+                return;
+              }
+              if (item) onActivate(index);
+              else setPicking(index);
             }}
-            onDragStart={(event) => item && startItemDrag(event, { itemId: item.id, fromHotbar: index })}
+            onPointerDown={() => {
+              longPressed.current = false;
+              cancelPress();
+              pressTimer.current = window.setTimeout(() => {
+                longPressed.current = true;
+                setPicking(index);
+              }, LONG_PRESS_MS);
+            }}
+            onPointerUp={cancelPress}
+            onPointerLeave={cancelPress}
+            onPointerCancel={cancelPress}
+            onContextMenu={(event) => {
+              // Clic derecho (o el toque largo en Android, que también lo dispara): abre el selector.
+              event.preventDefault();
+              cancelPress();
+              setPicking(index);
+            }}
+            onDragStart={(event) => {
+              cancelPress();
+              if (item) startItemDrag(event, { itemId: item.id, fromHotbar: index });
+            }}
             onDragEnd={(event) => {
               // Soltado fuera de la barra: se quita el atajo.
               if (event.dataTransfer.dropEffect === "none") clear(index);
@@ -99,6 +140,23 @@ export function Hotbar({ slots, context, onChange, onActivate }: HotbarProps) {
           </button>
         );
       })}
+      {picking !== null && (
+        <HotbarPicker
+          index={picking}
+          current={slots[picking]}
+          inventory={context.inventory}
+          outfit={context.outfit}
+          onPick={(itemId) => {
+            drop(picking, itemId);
+            setPicking(null);
+          }}
+          onClear={() => {
+            clear(picking);
+            setPicking(null);
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </nav>
   );
 }

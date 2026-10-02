@@ -11,6 +11,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Es un juego: el pellizco hace zoom en el mapa (Phaser), no en la página.
+  maximumScale: 1,
+  userScalable: false,
+  // Pantalla completa también bajo el notch; los bordes se respetan con env(safe-area-inset-*).
+  viewportFit: "cover",
+  // El teclado del celular tapa la página en vez de achicarla (así el canvas no se redimensiona al
+  // escribir); el chat se corre arriba del teclado con `--keyboard-inset` (lib/viewport.ts).
+  interactiveWidget: "overlays-content",
   themeColor: "#12151f",
 };
 

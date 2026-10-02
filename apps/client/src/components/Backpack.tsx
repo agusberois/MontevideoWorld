@@ -6,7 +6,6 @@ import {
   ITEM_SLOT_LABELS,
   InventoryMessage,
   ItemSlot,
-  MAX_STACK,
   OutfitIds,
   BoxItem,
   difficultyStars,
@@ -15,15 +14,27 @@ import {
   getClothing,
   getItem,
   RodItem,
+  CartItem,
+  FishItem,
+  bestCart,
   bestRod,
+  cartPerks,
+  cartStars,
+  maxStack,
+  stackUses,
+  usesLabel,
+  wornestStack,
   isBox,
   lootChances,
   rodPerks,
   rodStars,
 } from "@montevideo-world/shared";
+import { useState } from "react";
 import { isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
+import { isTouchDevice } from "@/lib/viewport";
 import { CityRoom, sendBoxOpen, sendEquip } from "@/lib/network";
 import { ItemIcon, SlotPlaceholderIcon } from "./ItemIcon";
+import { ToolWear } from "./ToolWear";
 import { UiIcon } from "./UiIcon";
 
 interface BackpackProps {
@@ -42,17 +53,27 @@ interface BackpackProps {
  * Son intenciones: el server valida y la UI se actualiza con el Schema y el mensaje de inventario.
  */
 export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
+  /** Info del ítem tocado (cañas, carritos, pescados): en celulares no hay tooltips. */
+  const [detail, setDetail] = useState<string | null>(null);
+  // En pantallas táctiles el arrastre nativo no anda: la barra rápida se arma tocándola (HotbarPicker).
+  const touch = isTouchDevice();
   const capacity = inventory?.capacity ?? INVENTORY_CAPACITY;
   const stacks = inventory?.stacks ?? [];
   /** Mismo criterio que el server: se apila sobre una pila igual o va a un casillero libre. */
   const canStore = (itemId: string) =>
-    stacks.some((stack) => stack.itemId === itemId && stack.quantity < MAX_STACK) || stacks.length < capacity;
+    stacks.some((stack) => stack.itemId === itemId && stack.quantity < maxStack(getItem(itemId))) || stacks.length < capacity;
   const cells = Array.from({ length: capacity }, (_, index) => stacks[index]);
 
   const equip = (slot: ItemSlot, itemId: string | null) => sendEquip(room, slot, itemId);
   const hasBox = stacks.some((stack) => isBox(getItem(stack.itemId)));
-  /** La caña que se usa al pescar: la de mayor nivel de la mochila. */
-  const rodInUse = bestRod(stacks.map((stack) => stack.itemId));
+  /**
+   * La caña que se usa al pescar y el carrito con el que se vende: los de mayor nivel y, si hay
+   * varios iguales, el más gastado (se termina uno antes de empezar el otro).
+   */
+  const bestRodItem = bestRod(stacks.map((stack) => stack.itemId));
+  const rodInUse = bestRodItem && wornestStack(stacks, bestRodItem.id);
+  const bestCartItem = bestCart(stacks.map((stack) => stack.itemId));
+  const cartInUse = bestCartItem && wornestStack(stacks, bestCartItem.id);
 
   return (
     <div
@@ -94,7 +115,7 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
               return (
                 <li
                   key={slot}
-                  draggable={Boolean(item)}
+                  draggable={Boolean(item) && !touch}
                   onDragStart={(event) => item && startItemDrag(event, { itemId: item.id })}
                 >
                   {item ? <ItemIcon item={item} /> : <SlotPlaceholderIcon slot={slot} />}
@@ -128,7 +149,7 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
                   <li key={`${stack.itemId}-${index}`} className="backpack-cell box">
                     <button
                       type="button"
-                      draggable
+                      draggable={!touch}
                       onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
                       onClick={() => sendBoxOpen(room, item.id)}
                       title={boxTitle(item)}
@@ -142,20 +163,44 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
                 );
               }
               if (item.category === "rod") {
-                const inUse = item.id === rodInUse?.id;
+                const inUse = stack === rodInUse;
                 return (
                   <li key={`${stack.itemId}-${index}`} className={`backpack-cell${inUse ? " rod-in-use" : ""}`}>
-                    <div
+                    <button
+                      type="button"
                       className="backpack-cell-static"
-                      draggable
+                      draggable={!touch}
                       onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      title={`${rodTitle(item, inUse)}. Arrastrala a la barra 1–9 para pescar con un atajo.`}
+                      onClick={() => setDetail(rodTitle(item, inUse, stackUses(stack)))}
+                      title={`${rodTitle(item, inUse, stackUses(stack))}. Arrastrala a la barra 1–9 para pescar con un atajo.`}
                     >
                       <ItemIcon item={item} size={40} />
                       <span className="backpack-cell-name">{item.name}</span>
                       {qty}
                       {inUse && <span className="backpack-badge">En uso</span>}
-                    </div>
+                      <ToolWear item={item} uses={stackUses(stack)} />
+                    </button>
+                  </li>
+                );
+              }
+              if (item.category === "cart") {
+                const inUse = stack === cartInUse;
+                return (
+                  <li key={`${stack.itemId}-${index}`} className={`backpack-cell${inUse ? " rod-in-use" : ""}`}>
+                    <button
+                      type="button"
+                      className="backpack-cell-static"
+                      draggable={!touch}
+                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
+                      onClick={() => setDetail(cartTitle(item, inUse, stackUses(stack)))}
+                      title={`${cartTitle(item, inUse, stackUses(stack))}. Arrastralo a la barra 1–9 para vender con un atajo.`}
+                    >
+                      <ItemIcon item={item} size={40} />
+                      <span className="backpack-cell-name">{item.name}</span>
+                      {qty}
+                      {inUse && <span className="backpack-badge">En uso</span>}
+                      <ToolWear item={item} uses={stackUses(stack)} />
+                    </button>
                   </li>
                 );
               }
@@ -163,16 +208,18 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
                 // Los pescados se venden en el Mercado del Puerto o se comen desde la barra rápida.
                 return (
                   <li key={`${stack.itemId}-${index}`} className="backpack-cell">
-                    <div
+                    <button
+                      type="button"
                       className="backpack-cell-static"
-                      draggable
+                      draggable={!touch}
                       onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      title={`${item.name} ${difficultyStars(item.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(item.price)}. Arrastralo a la barra 1–9 para comerlo (+${fishStamina(item.difficulty)} de energía).`}
+                      onClick={() => setDetail(fishTitle(item))}
+                      title={`${fishTitle(item)} Arrastralo a la barra 1–9 para comerlo.`}
                     >
                       <ItemIcon item={item} size={40} />
                       <span className="backpack-cell-name">{item.name}</span>
                       {qty}
-                    </div>
+                    </button>
                   </li>
                 );
               }
@@ -180,7 +227,7 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
                 <li key={`${stack.itemId}-${index}`} className="backpack-cell">
                   <button
                     type="button"
-                    draggable
+                    draggable={!touch}
                     onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
                     onClick={() => equip(item.slot, item.id)}
                     title={`${item.name} — clic para ponértelo, o arrastralo a la barra 1–9`}
@@ -194,13 +241,21 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
               );
             })}
           </ul>
+          {detail && (
+            <p className="backpack-detail" role="status">
+              {detail}
+            </p>
+          )}
           {stacks.length === 0 && <p className="backpack-hint">Vacía. Lo que te saques se guarda acá.</p>}
+          {touch && stacks.length > 0 && (
+            <p className="backpack-hint">Para la barra rápida, tocá un casillero vacío de la barra (o mantené apretado uno lleno).</p>
+          )}
           {hasBox && (
-            <p className="backpack-hint">🎁 Para abrir una caja sorpresa, hacé clic o tirala fuera de la mochila.</p>
+            <p className="backpack-hint">🎁 Para abrir una caja sorpresa, tocala{touch ? "" : " o tirala fuera de la mochila"}.</p>
           )}
         </div>
 
-        <footer>
+        <footer className="key-hint">
           Apretá <kbd>H</kbd> o <kbd>Esc</kbd> para cerrar
         </footer>
       </section>
@@ -216,8 +271,19 @@ function boxTitle(box: BoxItem): string {
   return `${box.name} — clic o tirala fuera de la mochila para abrirla. Puede salir: ${odds}`;
 }
 
-/** "Caña de fibra ★★☆☆ — se usa al pescar. Peces raros: 6,6 % · …" */
-function rodTitle(rod: RodItem, inUse: boolean): string {
-  const use = inUse ? "es la que usás al pescar" : "pescás con tu mejor caña, no con esta";
-  return `${rod.name} ${rodStars(rod.tier)} — ${use}. ${rodPerks(rod).join(" · ")}`;
+/** "Caña de fibra ★★☆☆ (32/80 usos) — es la que usás al pescar. Peces raros: 6,6 % · …" */
+function rodTitle(rod: RodItem, inUse: boolean, uses: number): string {
+  const use = inUse ? "es la que usás al pescar" : "pescás con tu mejor caña (y la más gastada), no con esta";
+  return `${rod.name} ${rodStars(rod.tier)} (${usesLabel(rod, uses)}) — ${use}. ${rodPerks(rod).join(" · ")}`;
+}
+
+/** "Carrito de panchos ★★★☆ (90/110 usos) — es el que usás al vender. Venta: $10–$16 · …" */
+function cartTitle(cart: CartItem, inUse: boolean, uses: number): string {
+  const use = inUse ? "es el que usás al vender" : "vendés con tu mejor carrito (y el más gastado), no con este";
+  return `${cart.name} ${cartStars(cart.tier)} (${usesLabel(cart, uses)}) — ${use}. ${cartPerks(cart).join(" · ")}`;
+}
+
+/** "Corvina negra ★★★★★ — en el Mercado del Puerto lo pagan $60. Comerlo da +30 de energía." */
+function fishTitle(fish: FishItem): string {
+  return `${fish.name} ${difficultyStars(fish.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(fish.price)}. Comerlo da +${fishStamina(fish.difficulty)} de energía.`;
 }

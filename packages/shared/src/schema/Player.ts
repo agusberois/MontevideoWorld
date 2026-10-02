@@ -18,10 +18,18 @@ export class Player extends Schema {
   @type("boolean") fishing = false;
   /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
   @type("string") rod = "";
+  /** Vendiendo en la explanada del Centenario (los demás lo ven con su carrito). */
+  @type("boolean") vending = false;
+  /** Carrito con el que está vendiendo (id de `CARTS`; "" si no vende): los demás lo ven de su color. */
+  @type("string") cart = "";
+  /** Sube en cada venta: los clientes muestran "¡Vendido!" sobre el vendedor. */
+  @type("uint16") sales = 0;
   /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
   @type("uint16") kicks = 0;
   /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `stamina.ts`. */
   @type("uint8") stamina = 100;
+  /** Donador: aporta plata al proyecto. Se muestra un distintivo arriba del nombre (lo pone el admin con /donador). */
+  @type("boolean") donor = false;
   /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
   @type("boolean") admin = false;
   /** Prendas puestas: id de `ITEMS` o "" si no tiene nada en ese lugar. */

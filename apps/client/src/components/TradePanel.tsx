@@ -10,11 +10,14 @@ import {
   changeOfferQuantity,
   formatMoney,
   getItem,
+  isTool,
   offeredQuantity,
+  usesLabel,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { CityRoom, sendTradeAccept, sendTradeCancel, sendTradeOffer } from "@/lib/network";
 import { ItemIcon } from "./ItemIcon";
+import { ToolWear } from "./ToolWear";
 import { UiIcon } from "./UiIcon";
 
 interface TradePanelProps {
@@ -93,6 +96,7 @@ export function TradePanel({ room, inventory, money }: TradePanelProps) {
           <TradeSideView
             title="Vos ofrecés"
             offer={mine}
+            uses={trade.mine.uses}
             accepted={trade.mine.accepted}
             onItemClick={(itemId) => offer(changeOfferQuantity(mine, itemId, -1))}
             emptyText="Tocá algo de tu mochila para ofrecerlo."
@@ -117,6 +121,7 @@ export function TradePanel({ room, inventory, money }: TradePanelProps) {
           <TradeSideView
             title={`${trade.partnerName} ofrece`}
             offer={theirs}
+            uses={trade.theirs.uses}
             accepted={trade.theirs.accepted}
             emptyText="Todavía no ofreció nada."
           >
@@ -183,6 +188,8 @@ export function TradePanel({ room, inventory, money }: TradePanelProps) {
 interface TradeSideViewProps {
   title: string;
   offer: TradeOffer;
+  /** Usos que le quedan a cada herramienta ofrecida (las que se pasarían), por `itemId`. */
+  uses: Record<string, number[]>;
   accepted: boolean;
   emptyText: string;
   onItemClick?: (itemId: string) => void;
@@ -190,7 +197,7 @@ interface TradeSideViewProps {
 }
 
 /** Una columna del intercambio: los ítems ofrecidos, la plata y si ya aceptó. */
-function TradeSideView({ title, offer, accepted, emptyText, onItemClick, children }: TradeSideViewProps) {
+function TradeSideView({ title, offer, uses, accepted, emptyText, onItemClick, children }: TradeSideViewProps) {
   return (
     <div className={`trade-side${accepted ? " accepted" : ""}`}>
       <h3>
@@ -202,7 +209,7 @@ function TradeSideView({ title, offer, accepted, emptyText, onItemClick, childre
       ) : (
         <ul className="trade-grid">
           {offer.items.map((stack) => (
-            <OfferCell key={stack.itemId} stack={stack} onClick={onItemClick} />
+            <OfferCell key={stack.itemId} stack={stack} uses={uses[stack.itemId]} onClick={onItemClick} />
           ))}
         </ul>
       )}
@@ -211,24 +218,34 @@ function TradeSideView({ title, offer, accepted, emptyText, onItemClick, childre
   );
 }
 
-function OfferCell({ stack, onClick }: { stack: InventoryStack; onClick?: (itemId: string) => void }) {
+interface OfferCellProps {
+  stack: InventoryStack;
+  /** Herramientas: usos de cada unidad que se pasa (la barrita muestra la más gastada). */
+  uses?: number[];
+  onClick?: (itemId: string) => void;
+}
+
+function OfferCell({ stack, uses, onClick }: OfferCellProps) {
   const item = getItem(stack.itemId);
   if (!item) return null;
+  const tool = isTool(item) && uses && uses.length > 0 ? item : undefined;
+  const wear = tool ? ` (${uses!.map((left) => usesLabel(tool, left)).join(", ")})` : "";
   const content = (
     <>
       <ItemIcon item={item} size={36} />
       <span className="trade-cell-name">{item.name}</span>
       {stack.quantity > 1 && <span className="backpack-qty">x{stack.quantity}</span>}
+      {tool && <ToolWear item={tool} uses={Math.min(...uses!)} />}
     </>
   );
   return (
     <li>
       {onClick ? (
-        <button type="button" title={`Sacar 1 × ${item.name} de la oferta`} onClick={() => onClick(stack.itemId)}>
+        <button type="button" title={`Sacar 1 × ${item.name}${wear} de la oferta`} onClick={() => onClick(stack.itemId)}>
           {content}
         </button>
       ) : (
-        <div className="trade-cell-static" title={item.name}>
+        <div className="trade-cell-static" title={`${item.name}${wear}`}>
           {content}
         </div>
       )}

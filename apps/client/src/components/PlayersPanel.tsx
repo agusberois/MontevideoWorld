@@ -39,11 +39,16 @@ export function PlayersPanel({ cityName, players, onClose }: PlayersPanelProps) 
             <li key={player.sessionId}>
               <span className="players-dot" style={{ background: player.color }} aria-hidden="true" />
               <span className="players-name">{player.name}</span>
+              {player.isDonor && (
+                <span className="players-donor" title="Donador: apoya a Montevideo World">
+                  ♥ Donador
+                </span>
+              )}
               {player.isSelf && <span className="players-self">Vos</span>}
             </li>
           ))}
         </ul>
-        <footer>
+        <footer className="key-hint">
           Apretá <kbd>Tab</kbd> o <kbd>Esc</kbd> para cerrar
         </footer>
       </section>
