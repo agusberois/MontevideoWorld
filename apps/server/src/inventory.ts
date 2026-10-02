@@ -4,6 +4,9 @@ import { INVENTORY_CAPACITY, InventoryStack, MAX_STACK, getItem, isTool, maxStac
  * Mochila de un jugador: casilleros con pilas de prendas iguales. Vive sólo en el servidor
  * (estado privado de la Room) y se le manda a su dueño con `MessageType.Inventory`.
  *
+ * Cada pila sabe en qué casillero está (`slot`): lo nuevo va al primer casillero libre y el jugador
+ * los reordena con `move` (puede haber huecos). Una pila que se vacía libera su casillero.
+ *
  * Las herramientas (cañas, carritos) no se apilan: cada una ocupa su casillero y lleva sus `uses`
  * restantes. Al gastar, vender o pasar una, se toma la más usada (`wornestStack`).
  */
@@ -30,7 +33,7 @@ export class Inventory {
     const item = getItem(itemId);
     if (isTool(item)) {
       if (this.stacks.length >= this.capacity) return false;
-      this.stacks.push({ itemId, quantity: 1, uses: validUses(uses, item.maxUses) });
+      this.stacks.push({ itemId, quantity: 1, uses: validUses(uses, item.maxUses), slot: this.freeSlot() });
       return true;
     }
     const stack = this.stacks.find((s) => s.itemId === itemId && s.quantity < MAX_STACK);
@@ -39,8 +42,46 @@ export class Inventory {
       return true;
     }
     if (this.stacks.length >= this.capacity) return false;
-    this.stacks.push({ itemId, quantity: 1 });
+    this.stacks.push({ itemId, quantity: 1, slot: this.freeSlot() });
     return true;
+  }
+
+  /**
+   * Mover lo del casillero `from` al `to`: si está vacío, se muda; si hay la misma prenda (no
+   * herramienta), se junta hasta llenar la pila; si no, se intercambian. Devuelve si cambió algo.
+   */
+  move(from: number, to: number): boolean {
+    if (!this.isSlot(from) || !this.isSlot(to) || from === to) return false;
+    const source = this.stacks.find((stack) => stack.slot === from);
+    if (!source) return false;
+    const target = this.stacks.find((stack) => stack.slot === to);
+    if (!target) {
+      source.slot = to;
+      return true;
+    }
+    const room = maxStack(getItem(target.itemId)) - target.quantity;
+    if (target.itemId === source.itemId && !isTool(getItem(source.itemId)) && room > 0) {
+      const moved = Math.min(room, source.quantity);
+      target.quantity += moved;
+      source.quantity -= moved;
+      if (source.quantity === 0) this.stacks.splice(this.stacks.indexOf(source), 1);
+      return true;
+    }
+    source.slot = to;
+    target.slot = from;
+    return true;
+  }
+
+  private isSlot(slot: number): boolean {
+    return Number.isInteger(slot) && slot >= 0 && slot < this.capacity;
+  }
+
+  /** El primer casillero sin nada (hay que chequear antes que quede lugar). */
+  private freeSlot(): number {
+    const used = new Set(this.stacks.map((stack) => stack.slot));
+    let slot = 0;
+    while (used.has(slot)) slot += 1;
+    return slot;
   }
 
   /**
@@ -88,17 +129,35 @@ export class Inventory {
    */
   static restore(stacks: readonly InventoryStack[], capacity = INVENTORY_CAPACITY): Inventory {
     const inventory = new Inventory(capacity);
-    for (const { itemId, quantity, uses } of stacks) {
+    /** Casilleros guardados: se respetan si son válidos y no se repiten; si no, van al primero libre. */
+    const taken = new Set<number>();
+    const keepSlot = (slot: number | undefined, index: number) => {
+      if (index > 0 || slot === undefined || !inventory.isSlot(slot) || taken.has(slot)) return undefined;
+      taken.add(slot);
+      return slot;
+    };
+    const restored: InventoryStack[] = [];
+    for (const { itemId, quantity, uses, slot } of stacks) {
       const item = getItem(itemId);
       if (!item || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_STACK) continue;
       if (isTool(item)) {
-        for (let i = 0; i < quantity && inventory.stacks.length < capacity; i += 1) {
-          inventory.stacks.push({ itemId, quantity: 1, uses: validUses(uses, item.maxUses) });
+        for (let i = 0; i < quantity && restored.length < capacity; i += 1) {
+          restored.push({ itemId, quantity: 1, uses: validUses(uses, item.maxUses), slot: keepSlot(slot, i) });
         }
         continue;
       }
-      if (inventory.stacks.length >= capacity) break;
-      inventory.stacks.push({ itemId, quantity });
+      if (restored.length >= capacity) break;
+      restored.push({ itemId, quantity, slot: keepSlot(slot, 0) });
+    }
+    // Los guardados viejos (sin casillero) o repetidos ocupan los libres, en orden.
+    for (const stack of restored) {
+      if (stack.slot === undefined) {
+        let free = 0;
+        while (taken.has(free)) free += 1;
+        stack.slot = free;
+        taken.add(free);
+      }
+      inventory.stacks.push(stack);
     }
     return inventory;
   }
@@ -110,9 +169,9 @@ export class Inventory {
     return copy;
   }
 
-  /** Copia serializable para mandar al cliente. */
+  /** Copia serializable para mandar al cliente, en orden de casillero. */
   snapshot(): InventoryStack[] {
-    return this.stacks.map((stack) => ({ ...stack }));
+    return this.stacks.map((stack) => ({ ...stack })).sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
   }
 }
 

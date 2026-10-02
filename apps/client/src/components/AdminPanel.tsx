@@ -1,7 +1,10 @@
 "use client";
 
-import { CLOCK_PRESETS, formatClock } from "@montevideo-world/shared";
-import { CityRoom, sendAdminSetTime } from "@/lib/network";
+import { CLOCK_PRESETS, MATCHES, formatClock, getCity } from "@montevideo-world/shared";
+import { eventBus } from "@/lib/eventBus";
+import { useGame } from "@/lib/gameStore";
+import { sendAdminMatch, sendAdminSetTime, sendChat } from "@/lib/network";
+import type { PanelProps } from "./panels";
 import { UiIcon, UiIconName } from "./UiIcon";
 
 const PHASE_ICONS: Record<(typeof CLOCK_PRESETS)[number]["phase"], UiIconName> = {
@@ -11,19 +14,16 @@ const PHASE_ICONS: Record<(typeof CLOCK_PRESETS)[number]["phase"], UiIconName> =
   night: "moon",
 };
 
-interface AdminPanelProps {
-  room: CityRoom;
-  cityName: string;
-  /** Hora actual del juego (minuto del día); null hasta que se sincroniza. */
-  clock: number | null;
-  onClose: () => void;
-}
-
 /**
  * Controles de admin (tecla P). Sólo se muestra a quien entró con el nombre de admin; igual el
  * server valida cada pedido. Mover el reloj afecta a todos los barrios: desde ahí sigue solo.
  */
-export function AdminPanel({ room, cityName, clock, onClose }: AdminPanelProps) {
+export function AdminPanel({ room, cityId, onClose }: PanelProps) {
+  const clock = useGame((state) => state.clock);
+  const coords = useGame((state) => state.adminCoords);
+  const match = useGame((state) => state.match);
+  const matchMode = useGame((state) => state.matchMode);
+  const cityName = getCity(cityId)?.name ?? cityId;
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <section
@@ -58,6 +58,60 @@ export function AdminPanel({ room, cityName, clock, onClose }: AdminPanelProps) 
           <p className="admin-hint">
             El reloj es el mismo para todos los jugadores y sigue avanzando solo: oscurece de a poco al atardecer y
             aclara al amanecer.
+          </p>
+          <h3>
+            Partido en el Centenario <span className="admin-clock">{match || "sin partido"}</span>
+          </h3>
+          <div className="admin-presets">
+            {MATCHES.map(({ name, start, end }) => (
+              <button
+                key={name}
+                type="button"
+                aria-pressed={matchMode === "on" && match === name}
+                onClick={() => sendAdminMatch(room, "on", name)}
+              >
+                <span aria-hidden="true">⚽</span>
+                <span>{name}</span>
+                <small>
+                  {formatClock(start)}–{formatClock(end)}
+                </small>
+              </button>
+            ))}
+            <button type="button" aria-pressed={matchMode === "off"} onClick={() => sendAdminMatch(room, "off")}>
+              <span aria-hidden="true">🚫</span>
+              <span>Sin partidos</span>
+            </button>
+            <button type="button" aria-pressed={matchMode === "auto"} onClick={() => sendAdminMatch(room, "auto")}>
+              <UiIcon name="sun" />
+              <span>Según el horario</span>
+            </button>
+          </div>
+          <p className="admin-hint">
+            Forzar un partido lo juega ya y sigue hasta que elijas otro modo (en todos los barrios): se vende el
+            doble y los hinchas compran más. &quot;Según el horario&quot; vuelve a los partidos de cada día.
+          </p>
+          <h3>Necesidades</h3>
+          <div className="admin-presets">
+            <button type="button" onClick={() => sendChat(room, "/curar")}>
+              <UiIcon name="heart" />
+              <span>Curarme</span>
+              <small>/curar</small>
+            </button>
+          </div>
+          <p className="admin-hint">
+            Energía, hambre y salud al 100. Para curar a otro jugador del barrio: <code>/curar nombre</code> en el chat.
+          </p>
+          <h3>Coordenadas</h3>
+          <div className="admin-presets">
+            <button type="button" aria-pressed={coords} onClick={() => eventBus.emit("admin:coords:toggle", null)}>
+              <UiIcon name="map" />
+              <span>{coords ? "Ocultar grilla" : "Mostrar grilla"}</span>
+              <small>G</small>
+            </button>
+          </div>
+          <p className="admin-hint">
+            Muestra la coordenada (x, y) de cada tile y qué hay ahí al pasar el mouse. Shift + clic copia la
+            coordenada para pasarla (p. ej. para pedir que se edifique algo ahí). Sólo lo ves vos.
           </p>
         </div>
         <footer className="key-hint">

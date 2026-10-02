@@ -1,18 +1,16 @@
 "use client";
 
 import { COMMANDS, CommandDefinition, canUseCommand } from "@montevideo-world/shared";
+import { useGame } from "@/lib/gameStore";
+import type { PanelProps } from "./panels";
 import { UiIcon } from "./UiIcon";
-
-interface CommandsPanelProps {
-  isAdmin: boolean;
-  onClose: () => void;
-}
 
 /**
  * Ayuda de comandos de chat (tecla C). Muestra sólo los que podés usar: un usuario ve los de
  * usuario; el admin, además, los de admin. Sale del mismo catálogo que valida el server (`COMMANDS`).
  */
-export function CommandsPanel({ isAdmin, onClose }: CommandsPanelProps) {
+export function CommandsPanel({ onClose }: PanelProps) {
+  const isAdmin = useGame((state) => state.isAdmin);
   const available = COMMANDS.filter((command) => canUseCommand(command, isAdmin));
   const forEveryone = available.filter((command) => command.role === "user");
   const adminOnly = available.filter((command) => command.role === "admin");

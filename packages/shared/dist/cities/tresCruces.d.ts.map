@@ -1,1 +1,1 @@
-{"version":3,"file":"tresCruces.d.ts","sourceRoot":"","sources":["../../src/cities/tresCruces.ts"],"names":[],"mappings":"AAEA,OAAO,EAAE,cAAc,EAAsB,MAAM,SAAS,CAAC;AA+F7D,eAAO,MAAM,WAAW,EAAE,cAgGzB,CAAC"}
+{"version":3,"file":"tresCruces.d.ts","sourceRoot":"","sources":["../../src/cities/tresCruces.ts"],"names":[],"mappings":"AAEA,OAAO,EAAkB,cAAc,EAAsB,MAAM,SAAS,CAAC;AAkL7E,eAAO,MAAM,WAAW,EAAE,cA0FzB,CAAC"}

@@ -15,7 +15,7 @@ import {
   sanitizeAppearance,
   sanitizeName,
 } from "@montevideo-world/shared";
-import { CitySession, getServerUrl, joinCity } from "@/lib/network";
+import { CitySession, describeJoinError, getServerUrl, joinCity } from "@/lib/network";
 import { AvatarPreview } from "./AvatarPreview";
 
 const noopSubscribe = () => () => {};
@@ -91,8 +91,10 @@ export function JoinScreen({ onJoined, notice }: JoinScreenProps) {
     try {
       onJoined(await joinCity(sanitizeName(name), appearance));
     } catch (err) {
-      console.error("[Montevideo World] join failed", err);
-      setError("No se pudo conectar al servidor. ¿Está corriendo?");
+      // warn y no error: el motivo ya se muestra en pantalla (en desarrollo, console.error abre el
+      // cartel rojo de Next como si fuera un bug del código).
+      console.warn("[Montevideo World] join failed", err);
+      setError(describeJoinError(err));
       setConnecting(false);
     }
   }

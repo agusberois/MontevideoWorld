@@ -12,6 +12,7 @@ import {
   sanitizeChat,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
+import { useGame } from "@/lib/gameStore";
 import type { CityRoom } from "@/lib/network";
 
 const HISTORY_LIMIT = 50;
@@ -20,8 +21,6 @@ const SENT_LIMIT = 50;
 
 interface ChatBoxProps {
   room: CityRoom;
-  /** Para sugerir sólo los comandos que podés usar (los de admin, sólo al admin). */
-  isAdmin: boolean;
 }
 
 /** ¿El comando lleva algo después del nombre? ("/help" no; "/mensaje <jugador> <texto>" sí). */
@@ -29,7 +28,9 @@ function takesArgs(command: CommandDefinition): boolean {
   return command.usage.trim() !== `/${command.name}`;
 }
 
-export function ChatBox({ room, isAdmin }: ChatBoxProps) {
+export function ChatBox({ room }: ChatBoxProps) {
+  /** Para sugerir sólo los comandos que podés usar (los de admin, sólo al admin). */
+  const isAdmin = useGame((state) => state.isAdmin);
   const [messages, setMessages] = useState<ChatBroadcastMessage[]>([]);
   const [text, setText] = useState("");
   const historyRef = useRef<HTMLUListElement>(null);

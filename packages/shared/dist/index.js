@@ -25,10 +25,13 @@ __exportStar(require("./map"), exports);
 __exportStar(require("./messages"), exports);
 __exportStar(require("./money"), exports);
 __exportStar(require("./sanitize"), exports);
-__exportStar(require("./stamina"), exports);
+__exportStar(require("./needs"), exports);
 __exportStar(require("./time"), exports);
 __exportStar(require("./tools"), exports);
 __exportStar(require("./trade"), exports);
 __exportStar(require("./vending"), exports);
+__exportStar(require("./jail"), exports);
+__exportStar(require("./pets"), exports);
+__exportStar(require("./needsBalance"), exports);
 __exportStar(require("./weevils"), exports);
 //# sourceMappingURL=index.js.map

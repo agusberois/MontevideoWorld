@@ -36,6 +36,18 @@ export interface CommandHost {
   findOnline(name: string): OnlinePlayer[];
   /** Mensaje privado de `player` a `to` (esté en el barrio que esté); a quien lo manda le vuelve una copia. */
   sendPrivate(client: Client, player: Player, to: OnlinePlayer, text: string): void;
+  /**
+   * Lleva al jugador al lado de `to`: en la misma sala lo teletransporta; si está en otra (otro
+   * barrio u otra copia) le da un pase gratis a esa sala y aparece al lado al entrar.
+   */
+  traceTo(client: Client, to: OnlinePlayer): void;
+  /** Llena energía, hambre y salud (y se las reenvía). */
+  healFully(client: Client): void;
+  /**
+   * Preso al COMCAR hasta `until` (ms; 0 = liberarlo). Conectado (`target`), lo lleva su sala; si
+   * no, queda anotado por nombre y por las claves guardadas con ese nombre, para cuando entre.
+   */
+  jail(target: OnlinePlayer | null, name: string, until: number): void;
 }
 
 export type CommandHandler = (context: CommandContext, host: CommandHost) => void;

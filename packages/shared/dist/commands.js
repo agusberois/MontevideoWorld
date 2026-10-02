@@ -40,6 +40,24 @@ exports.COMMANDS = [
         role: "admin",
     },
     {
+        name: "curar",
+        usage: "/curar [jugador]",
+        description: "Llena energía, hambre y salud de un jugador del barrio (sin nombre, a vos).",
+        role: "admin",
+    },
+    {
+        name: "ban",
+        usage: "/ban <minutos> <jugador>",
+        description: "Manda al jugador preso al COMCAR por esos minutos (aunque salga y vuelva a entrar). Con 0, lo libera.",
+        role: "admin",
+    },
+    {
+        name: "trace",
+        usage: "/trace <jugador>",
+        description: "Te lleva al lado de un jugador conectado, esté en el barrio que esté (sin boleto).",
+        role: "admin",
+    },
+    {
         name: "donador",
         usage: "/donador <si|no> [jugador]",
         description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).",

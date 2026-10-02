@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PlayerClick, PlayerSummary, eventBus } from "@/lib/eventBus";
-import { CityRoom, sendGreet, sendTradeRequest } from "@/lib/network";
+import { PlayerClick, eventBus } from "@/lib/eventBus";
+import { useGame } from "@/lib/gameStore";
+import { CityRoom, sendGreet, sendTaunt, sendTradeRequest } from "@/lib/network";
 
 interface PlayerMenuProps {
   room: CityRoom;
-  /** Jugadores del barrio: si el elegido se va, el menú se cierra. */
-  players: PlayerSummary[];
 }
 
 /**
  * Menú que aparece al hacer clic sobre otro jugador: Saludar o Intercambiar. Se cierra con Esc,
  * con un clic afuera o al elegir una opción.
  */
-export function PlayerMenu({ room, players }: PlayerMenuProps) {
+export function PlayerMenu({ room }: PlayerMenuProps) {
+  /** Jugadores del barrio: si el elegido se va, el menú se cierra. */
+  const players = useGame((state) => state.players);
+  /** Preso vos: no te podés burlar de nadie. */
+  const selfJailed = useGame((state) => state.jailLeft > 0);
   const [target, setTarget] = useState<PlayerClick | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +55,7 @@ export function PlayerMenu({ room, players }: PlayerMenuProps) {
       aria-label={`Opciones para ${target.name}`}
       style={{
         left: Math.min(target.screenX, window.innerWidth - 180),
-        top: Math.min(target.screenY, window.innerHeight - 120),
+        top: Math.min(target.screenY, window.innerHeight - 160),
       }}
     >
       <div className="player-menu-name">{target.name}</div>
@@ -62,6 +65,11 @@ export function PlayerMenu({ room, players }: PlayerMenuProps) {
       <button type="button" role="menuitem" onClick={() => choose(sendTradeRequest)}>
         🔁 Intercambiar
       </button>
+      {target.jailed && !selfJailed && (
+        <button type="button" role="menuitem" onClick={() => choose(sendTaunt)}>
+          😜 Burlarse
+        </button>
+      )}
     </div>
   );
 }

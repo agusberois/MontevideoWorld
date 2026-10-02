@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BoxOpenedMessage, difficultyStars, getItem } from "@montevideo-world/shared";
+import { BoxOpenedMessage, getItem } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { ItemIcon } from "./ItemIcon";
+import { itemRating } from "./itemCategoryUi";
 
 const REVEAL_MS = 3500;
 
@@ -21,13 +22,14 @@ export function BoxReveal() {
 
   const prize = reveal ? getItem(reveal.prizeId) : undefined;
   if (!reveal || !prize) return null;
+  const rating = itemRating(prize);
 
   return (
     <div key={reveal.id} className="box-reveal" role="status" aria-live="polite" onClick={() => setReveal(null)}>
       <div className="box-reveal-burst" aria-hidden="true" />
       <ItemIcon item={prize} size={72} />
       <strong>{reveal.text}</strong>
-      {prize.category === "fish" && <span className="box-reveal-stars">{difficultyStars(prize.difficulty)}</span>}
+      {rating && <span className="box-reveal-stars">{rating.stars}</span>}
     </div>
   );
 }

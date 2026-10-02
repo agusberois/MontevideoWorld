@@ -34,6 +34,10 @@ export const TileChar = {
   Palm: "P",
   /** Escollera: espigón de piedra que entra en el agua. Caminable; desde acá se pesca. */
   Jetty: "E",
+  /** Muro de hormigón con alambre de púas (el COMCAR), no caminable. */
+  Wall: "W",
+  /** Reja de barrotes (el COMCAR): no caminable, pero se ve a través. */
+  Fence: "F",
 } as const;
 
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
@@ -62,7 +66,9 @@ export type LandmarkKind =
   | "hospital"
   | "velodrome"
   | "stadium"
-  | "obelisk";
+  | "obelisk"
+  | "cellBlock"
+  | "watchtower";
 
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
@@ -103,7 +109,7 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "none";
 
 export interface Shop {
   id: string;
@@ -119,6 +125,10 @@ export interface Shop {
   stock: readonly string[];
   /** Categorías que compra. */
   buys: readonly ItemCategory[];
+  /** Mascotas que se adoptan acá (ids de `PETS`): la tienda abre el panel de adopción. */
+  pets?: readonly string[];
+  /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
+  hospital?: boolean;
 }
 
 /**
@@ -153,4 +163,10 @@ export interface CityDefinition {
   placeLabels: readonly PlaceLabel[];
   /** Edificio emblemático (`Landmark.id`) sobre cuyo techo va el cartel con el logo de Montevideo World. */
   logoSign?: { landmarkId: string };
+  /**
+   * Cárcel (el COMCAR): los presos (`/ban`) aparecen en `yard`, encerrados; los que llegan en
+   * ómnibus son visitas y aparecen en `spawnArea`, del otro lado de la reja, y se van cuando quieren.
+   * No se muestra en la landing.
+   */
+  prison?: { yard: TileRect };
 }

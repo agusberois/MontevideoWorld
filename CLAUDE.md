@@ -47,60 +47,72 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
 │       │   ├── layoutBuilder.ts # arma layouts por capas (calles, plazas, agua → rambla automática)
 │       │   ├── ciudadVieja.ts # layout, spawn y edificios emblemáticos de Ciudad Vieja
 │       │   ├── tresCruces.ts  # Tres Cruces: shopping/terminal, Sanatorio Americano, Obelisco, Parque Batlle
+│       │   ├── comcar.ts      # COMCAR: penal de /ban (muro, garitas, pabellones, patio) + explanada de visitas tras una reja
 │       │   └── index.ts       # CITIES, SPAWN_CITY_ID, getCity
-│       ├── map.ts            # CityMap (caminables, spawn, findPath BFS 8 dir., benchAt/busStopAt/shopAt) + getCityMap(id)
-│       ├── items.ts          # catálogo: CLOTHING + FISH + RODS + CARTS + BOXES (ITEMS, bestRod, bestCart, rollLoot, STARTER_INVENTORY…)
+│       ├── map.ts            # CityMap (caminables, spawn, findPath BFS 8 dir., benchAt/busStopAt/shopAt, interactionAt/interactionsAround) + getCityMap(id)
+│       ├── items.ts          # catálogo: CLOTHING + FISH + FOODS + MEDICINES + RODS + CARTS + BOXES + TICKETS (edibleValue, ITEMS, ITEM_CATEGORIES, bestRod, bestCart, rollLoot, STARTER_INVENTORY…)
 │       ├── haggle.ts         # regatear al vender: haggleChance, maxHagglePrice (tope 5×)
 │       ├── fishing.ts        # probabilidades por caña: catchWeight, fishChances, rareChance, rodPerks
 │       ├── messages.ts       # MessageType + DTOs (Move, Chat, Sit, Equip, Inventory, Wallet, Shop, Fish…)
 │       ├── money.ts          # STARTING_MONEY ($100), MAX_MONEY, isValidAmount, formatMoney
 │       ├── sanitize.ts       # sanitizeName / sanitizeChat (mismas reglas en cliente y server)
-│       ├── stamina.ts        # MAX_STAMINA, costos (caminar/pescar), recuperación, EXHAUSTED_RECOVERY
+│       ├── needsBalance.ts   # balance de la comida contra lo que se gana por hora (aviso [Balance] al arrancar)
+│       ├── needs.ts          # necesidades (por ahora energía): MAX_ENERGY, costos, recuperación, EXHAUSTED_RECOVERY, SavedNeeds
 │       ├── tools.ts          # rentabilidad de cañas y carritos: valuePerUse, lifetimeValue, unprofitableTools
 │       ├── time.ts           # hora del juego: darknessAt (curva de luz), formatClock, CLOCK_PRESETS
 │       ├── weevils.ts        # picudo rojo: constantes (velocidad, alcance, picadura, recompensa…)
+│       ├── pets.ts           # mascotas: PETS (perros, gatos, carpincho), getPet, sanitizePetName
+│       ├── jail.ts           # /ban: MAX_BAN_MINUTES, códigos JAILED_JOIN_CODE / JAILED_KICK_CODE, formatJailLeft
 │       ├── trade.ts          # intercambio: TradeOffer, normalizeTradeOffer, changeOfferQuantity, límites
 │       ├── vending.ts        # venta en el Centenario: MATCHES/matchAt, saleRange, giftChance, VENDING_GIFTS, cartPerks
 │       └── schema/           # entrada "@montevideo-world/shared/schema"
-│           ├── Player.ts     # sessionId, name, color, gender/skin/hairColor/hairStyle, x, y, sitting, fishing, rod, vending, cart, sales, donor, ropa
+│           ├── Player.ts     # sessionId, name, color, gender/skin/hairColor/hairStyle, x, y, sitting, fishing, rod, vending, cart, customer, sales, donor, ropa
 │           ├── Weevil.ts     # picudo rojo: x, y (tiles con decimales), mode, targetId, bites
-│           └── GameState.ts  # players, weevils (MapSchema), minuteOfDay (hora del juego)
+│           └── GameState.ts  # players, weevils (MapSchema), minuteOfDay (hora del juego), copy (copia del barrio), match/matchMode (partido)
 ├── apps/server/              # @montevideo-world/server
 │   └── src/
-│       ├── index.ts          # Express + CORS + http.Server + Colyseus Server
+│       ├── index.ts          # Express + CORS + http.Server + Colyseus Server; /health con métricas
 │       ├── env.ts            # carga apps/server/.env; ADMIN_NAME, DAY_LENGTH_MINUTES
 │       ├── gameClock.ts      # reloj del juego global (hora = tiempo real transcurrido × velocidad)
 │       ├── inventory.ts      # Inventory: casilleros con pilas (add/remove/canAdd/restore), sólo server
-│       ├── playerStore.ts    # progreso por clave secreta en un JSON (mochila, plata, ropa) + sesiones activas
+│       ├── playerStore.ts    # progreso por clave secreta en un JSON (mochila, plata, ropa) + sesiones activas + boletos de viaje
+│       ├── rateLimit.ts      # RateLimiter: token bucket por cliente y tipo de mensaje (tabla MESSAGE_RATE_LIMITS)
+│       ├── metrics.ts        # duración de los ticks (buffer circular, aviso de tick lento) + salas abiertas, para /health
 │       ├── wallet.ts         # Wallet: saldo con credit/debit validados, sólo server
-│       ├── commands/         # un archivo por comando de chat (help, mensaje, post, box, plata, donador) + registro en index.ts
-│       ├── directory.ts      # quién está conectado en todos los barrios (para /mensaje)
+│       ├── commands/         # un archivo por comando de chat (help, mensaje, post, box, plata, donador, trace, ban, curar) + registro en index.ts
+│       ├── directory.ts      # quién está conectado en todos los barrios (para /mensaje, /trace, /ban)
+│       ├── bans.ts           # presos en el COMCAR: hasta cuándo, por clave y por nombre
 │       ├── fishing.ts        # rollCatch(rod): qué pica con esa caña (0, 1 o 2 peces) y cuánto tarda
 │       ├── vending.ts        # rollSale(cart, match): cuánto paga el hincha (o nada), si regala ropa y cuánto tarda
-│       ├── stamina.ts        # Stamina: energía con decimales y estado "agotado", sólo server
+│       ├── needs.ts          # Needs: energía con decimales, estado "agotado" y lo que se guarda, sólo server
 │       ├── weevils.ts        # WeevilManager: salen de palmeras, persiguen al más cercano, pican, mueren
 │       ├── trades.ts         # TradeManager (invitaciones e intercambios) + executeTrade/clampOffer
-│       └── rooms/CityRoom.ts # una sala por barrio (filterBy cityId): join/leave, move, chat, sit, equip, tick
+│       └── rooms/CityRoom.ts # una sala por barrio (filterBy cityId, hasta MAX_PLAYERS_PER_ROOM; llena → otra copia): join/leave, move, chat, sit, equip, tick
 └── apps/client/              # @montevideo-world/client
     ├── vercel.json           # install/build desde la raíz del monorepo
     ├── public/mw-logo.svg    # logo "MW": favicon (metadata.icons), pantalla de ingreso y cartel en el juego
     ├── AGENTS.md / CLAUDE.md # generados por `next dev` (reglas de Next 16 para agentes): commitearlos
     ├── .env.local.example
     └── src/
-        ├── app/              # layout.tsx, page.tsx, globals.css
+        ├── proxy.ts          # subdominio: app.<dominio>/ → juego (/jugar); <dominio>/ → landing
+        ├── app/              # layout.tsx, page.tsx (landing), jugar/page.tsx (juego), globals.css
         ├── components/
-        │   ├── App.tsx        # máquina de estados: JoinScreen ↔ juego
+        │   ├── landing/       # Landing.tsx (+ Landing.module.css) y PlayButton (link a app.<dominio>); capturas en public/landing/
+        │   ├── LoginScreen.tsx # "Iniciar sesión con Google" (todavía sin cuentas: sólo pasa a crear el personaje)
+        │   ├── App.tsx        # LoginScreen → JoinScreen ↔ juego: conexión, viaje, atajos de teclado y armado de la pantalla
+        │   ├── panels.ts      # registro de paneles (id → componente, tecla, sólo admin) + PanelProps
         │   ├── JoinScreen.tsx # nombre + creador de personaje (sexo, piel, pelo, color, dado) y conexión
         │   ├── AvatarPreview.tsx # vista previa SVG del avatar (misma geometría que Avatar.ts)
         │   ├── PhaserGame.tsx # monta/desmonta Phaser (seguro con StrictMode)
         │   ├── Hud.tsx        # barra de info con íconos: nombre, barrio, dinero, online, Barrios, Mochila, Salir
         │   ├── CityMenu.tsx   # lista de barrios (tecla M / Esc) con botón "Ir" para viajar
         │   ├── TravelOverlay.tsx # pantalla del viaje: ómnibus andando + barra de progreso (5 s)
-        │   ├── Backpack.tsx   # mochila: ropa puesta + grilla de casilleros con pilas ×N (tecla H / Esc)
+        │   ├── Backpack.tsx   # mochila: ropa puesta + grilla de casilleros con pilas ×N, reordenable (tecla H / Esc)
         │   ├── Hotbar.tsx     # barra de acceso rápido 1–9 (se arma arrastrando ítems de la mochila o tocando)
         │   ├── HotbarPicker.tsx # elegir qué va en un casillero de la barra sin arrastrar (celulares)
         │   ├── CommandsPanel.tsx # ayuda de comandos (tecla C): sólo los que tu rol puede usar
-        │   ├── ShopPanel.tsx  # panel de tienda: Comprar / Vender
+        │   ├── ShopPanel.tsx  # panel de tienda: Comprar / Vender (o PetShop si la tienda tiene `pets`)
+        │   ├── PetShop.tsx    # veterinaria: adoptar con nombre, renombrar, despedirse + PetIcon (SVG)
         │   ├── PlayersPanel.tsx # jugadores conectados en el barrio (tecla Tab / Esc)
         │   ├── PlayerMenu.tsx # menú al hacer clic en otro jugador: Saludar / Intercambiar
         │   ├── TradeInvites.tsx # invitaciones a intercambiar recibidas (Aceptar / Rechazar)
@@ -112,14 +124,20 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
         │   ├── AdminPanel.tsx # sólo admin (tecla P): mover el reloj del juego
         │   ├── MakerPanel.tsx # sólo admin (tecla I): crear cualquier ítem para vos o un jugador cercano
         │   ├── Announcement.tsx # anuncio del admin (/post) en el medio de la pantalla
+        │   ├── FaintOverlay.tsx # pantalla negra del desmayo ("Te desmayaste… la ambulancia te cobró $X")
+        │   ├── HospitalPanel.tsx # guardia del sanatorio: tu salud y la consulta para quedar en 100
+        │   ├── JailBanner.tsx # cartel "Estás preso en el COMCAR: te quedan 4:32" (Player.jailLeft)
         │   ├── BoxReveal.tsx  # lo que salió de una caja sorpresa, en el medio de la pantalla
-        │   ├── ItemIcon.tsx   # ícono SVG de cada prenda según su style y su color
+        │   ├── ItemIcon.tsx   # ícono SVG de cada ítem (CATEGORY_ICONS; prendas según su style) con su color
+        │   ├── itemCategoryUi.ts # estrellas y ventajas por categoría (itemRating, itemPerks) para tienda, cajas…
         │   ├── ToolWear.tsx   # barrita de desgaste (usos restantes) de cañas y carritos
         │   ├── UiIcon.tsx     # íconos SVG de interfaz (HUD, títulos): user, pin, moneyBag, map, backpack…
         │   ├── CameraButton.tsx # botón "Centrar personaje" (lleva la cámara a tu avatar y lo marca)
         │   └── ChatBox.tsx    # historial + input (overlay abajo a la derecha) + autoayuda de comandos al escribir "/"
         ├── lib/
-        │   ├── network.ts     # Client de Colyseus, joinCity → CitySession, bindRoomMessages, sendEquip
+        │   ├── network.ts     # Client de Colyseus, joinCity → CitySession, bindRoomMessages (tabla SERVER_MESSAGES), sendEquip
+        │   ├── gameStore.ts   # store de la UI (useSyncExternalStore): escucha el EventBus, panel abierto, reset al salir / viajar; useGame(selector)
+        │   ├── gameActions.ts # acciones que leen el store: pressF, toggleFishing/Vending, activateHotbar, requestTravel
         │   ├── hotbar.ts      # barra rápida: localStorage + datos de drag & drop
         │   ├── viewport.ts    # celulares: teclado en pantalla (--keyboard-inset), isTouchDevice, isSmallScreen
         │   ├── playerKey.ts   # clave secreta del jugador en localStorage (con ella el server guarda su progreso)
@@ -140,6 +158,8 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
             │   └── DayNight.ts     # velo de atardecer/noche según la hora + halos de luz (farola, faroles…)
             ├── scenes/CityScene.ts  # barrio, clic (caminar / sentarse), cámara que sigue al avatar (zoom con la rueda), sync de Schema
             └── objects/
+                ├── Pet.ts         # mascota que sigue al dueño por su recorrido, con el nombre arriba
+                ├── Customers.ts   # hinchas que se acercan a los carritos del Centenario (según Player.customer)
                 ├── Weevil.ts      # picudo rojo dibujado (patitas, mordisco, patas arriba al morir)
                 ├── Avatar.ts      # avatar procedural (cuerpo completo, ropa redibujable, gorros,
                 │                  # vista frente/espalda, sentado, caña, carrito), interpolación, caminata, nombre y globo
@@ -148,6 +168,13 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
 
 ## Flujo de red
 
+0. **Landing y juego**: la landing está en el dominio (`localhost:3000`) y el juego en el subdominio
+   `app.` (`app.localhost:3000`): `src/proxy.ts` reescribe `/` a `/jugar` cuando el host empieza con
+   `app.`. `/jugar` también anda directo en cualquier host (sirve entrando por IP desde otra compu,
+   donde no hay subdominio). El botón "Jugar" de la landing arma el link con `lib/appUrl.ts`
+   (`NEXT_PUBLIC_APP_URL` o `app.` + el host actual; por IP, `/jugar`). En el juego se pasa primero
+   por `LoginScreen` (botón de Google sin efecto por ahora) y después por `JoinScreen`; al salir del
+   juego se vuelve a `JoinScreen`. Si agregás `proxy.ts` con `next dev` corriendo, reinicialo.
 1. `JoinScreen` → `joinCity(name, appearance)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID, appearance })`.
    El aspecto (sexo, piel, pelo, color) se arma en la pantalla de ingreso (🎲 = `randomAppearance`) y
    se recuerda en `localStorage` (`mw:appearance`). El server lo valida con `sanitizeAppearance`
@@ -155,12 +182,13 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    `color`): todos ven igual a cada jugador. El nombre sobre la cabeza va en `Player.color`.
    Siempre se entra a **Ciudad Vieja**. Las salas se separan por `cityId` (`filterBy`); un `cityId`
    desconocido hace fallar `onCreate`.
-2. `CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (Plaza Independencia)
+2. `CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (casi toda la Plaza Independencia, ~400 tiles)
    y avisa a los demás por chat de sistema.
    **Progreso guardado.** El navegador genera una clave secreta (`lib/playerKey.ts`, `mw:playerKey`
    en localStorage) y la manda en `JoinOptions.playerKey`. Con ella el server guarda en
    `playerStore` (archivo JSON, `PLAYER_DATA_FILE`) la mochila, la plata y la ropa puesta: al
-   salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Al entrar
+   salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Sólo se escribe
+   si algún jugador cambió (huella por clave), de forma asíncrona y sin indentar (el archivo no es para leer a mano). Al entrar
    con una clave conocida se restaura todo (validando ítems, cantidades y montos); sin clave, kit
    inicial. En localStorage vive **sólo la clave**, nunca el progreso, así no se puede editar desde
    la consola. Una clave = una sesión: si entra de nuevo (otra pestaña), `activeSessions` cierra la
@@ -207,6 +235,11 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    `inventory:get` después de registrar su handler (en `bindRoomMessages`) y el server responde, y
    reenvía tras cada cambio, con `client.send("inventory", …)` sólo al dueño → EventBus
    `inventory:update`.
+   **Orden**: cada pila lleva su casillero (`InventoryStack.slot`, lo pone el server; lo nuevo va al
+   primer libre y puede haber huecos). `inventory:move { from, to }` (`Inventory.move`) la muda a un
+   casillero vacío, la intercambia con lo que haya o junta dos pilas de la misma prenda; se guarda con
+   la mochila. En la mochila se arrastra (escritorio) o se mantiene apretado un ítem y se toca el
+   destino (celulares). Con un intercambio abierto no se reordena.
    `room.send("equip", { slot, itemId })` saca la prenda de la mochila y la pone (lo que estaba puesto
    vuelve a la mochila; si no entra, no cambia nada); `itemId: null` guarda lo puesto en la mochila.
    **Herramientas con desgaste** (`ToolItem` = cañas y carritos, `isTool`): cada una ocupa su propio
@@ -231,8 +264,8 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    se reordena arrastrando entre casilleros y se saca arrastrando afuera; sin arrastrar, tocar un
    casillero vacío o mantener apretado / clic derecho en uno lleno abre `HotbarPicker` (elegir o quitar). Qué hace
    cada ítem al activarlo está en un solo lugar, `lib/itemActions.ts` (`itemAction`): ropa →
-   ponérsela/sacársela (`equip`); caña → pescar/recoger (como F); carrito → vender/dejar (como F en la explanada); pescado → comerlo (`fish:eat`,
-   recupera `fishStamina(dificultad)` = 10…30 de energía); caja → abrirla. Lo que ya no tenés (ni
+   ponérsela/sacársela (`equip`); caña → pescar/recoger (como F); carrito → vender/dejar (como F en la explanada); pescado o comida → comerlo (`food:eat`,
+   da lo de `edibleValue`: hambre y energía); caja → abrirla. Lo que ya no tenés (ni
    en la mochila ni puesto) se saca solo de la barra y el casillero queda libre; se espera
    `HOTBAR_CLEANUP_MS` (1 s) sin cambios porque al ponerse/sacarse algo la mochila y la ropa
    llegan por separado.
@@ -250,16 +283,34 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    { shopId, itemId }` exigen estar pegado a la tienda (`isNearShop`); comprar cobra `item.price` si
    alcanza y hay lugar en la mochila; vender paga `sellPrice` (mitad) por prendas **de la mochila** (lo
    puesto no se vende). El server responde `shop:result { ok, text }` y reenvía saldo e inventario.
+   **Cantidad**: `shop:buy` / `shop:sell` llevan `quantity` (1…`SHOP_MAX_QUANTITY`, 1 si no viene);
+   el server compra / vende las que alcancen, entren o tengas y responde un solo resultado con lo que
+   salió de verdad (`action`, `itemId`, `quantity`: "Compraste 3 de 5 × Alfajor por $45: no te
+   alcanzó la plata"). En `ShopView` cada fila tiene − / número / + (`QuantityPicker`, tope: plata,
+   lugar en la mochila o lo que tenés) y el botón dice siempre "Vender" (no cambia de largo); mientras espera la
+   respuesta queda deshabilitado. El resultado se ve en un aviso grande arriba de la lista
+   (`shop-toast`, con el ítem y el saldo nuevo; el error tiembla) y la fila brilla con "+N" / "−N".
+   Regatear sigue siendo de a una.
+   **Carrito (pestaña Comprar)**: no hay un botón por ítem. Cada fila tiene su cantidad (de 0, tope
+   lugar en la mochila) y abajo una barra con el total y un solo **Comprar** → `shop:checkout {
+   shopId, items: [{ itemId, quantity }] }` (`handleShopCheckout`). Es **todo o nada**: si no
+   alcanza la plata para el total o no entra todo (se prueba en `inventory.clone()`), no compra
+   nada y dice por qué; si no, cobra una vez y responde `shop:result` con `bought` (cada fila
+   comprada brilla) y el panel vacía el carrito. `shop:buy` de a un ítem sigue andando en el server.
    **Regatear** (sólo al vender): `shop:haggle { shopId, itemId, price }`, todo o nada. Se puede pedir
    entre `sellPrice + 1` y `maxHagglePrice` (5×); la tienda acepta con `haggleChance` =
    `(sellPrice / price)^1,2` (la misma fórmula que muestra el panel). Si acepta se cobra `price`; si
    no, el ítem se pierde igual y no se cobra nada. Con exponente > 1, en promedio regatear rinde un
    poco menos que vender normal: es una apuesta, no una forma de farmear plata.
-   Ciudad Vieja tiene la **Ropería Sarandí** (26,19) junto a la peatonal, que vende todo el catálogo,
-   y **Pesca Sarandí** (7,25), sobre la rambla frente a la escollera, que vende las cañas y compra las
+   Ciudad Vieja tiene la **Ropería Sarandí** (39,21) junto a la peatonal, que vende todo el catálogo,
+   y **Pesca Sarandí** (9,40), sobre la rambla frente a la escollera, que vende las cañas y compra las
    usadas (`buys: ["rod"]`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
    para un tipo nuevo, sumar su estilo en `SHOP_STYLES` (`buildings.ts`).
-9. Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río;
+9. Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río (en
+   Ciudad Vieja hay dos iguales, para repartir a los que pescan: la del oeste en x 10–16 y la del este
+   frente a la Plaza Independencia, en x 57–63, saliendo de la rambla en (60, 43));
+   `CityMap.fishingSpot` dice hacia dónde tirar y a cuántos tiles cae la boya (el agua más cercana, también
+   desde el medio de la escollera, donde no hay agua pegada); `Avatar` la dibuja en ese tile.
    `CityMap.canFishAt` = parado en la escollera. Para pescar hace falta una **caña** (`RodItem`,
    `category: "rod"`) en la mochila: se usa siempre la de mayor `tier` (`bestRod`). Hay 4 (`RODS`:
    básica, fibra, carbono, profesional); cada una define `rareBoost` (el peso de cada pez se
@@ -269,7 +320,7 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    escollera, sin camino pendiente, sin estar pescando, con caña), sortea con `rollCatch(rod)` y pone
    `player.fishing = true` y `player.rod` (Schema: los demás ven la caña de su color). Manda
    `fish:started { durationMs }` (más largo cuanto más difícil el pez) y al vencer el timer
-   (`this.clock.setTimeout`) cobra la tirada (`finishAttempt`: un uso de la caña y `FISH_STAMINA_COST`;
+   (`this.clock.setTimeout`) cobra la tirada (`finishAttempt`: un uso de la caña y `FISH_ENERGY_COST`;
    al empezar sólo se chequea que alcance la energía), agrega los peces a la mochila y manda
    `fish:result { itemIds }`. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan
    (`stopFishing`) **sin cobrar nada**. Peces de dificultad ≥ 4 se anuncian en el chat. Los peces (`FISH`: pejerrey… corvina
@@ -285,7 +336,7 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    parrillita de choripán (`CARTS`). Cada uno define `saleMin`/`saleMax` (lo que paga un hincha),
    `noSaleChance`, `giftChance` y `waitFactor`. Se compran (y se venden a mitad de precio) en el
    **Kiosco del Parque** (`building: "kiosk"`, al este del estadio). `vend:start` → el server valida
-   (en la zona, quieto, sin pescar ni vender, con carrito, con `VEND_STAMINA_COST` de energía), sortea
+   (en la zona, quieto, sin pescar ni vender, con carrito, con `VEND_ENERGY_COST` de energía), sortea
    con `rollSale` y pone `player.vending = true` + `player.cart` (los demás ven el carrito al costado y
    el grito del vendedor). Manda `vend:started { durationMs }` y al vencer el timer se cobra el intento
    (`finishAttempt`: un uso del carrito y la energía; cortarlo antes no cuesta nada), se cobra la venta (`wallet.credit`),
@@ -293,15 +344,57 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    `giftChance` el hincha además **regala una prenda** de `VENDING_GIFTS` (camiseta celeste, gorra…):
    es la forma de conseguir ropa sin comprarla; se anuncia en el chat. **Partidos**: `MATCHES` (horas
    del juego, p. ej. Nacional – Peñarol 15–17 h) → con `matchAt(minuto)` la venta paga el doble, los
-   hinchas llegan antes y regalan más. La sala del barrio con zona de venta anuncia en el chat cuando
-   empieza y termina cada partido (`announceMatch`, desde `syncClock`). Moverse, sentarse, ir a una
+   hinchas llegan antes y regalan más. El partido de ahora lo decide el server (`gameClock.currentMatch()`:
+   el horario o el que forzó el admin) y cada sala lo copia a `state.match` en `syncClock`; el cliente
+   no lo calcula. La sala del barrio con zona de venta anuncia en el chat cuando
+   empieza y termina cada partido (`announceMatch`, desde `syncClock`). (Hubo una hinchada dibujada
+   en las gradas los días de partido; se sacó porque redibujar cientos de hinchas cada 90 ms hacía
+   lagear el juego.)
+   **El hincha**: `CUSTOMER_LEAD_MS` antes del resultado el server pone `player.customer =
+   CustomerState.Arriving` y al resolver `Bought` o `Passed` (cancelar la venta → `None`). Cada
+   cliente dibuja con eso (`game/objects/Customers.ts`, sólo dibujo, fuera del Schema) un `Avatar`
+   "Hincha" que sale de unos tiles más allá, camina hasta el carrito, dice algo, compra o sigue de
+   largo y se va desvaneciéndose. Moverse, sentarse, ir a una
    tienda, salir o `vend:stop` cancelan sin cobrar (`stopActivities` corta pesca y venta a la vez).
    La tecla **F** es la misma que para pescar: el cliente hace lo que corresponde al lugar (`toggleActivity`).
-11. Stamina (energía 0–100). La lleva el server (`Stamina` en la Room, con decimales) y copia el valor
-   redondeado a `player.stamina` (Schema) → la escena emite `player:stamina` → barra en el HUD. Se
-   calcula en el tick de `stepPlayers`: cada paso gasta `WALK_STAMINA_COST`, tirar la línea
-   `FISH_STAMINA_COST`, ofrecer en el Centenario `VEND_STAMINA_COST`; quieto (sin camino, sin pescar ni vender) recupera `IDLE_STAMINA_REGEN`/s y sentado en un
-   banco `SIT_STAMINA_REGEN`/s. Si una acción no alcanza queda **agotado**: se frena y no puede caminar
+11. Necesidades (diseño completo en `docs/finished/necesidades-del-personaje.md`): **energía** (antes
+   "stamina"), **hambre** (saciedad, 100 = lleno) y **salud**, 0–100. Las lleva el server (`Needs` en la Room,
+   con decimales). La energía va redondeada a `player.energy` (Schema) → la escena emite
+   `player:energy` → `state.energy`. Hambre y salud son **privadas**: no van en el Schema; el server
+   se las manda sólo al dueño con `needs { hunger, health }` (lo pide el cliente con `needs:get` al
+   entrar, y se reenvía cuando cambia algún valor redondeado) → `needs:update` → `state.hunger` /
+   `state.health`. Las tres son barras del HUD (`NeedMeter`) y **se guardan** con el progreso (`PlayerRecord.needs`, `Needs.snapshot` /
+   `Needs.restore`, validado con `sanitizeNeeds`; sin guardado, llenas): salir, volver a entrar o
+   viajar no las llena. Todo pasa en `Needs.tick`, desde el tick de `stepPlayers` (`tickNeeds`): el
+   hambre baja `HUNGER_PER_SECOND` (de lleno a vacío en 50 min), más `WALK_HUNGER_COST` por paso y
+   `FISH_HUNGER_COST` / `VEND_HUNGER_COST` por tirada o venta; **no baja preso en el COMCAR**. Al
+   bajar de `HUNGRY` (60) o de `STARVING` (30) llega un aviso. Comer (`food:eat`: comida de la
+   categoría `food`, o un pescado crudo) suma lo de `edibleValue`; con todo lo que da ya lleno no se
+   puede. La comida se compra en el **Kiosco de la Plaza** (Plaza Independencia), el Kiosco del
+   Parque (pancho, mate) y la Pescadería del Mercado (chivito, pescado a la plancha). Energía: cada
+   paso gasta `WALK_ENERGY_COST`, tirar la línea
+   `FISH_ENERGY_COST`, ofrecer en el Centenario `VEND_ENERGY_COST`; quieto (sin camino, sin pescar ni vender) recupera `IDLE_ENERGY_REGEN`/s y sentado en un
+   banco `SIT_ENERGY_REGEN`/s, por `energyRegenFactor(hambre)` (lleno ×1, con hambre ×0,5, muerto de
+   hambre ×0,25).
+   **Salud**: la bajan las picaduras (`WEEVIL_BITE_HEALTH`), la saciedad en 0 fuera del COMCAR
+   (`STARVE_HEALTH_PER_SECOND`) y el pescado crudo (`edibleValue`: −`RAW_FISH_HEALTH`, sin bajarla de
+   `RAW_FISH_HEALTH_FLOOR`); vuelve quieto con la saciedad ≥ `HUNGRY` (`IDLE_HEALTH_REGEN`, sentado
+   `SIT_HEALTH_REGEN`), con comida que cura (chivito, pescado a la plancha) o en la **Guardia del
+   Sanatorio** (Tres Cruces, tienda con `hospital: true` sobre el Sanatorio Americano → `HospitalPanel`;
+   `hospital:heal` la deja en 100 por `hospitalPrice`). Por debajo de `LOW_HEALTH` la energía no
+   pasa de `WEAK_ENERGY_CAP` (`energyCap`). **Desmayo** (salud 0, `CityRoom.faint`): corta todo,
+   cobra `faintFee` (10 %, tope $200, nada con menos de $20; nunca ítems), `Needs.revive` (salud 30,
+   energía 50, saciedad ≥ 30) y manda `faint { text }` → `FaintOverlay` (pantalla negra). Preso, se
+   despierta en el patio; en Tres Cruces, en la puerta de la guardia (`hospitalDoor`); en otro barrio
+   con clave, pase de viaje con `at` (la puerta) y `travel:ok { ambulance: true }` → `TravelOverlay`
+   con la ambulancia; sin clave, en la plaza. Avisos al pasar a débil y al empezar a perder salud
+   por hambre.
+   **Remedios** (categoría `medicine`, `MEDICINES`: curitas, Perifar, vitaminas, botiquín): se
+   compran en la **Farmacia Sarandí** (Ciudad Vieja, 48,22, `building: "pharmacy"`) y se toman como
+   la comida (`food:eat`, "Te tomaste…"): curan salud al momento (y las vitaminas dan energía).
+   **Balance de la comida** (`needsBalance.ts`): al arrancar el server avisa `[Balance] …` si con
+   alguna herramienta la comida de una hora de trabajo (`foodCostPerHour`, con la más barata) pasa
+   de `MAX_FOOD_SHARE` (15 %) de lo que deja por hora (`hourlyIncome`). Hoy da entre 1 % y 6 %. Si una acción no alcanza queda **agotado**: se frena y no puede caminar
    ni pescar hasta recuperar `EXHAUSTED_RECOVERY` (si no, cada tick de descanso daría para un paso
    más). El aviso llega con `notice` (mensaje privado) → `Notices`.
 12. Hora del juego y admin. `gameClock` (server, global para todos los barrios) avanza solo; cada sala
@@ -310,6 +403,13 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    06:00–07:30) y la anima suave; el HUD muestra la hora (`city:clock`). Al entrar, si el nombre
    coincide con `ADMIN_NAME`, `player.admin = true` (nombre con ★ en naranja y botón **Admin (P)**).
    `admin:time { minuteOfDay }` mueve el reloj (sólo admins; se anuncia en el chat) y desde ahí sigue.
+   **Partido** (panel de Admin): `admin:match { mode, name? }` (`MatchMode`: `on` juega ya el partido
+   `name` de `MATCHES` hasta cambiar de modo, `off` no deja que haya ninguno, `auto` vuelve al
+   horario). Es global como el reloj (`gameClock.forceMatch`); el modo va en `state.matchMode`.
+   **Coordenadas** (sólo admin, tecla **G** o botón en el panel de Admin → `game/AdminCoords.ts`): grilla
+   sobre el piso con "x,y" cada 5 tiles y, junto al mouse, la coordenada y qué hay en ese tile
+   (`describeTile`); **Shift + clic** la copia al portapapeles ("39,21") para pedir dónde edificar. Es
+   sólo visual y del cliente.
    **Maker** (botón **Maker (I)**, sólo admin → `MakerPanel`): todo el catálogo (`ITEMS`) en pestañas
    plegables por categoría (arrancan todas cerradas cada vez que se abre; se abren/cierran de a una
    o todas juntas; al buscar se abren las que tienen resultados), con buscador y cantidad (1 a `MAKER_MAX_QUANTITY`). Destino: vos o un jugador a
@@ -346,7 +446,14 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    `/post <mensaje>` (admin), `/box [cantidad]` (admin, 1–10 cajas sorpresa a la mochila propia) y
    `/plata <monto> [jugador]` (admin: carga plata a un jugador del barrio por nombre, sin distinguir
    mayúsculas y con espacios; sin nombre, a uno mismo; acepta "1.000") y `/donador <si|no> [jugador]`
-   (admin: marca a un jugador como **donador** del proyecto). El donador va en el Schema
+   (admin: marca a un jugador como **donador** del proyecto) y `/trace <jugador>` (admin: te lleva al
+   lado de un conectado en cualquier barrio o copia, sin boleto. En la misma sala lo teletransporta
+   (`teleport`: corta todo y cambia `x/y`; el cliente, ante un salto de más de 2 tiles, aparece sin
+   caminar). En otra sala emite un pase (`issueTravelTicket` con `near` = el jugador) y `travel:ok`
+   con `roomId`: el cliente entra con `joinById` a esa copia y `onJoin` lo pone al lado (`tileNear`).
+   `playerDirectory` guarda `cityId` y la sala (`mailbox.roomId`, `tileOf`, `jail`)) y
+   `/ban <minutos> <jugador>` (admin; 0 = liberar, ver "Cárcel" abajo) y `/curar [jugador]` (admin:
+   energía, hambre y salud al 100; también el botón **Curarme** del panel de Admin). El donador va en el Schema
    (`player.donor`) y en el progreso guardado (`PlayerRecord.donor`, así sigue al volver o al viajar):
    todos ven un distintivo dorado "♥ DONADOR" arriba de su nombre (`Avatar.setDonor`; el globo de
    chat sube para no taparlo) y en la lista de jugadores (Tab). Se puede marcar con el jugador
@@ -367,12 +474,21 @@ Colyseus está fijado en **0.16** porque es la última línea compatible con `co
    espera `PALM_COOLDOWN_MS`; tope `MAX_WEEVILS` por sala). Viven en el Schema (`state.weevils`):
    los ve todo el barrio. El server los mueve cada 100 ms: persiguen al jugador **más cercano**
    dentro de `WEEVIL_AGGRO_RANGE` (no al que sacudió; cambian de objetivo si otro queda más cerca),
-   pican a `WEEVIL_BITE_RANGE` (−`WEEVIL_BITE_STAMINA` de energía, `bites++` → "-2" en todos los
+   pican a `WEEVIL_BITE_RANGE` (−`WEEVIL_BITE_ENERGY` de energía, `bites++` → "-2" en todos los
    clientes) y, sin nadie cerca o pasado `WEEVIL_LIFETIME_MS`, vuelven a la palmera. Clic en un
    picudo (tiene prioridad sobre todo) → `weevil:kick { id }`: si está a `WEEVIL_KICK_RANGE` muere
    (`mode = "dead"`, "¡Plaf!"), el que pateó cobra `WEEVIL_REWARD` y su `player.kicks++` anima la
    patada del avatar en todos los clientes.
-17. Chat → `room.send("chat", { text })` → el server sanitiza, aplica cooldown y hace
+17. Mascotas. La **Veterinaria Sarandí** (Ciudad Vieja, 46,22, sobre la peatonal; `building: "pets"`)
+   es una tienda con `Shop.pets` (ids de `PETS`): `ShopPanel` abre `PetShop` en vez de Comprar /
+   Vender. `pet:adopt { shopId, petId, name }` (pegado a la tienda, sin mascota, con plata: cobra
+   `price`), `pet:rename { shopId, name }` y `pet:release { shopId }` (sin devolución). Una por
+   jugador. Sólo viaja en el Schema `Player.pet` / `Player.petName` (y en el guardado,
+   `PlayerRecord.pet`): cada cliente dibuja la mascota (`game/objects/Pet.ts`) siguiendo el
+   recorrido del avatar un tile atrás (anota sus posiciones), con el nombre arriba; quieta mueve la
+   cola. Si el dueño salta lejos (viaje, `/trace`), aparece a su lado. El nombre pasa por
+   `sanitizePetName` (hasta `PET_NAME_MAX_LENGTH`).
+18. Chat → `room.send("chat", { text })` → el server sanitiza, aplica cooldown y hace
    `broadcast("chat", ChatBroadcastMessage)` → `ChatBox` lo agrega al historial y `CityScene`
    muestra el globo sobre la cabeza durante `CHAT_BUBBLE_MS`.
 
@@ -408,7 +524,8 @@ corré `npm run build:shared`.
 
 | Variable | Default | Descripción |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SERVER_URL` | `ws://<host de la página>:2567` | URL WebSocket del servidor. Sin definir, usa el mismo host que la página (`getServerUrl`), así se puede jugar desde otras compus de la red local entrando por `http://<ip>:3000`. En producción **debe ser `wss://`** (el sitio en Vercel es https). Se inlinea en build: cambiarla requiere redeploy. |
+| `NEXT_PUBLIC_SERVER_URL` | `ws://<host de la página>:2567` | URL WebSocket del servidor. Sin definir, usa el mismo host que la página (`getServerUrl`), así se puede jugar desde otras compus de la red local entrando por `http://<ip>:3000/jugar`. En producción **debe ser `wss://`** (el sitio en Vercel es https). Se inlinea en build: cambiarla requiere redeploy. |
+| `NEXT_PUBLIC_APP_URL` | `app.` + host actual | Adónde lleva el botón "Jugar" de la landing (p. ej. `https://app.montevideoworld.com`). Sin definir se arma solo desde el host; entrando por IP, `/jugar`. |
 
 ### Servidor (entorno del proceso; ver `apps/server/.env.example`)
 
@@ -447,8 +564,46 @@ en `.gitignore`; la plantilla es `apps/server/.env.example`.
 - Archivos: componentes React en PascalCase (`ChatBox.tsx`), módulos en camelCase (`eventBus.ts`).
   Textos de UI en español rioplatense.
 - Estado sólo de servidor (caminos, cooldowns) va en campos privados de la Room, no en el Schema.
+- **Límite de frecuencia**: todo mensaje del cliente pasa por `RateLimiter` (`rateLimit.ts`, token
+  bucket por cliente y tipo; la tabla de límites está en un solo lugar, `MESSAGE_RATE_LIMITS`). Lo que
+  se pasa se descarta en silencio; un spam sostenido desconecta con código **4002** (`[RateLimit]` en
+  el log). El chat y el saludo tienen además su cooldown (`CHAT_COOLDOWN_MS`).
+
+## Cárcel (COMCAR, `/ban`)
+
+- `/ban <minutos> <jugador>` (admin, hasta `MAX_BAN_MINUTES`; 0 = liberar). `bans.ts` anota hasta
+  cuándo por **clave** (y va al guardado, `PlayerRecord.jailedUntil`: sigue preso si se reinicia el
+  server) y por **nombre** (sin clave, o si no está conectado: también se marcan las claves guardadas
+  con ese nombre).
+- Conectado: su sala (`jail`, vía `playerDirectory`) le corta lo que hacía, avisa y le manda
+  `travel:ok { cityId: JAIL_CITY_ID }`; el cliente viaja solo. Si en `JAIL_TRAVEL_GRACE_MS` sigue
+  ahí, se lo desconecta con `JAILED_KICK_CODE`.
+- `onJoin`: preso → cualquier barrio que no sea el COMCAR lo rechaza con `ServerError(JAILED_JOIN_CODE)`
+  y `joinCity` (cliente) entra entonces al COMCAR. Al COMCAR sólo entran presos o quien trae pase
+  (`/trace` del admin). Preso no puede pedir viajes (`handleTravelRequest`).
+- En el COMCAR, `updateJail` (cada segundo, desde `syncClock`) copia los segundos que quedan a
+  `Player.jailLeft` (→ `player:jail` → `JailBanner` y la lista de barrios; todos le ven el cartel
+  "🔒 PRESO", `Avatar.setPrisoner`) y al cumplir (o liberarlo) lo manda a Ciudad Vieja.
+- **Visitas**: el COMCAR es un barrio más de la lista (M, "de visita"), con parada y boleto. Es un
+  `CityDefinition` con `prison: { yard }`: los presos aparecen en el patio (`CityMap.prisonTiles`),
+  encerrados por el muro; los que llegan en ómnibus aparecen en `spawnArea`, la explanada de afuera,
+  y se van cuando quieren. El muro sur es una reja (`TileChar.Fence`, `fenceSpec`, se ve a través):
+  desde afuera se ve el patio. No hay camino entre los dos lados. Banear a alguien que está de visita
+  lo mete en el patio (`teleport`). Clic en un preso → **Burlarse** (`taunt { targetId }`: sólo si
+  vos no estás preso; sale en el chat una burla al azar, con el cooldown del chat).
+- No sale en la landing (`!city.prison`). Muro = `TileChar.Wall` (`wallSpec`), pabellones
+  `cellBlock` y garitas `watchtower` (`landmarks.ts`).
 
 ## Interactuar con F (sin mouse)
+
+Qué hay en cada tile del mapa lo dice **`CityMap.interactionAt(x, y)`** (shared): `{ kind, target, area }`
+con `kind` = parada, tienda, palmera, banco o piso, en ese orden de prioridad (con `palmReach`, el clic
+en las hojas también encuentra la palmera). La escena lo usa igual para el hover (`HOVER_COLORS[kind]`
+sobre `area`), el clic y la F (`interactionsAround`: lo de los 8 tiles pegados), y lo que hace cada
+`kind` está en un solo `switch` (`CityScene.describe`). **Para algo nuevo del mapa** (puertas,
+carteles, cajeros…): sumar su `kind` a `MapInteraction` y a `interactionAt`; TypeScript pide después
+su color en `HOVER_COLORS` y su caso en `describe`, y si se usa con F, ponerlo en `NEARBY_PRIORITY`.
+Picudos y jugadores no son del mapa (se mueven): los resuelve la escena antes.
 
 `CityScene.findInteraction` busca, desde el tile del avatar propio según el server (cada
 `INTERACT_CHECK_MS`), con qué puede interactuar, en este orden: **levantarse** del banco, **patear**
@@ -528,7 +683,8 @@ El juego se juega igual en celular. Todo está en `globals.css` y en pocos punto
 | --- | --- | --- | --- |
 | Mundo sincronizado (jugadores, posiciones, nombres, colores) | **Colyseus Schema** (`GameState`) en el server | Phaser: `getStateCallbacks(room)` → `onAdd/onChange/onRemove` | Sólo el server. El cliente envía intenciones (`room.send`) |
 | Eventos efímeros de red (chat) | **Mensajes Colyseus** (`broadcast` / `onMessage`) | `bindRoomMessages` en `lib/network.ts` (único `onMessage` por tipo) los reemite al EventBus | `room.send(MessageType.Chat, …)` |
-| UI (input del chat, historial, pantalla de login, HUD) | **React** (`useState`) | Componentes | Handlers de React |
+| UI del juego que llega por el EventBus (mochila, plata, energía, hora, jugadores, pesca/venta) y panel abierto | **`gameStore`** (`lib/gameStore.ts`) | `useGame((state) => state.x)` en cada componente, sin props desde `App` | Sólo el store, desde el EventBus (`bindGameStore`) o sus acciones (`openPanel`, `togglePanel`, `setHotbar`…) |
+| UI local (input del chat, historial, pantalla de login) | **React** (`useState`) | Componentes | Handlers de React |
 | Render/animación (posición interpolada, globos, hover) | **Phaser** (GameObjects) | La escena | `update()` / tweens |
 | Puente React ↔ Phaser | **EventBus** (`lib/eventBus.ts`) | `eventBus.on(...)` (devuelve un `off`) | `eventBus.emit(...)` |
 
@@ -539,7 +695,7 @@ Reglas:
 2. **React no conoce Phaser y Phaser no conoce React.** Se hablan sólo por eventos tipados en
    `GameEvents` (`chat:message`, `players:list`, `player:self`, `player:outfit`, `inventory:update`,
    `wallet:update`, `shop:open`, `shop:result`, `fishing:status`, `fishing:started`, `fishing:result`,
-   `player:stamina`, `notice`, `player:admin`, `city:clock`, `announcement`, `player:click`, `camera:free`, `camera:command`, `interact:prompt`, `interact:use`,
+   `player:energy`, `notice`, `player:admin`, `city:clock`, `announcement`, `player:click`, `camera:free`, `camera:command`, `interact:prompt`, `interact:use`,
    `trade:invite`, `trade:state`, `trade:closed`, `box:opened`, `bus-stop:open`, `vending:status`,
    `vending:started`, `vending:result`). Para un evento nuevo, agregalo a
    esa interfaz primero.
@@ -558,9 +714,14 @@ Reglas:
   las `busStops` y las `shops`.
   Los bancos miran al sur o al este (hacia la cámara) para que se vea de frente a quien se sienta. Lo calcula `CityMap`,
   que usan igual el server (validar movimiento, pathfinding, spawn) y el cliente (hover/clic).
-- Diseño de Ciudad Vieja: manzanas como **parques de pasto caminable** con pocas casas sueltas y
-  árboles (sólo donde no cortan el paso); los edificios emblemáticos son los protagonistas.
-- Tres Cruces (60×46): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
+- **Tamaño**: cada barrio está pensado para 25–50 jugadores a la vez sin amontonarse: spawn amplio,
+  muchos bancos, escollera / explanada grandes. `Player.x/y` son `uint8`: ningún mapa puede pasar
+  de 255 tiles de ancho ni de alto (quedarse muy por debajo, ~120).
+- Diseño de Ciudad Vieja (74×58, río desde la fila 44): manzanas como **parques de pasto caminable** con pocas casas sueltas y
+  árboles (sólo donde no cortan el paso); los edificios emblemáticos son los protagonistas. Plazas:
+  Independencia (spawn, con canteros y palmeras), Matriz, Zabala y España; rambla Gran Bretaña de dos
+  tiles con bancos mirando al río; Escollera Sarandí de 3 tiles de ancho con plataforma en la punta.
+- Tres Cruces (84×64, spawn en la explanada del shopping): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
   sobre el borde (`LayoutBuilder.edges`), Bulevar Artigas y Av. Italia, el Shopping (con la
   terminal y la tienda `building: "none"` "Moda Tres Cruces"), el Sanatorio Americano, el Obelisco y
   el Parque Batlle con el Velódromo y el Estadio Centenario (óvalos con gradas: `drawBowl`), la
@@ -575,6 +736,8 @@ Reglas:
   (`generateTexture`); piezas iguales comparten textura. Las áreas de un solo volumen deben ser
   **cuadradas**: así un único depth `(x + w - 1 + y) * TILE_HEIGHT/2 + 1` ordena bien contra los avatares
   (depth = y de los pies). Áreas alargadas se parten en piezas 1×1 (ver `gatePieces`).
+- El piso se hornea en trozos de `GROUND_CHUNK` (2048 px) como mucho (`drawGround`): una sola textura
+  de un mapa grande pasaría el máximo de muchas GPU de celular (4096 px).
 - Cada dibujo de landmark está escrito para un tamaño base; si el `area` es más grande se escala al
   hornear (`PieceSpec.scale`): crece en planta y en altura sin pixelarse.
 - Sólo se ven las caras **sur** (izquierda) y **este** (derecha): las fachadas importantes van ahí.
@@ -585,9 +748,13 @@ Reglas:
 
 1. Crear `packages/shared/src/cities/<barrio>.ts` (usar `LayoutBuilder`) y sumarlo a `CITIES`.
 2. Si tiene un tipo de edificio nuevo: agregarlo a `LandmarkKind` y dibujarlo en `landmarks.ts`.
-3. Aparece solo en la lista (tecla M, sólo nombres) con su botón **Ir · $52**. Viajar cuesta un
-   boleto de STM (`TRAVEL_FARE`): `travel:request { cityId }` → el server cobra, guarda el progreso
-   y emite un boleto (`travelTickets`, vence en `TRAVEL_TICKET_MS`) → `travel:ok` → `App.travel`
+3. Aparece solo en la lista (tecla M, sólo nombres) con su botón **Ir · 1 boleto**. Cada viaje gasta
+   un **Boleto STM** de la mochila (`TicketItem`, `TICKET_ID`, categoría `ticket`): se compran a
+   `TRAVEL_FARE` ($52) en la **Agencia STM** de Ciudad Vieja (27,3, sobre la Rambla 25 de Agosto,
+   `building: "stm"`), se apilan y se pueden intercambiar o vender a mitad de precio. Los avisos dicen
+   dónde comprarlos con `whereToBuy(TICKET_ID)` (sale de las tiendas que los tienen en `stock`).
+   `travel:request { cityId }` → el server saca un boleto de la mochila (sin boleto, aviso), guarda el
+   progreso y emite un pase (`travelTickets`, vence en `TRAVEL_TICKET_MS`) → `travel:ok` → `App.travel`
    sale de la sala y `travelTo(cityId)` entra a la del destino con el mismo nombre, aspecto y clave.
    Mientras tanto se ve `TravelOverlay` (ómnibus de STM animado en SVG/CSS); el viaje dura como
    mínimo `TRAVEL_MS` (5 s) aunque el server responda antes.
@@ -597,15 +764,38 @@ Reglas:
    **Paradas de ómnibus** (`CityDefinition.busStops`: un tile no caminable con `name` y `facing`,
    como los bancos): clic en una → la escena camina al avatar a un tile pegado (`approachTile`) y al
    llegar emite `bus-stop:open` → React abre la misma lista de barrios que la tecla M (si ya estás
-   al lado, se abre directo). Es sólo del cliente: el viaje lo sigue validando y cobrando el server.
+   al lado, se abre directo). Es sólo del cliente: el viaje lo sigue validando el server (y gasta el boleto).
 4. Si tiene un cartel "MW" (`logoSign`), sumar el punto del techo de su tipo en `ROOF_SPOTS`.
 
 ## Cómo agregar un mensaje nuevo (receta)
 
 1. `packages/shared/src/messages.ts`: agregar la clave en `MessageType` y su DTO.
-2. `apps/server/src/rooms/CityRoom.ts`: `this.onMessage(MessageType.X, (client, msg: unknown) => …)` con type guard.
-3. Si el server responde con un broadcast: registrarlo en `bindRoomMessages` y reemitir por el EventBus.
+2. `apps/server/src/rooms/CityRoom.ts`: `this.handle(MessageType.X, (client, message) => …)` (no
+   `onMessage` directo: `handle` aplica el límite de frecuencia) con type guard. Por defecto entra a
+   5/s con ráfaga de 10; si el juego normal puede mandarlo más seguido (clics de UI, movimiento),
+   sumarlo a `MESSAGE_RATE_LIMITS` en `apps/server/src/rateLimit.ts`.
+3. Si el server le manda algo al cliente: sumar el evento a `GameEvents` (`lib/eventBus.ts`) y una línea
+   `"evento": MessageType.X` en `SERVER_MESSAGES` (`lib/network.ts`), que lo reemite por el EventBus.
 4. `npm run typecheck`.
+
+## Cómo agregar un panel o un dato de UI (receta)
+
+- **Panel**: sumar su id a `PanelId` (`lib/gameStore.ts`) y una línea en `PANELS` (`components/panels.ts`)
+  con el componente (recibe `PanelProps`: `room`, `cityId`, `onClose`) y, si tiene, su tecla
+  (`event.code`) y `adminOnly`. Se abre con `openPanel("id")`; la tecla y Esc ya andan.
+- **Dato que llega por el EventBus**: sumarlo a `GameStoreState` e `INITIAL`, escucharlo en
+  `bindGameStore` y, si es del barrio (se borra al viajar), a `CITY_FIELDS`. Los componentes lo leen
+  con `useGame`. El selector devuelve un campo del estado o un primitivo, nunca un objeto nuevo.
+
+## Cómo agregar una categoría de ítem (receta)
+
+1. `packages/shared/src/items.ts`: el tipo (`interface XItem`), sumarlo a `ItemCategory` / `ItemDefinition` y una
+   entrada en `ITEM_CATEGORIES` (nombre, si es herramienta, recargo al comprar, cuánto paga la tienda y
+   los textos de la tienda). Precios, apilado y el maker salen de ahí.
+2. `npm run typecheck`: no compila hasta que tenga su ícono (`CATEGORY_ICONS` en `ItemIcon.tsx`), su
+   casillero en la mochila (`cellView` en `Backpack.tsx`), su acción en la barra rápida (`itemAction`) y
+   su entrada en `itemCategoryUi.ts` (`{}` si no tiene estrellas ni ventajas).
+3. Para venderla, sumarla a `buys` de alguna tienda.
 
 ## Cómo agregar un comando de chat (receta)
 
@@ -625,6 +815,8 @@ Aparece solo en `/help` para quien lo pueda usar.
 2. `apps/client/vercel.json` ya define `installCommand: cd ../.. && npm ci` y
    `buildCommand: cd ../.. && npm run build:client` (compila `shared` antes que Next).
 3. Variable de entorno `NEXT_PUBLIC_SERVER_URL=wss://game.tudominio.com` (Production y Preview).
+   Dominios: agregar **los dos** al proyecto, `tudominio.com` (landing) y `app.tudominio.com` (juego); el
+   `proxy.ts` decide qué mostrar por el host. Opcional: `NEXT_PUBLIC_APP_URL=https://app.tudominio.com`.
 4. Deploy. Requiere `package-lock.json` commiteado en la raíz.
 
 ### Servidor → VPS (Ubuntu/Debian)
@@ -645,8 +837,18 @@ sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
 - DNS: registro A `game.tudominio.com` → IP del VPS. Abrir puertos 80/443 (no hace falta exponer 2567).
-- Verificar: `curl https://game.tudominio.com/health`.
+- Verificar: `curl https://game.tudominio.com/health`. Además de salas y jugadores devuelve métricas
+  (`metrics.ts`): por sala (`cities`: barrio, copia, jugadores, picudos, mensajes descartados por el
+  límite de frecuencia y desconectados), duración de los ticks de jugadores y de picudos en una ventana
+  reciente (`ticks`: promedio, máximo, cuántos pasaron de 20 ms), el archivo de jugadores (`store`:
+  cuántos hay guardados, `lastFlush` con ms y bytes de la última escritura, boletos de viaje vigentes)
+  y la memoria. Si los ticks lentos se repiten (3 en 10 s) o uno pasa de 100 ms, el log avisa con
+  `[Métricas] …` (un pico suelto suele ser el GC y no se avisa).
 - Actualizar: `git pull && npm ci && npm run build:server && pm2 restart montevideo-world-server`.
+- Cada barrio admite `MAX_PLAYERS_PER_ROOM` (80) jugadores por sala. Con la sala llena, `joinOrCreate`
+  abre **otra copia del barrio** (no se ven entre sí); cada sala toma un número (`GameState.copy`, el
+  libre más bajo, `openCopies` en `CityRoom.ts`) y el HUD lo muestra ("Ciudad Vieja · 2") si es > 1.
+  Probado con 85 bots: 80 + 5, el server a ~3 % de CPU con los 80 caminando.
 - Colyseus guarda las salas en memoria: **una sola instancia** (`instances: 1`). Escalar horizontalmente
   requiere `@colyseus/redis-presence` + `@colyseus/redis-driver`.
 
@@ -658,14 +860,14 @@ sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
 - Sin colisión entre avatares; el pathfinding sólo esquiva tiles no caminables del barrio.
 - Zoom con la rueda del mouse o pellizcando (0,5× a 2×, se recuerda en `mw:zoom`). Las texturas horneadas se
   ven un poco suaves al acercar al máximo.
-- Pocas tiendas (ropa, pesca, pescadería y el kiosco de carritos); el stock es infinito y los precios son fijos.
+- Pocas tiendas (ropa, pesca, pescadería, el kiosco de carritos y la Agencia STM); el stock es infinito y los precios son fijos.
 - Pesca sin minijuego: el resultado se sortea al tirar y sólo hay que esperar. La venta en el
   Centenario funciona igual (sin minijuego ni mercadería que reponer). Cañas y carritos se gastan
   por uso y se rompen; no se pueden reparar. Prendas sin comprarlas: sólo las que regalan los hinchas al vender.
-- Dos barrios (Ciudad Vieja y Tres Cruces). Al entrar siempre se aparece en Ciudad Vieja; al viajar,
+- Dos barrios (Ciudad Vieja y Tres Cruces), más el COMCAR (presos adentro, visitas afuera). Al entrar siempre se aparece en Ciudad Vieja; al viajar,
   en la zona de spawn del destino.
 - Al entrar al juego siempre se aparece en Ciudad Vieja (el server exige boleto para los demás
-  barrios). Quien queda en otro barrio sin $52 puede salir y volver a entrar.
+  barrios). Quien queda en otro barrio sin boleto STM (sólo se venden en Ciudad Vieja) puede salir y volver a entrar.
 - Avatares dibujados con primitivas (4 orientaciones por espejado: frente/espalda × izq/der; de espaldas
   sólo mientras camina, al llegar queda de frente). El aspecto se elige al entrar y no se puede cambiar
   después sin reconectar. Próximo paso: spritesheets de 8 direcciones.

@@ -1,41 +1,35 @@
-import { Client, Room } from "colyseus.js";
+import { Client, MatchMakeError, Room, ServerError } from "colyseus.js";
 import {
+  JAILED_JOIN_CODE,
+  JAIL_CITY_ID,
   Appearance,
   BoxOpenMessage,
-  BoxOpenedMessage,
   TravelMessage,
-  FishEatMessage,
-  ChatBroadcastMessage,
+  FoodEatMessage,
   EquipMessage,
-  FishResultMessage,
-  FishStartedMessage,
-  VendResultMessage,
-  VendStartedMessage,
-  InventoryMessage,
+  AdminMatchMessage,
   AdminSetTimeMessage,
+  MatchMode,
   AdminGiveMessage,
-  AdminNearbyMessage,
-  AnnouncementMessage,
+  InventoryMoveMessage,
+  CartLine,
+  ShopCheckoutMessage,
+  PetAdoptMessage,
+  PetRenameMessage,
   ItemSlot,
-  NoticeMessage,
   JoinOptions,
   MessageType,
+  MessageTypeName,
   ROOM_NAME,
   SPAWN_CITY_ID,
-  ShopOpenMessage,
-  ShopResultMessage,
   ShopHaggleMessage,
   ShopTradeMessage,
   TargetPlayerMessage,
-  TradeClosedMessage,
-  TradeInviteMessage,
   TradeOffer,
   TradeRespondMessage,
-  TradeStateMessage,
-  WalletMessage,
 } from "@montevideo-world/shared";
 import type { GameState } from "@montevideo-world/shared/schema";
-import { eventBus } from "./eventBus";
+import { type GameEvents, eventBus } from "./eventBus";
 import { getPlayerKey } from "./playerKey";
 
 export type CityRoom = Room<GameState>;
@@ -70,14 +64,43 @@ function getClient() {
 let lastJoin: { name: string; appearance: Appearance } | null = null;
 
 /** Entrar a un barrio con el aspecto elegido (al empezar, siempre al de spawn: Ciudad Vieja). */
-export async function joinCity(name: string, appearance: Appearance, cityId: string = SPAWN_CITY_ID): Promise<CitySession> {
+export async function joinCity(
+  name: string,
+  appearance: Appearance,
+  cityId: string = SPAWN_CITY_ID,
+  roomId?: string,
+): Promise<CitySession> {
   lastJoin = { name, appearance };
   const options: JoinOptions = { name, cityId, appearance, playerKey: getPlayerKey() ?? undefined };
-  const room = await getClient().joinOrCreate<GameState>(ROOM_NAME, options);
-  return { room, cityId: options.cityId };
+  try {
+    // Con `roomId` (`/trace`) se entra a esa copia justa; si ya cerró o está llena, a cualquiera del barrio.
+    const room = roomId
+      ? await getClient()
+          .joinById<GameState>(roomId, options)
+          .catch(() => getClient().joinOrCreate<GameState>(ROOM_NAME, options))
+      : await getClient().joinOrCreate<GameState>(ROOM_NAME, options);
+    return { room, cityId: options.cityId };
+  } catch (error) {
+    // Preso (`/ban`): el server no lo deja entrar a otro barrio; va directo al COMCAR.
+    if (!(error instanceof ServerError) || error.code !== JAILED_JOIN_CODE || cityId === JAIL_CITY_ID) throw error;
+    const jailOptions: JoinOptions = { ...options, cityId: JAIL_CITY_ID };
+    const room = await getClient().joinOrCreate<GameState>(ROOM_NAME, jailOptions);
+    return { room, cityId: JAIL_CITY_ID };
+  }
 }
 
-/** Pedir el boleto (`TRAVEL_FARE`) para viajar a `cityId`; si alcanza, llega `travel:approved`. */
+/**
+ * Texto para mostrar cuando no se pudo entrar: si el server respondió y rechazó la entrada (sala
+ * llena, falta boleto…), su motivo; si no respondió, que no se pudo conectar (apagado o reiniciándose).
+ */
+export function describeJoinError(error: unknown): string {
+  if (error instanceof ServerError || error instanceof MatchMakeError) {
+    return error.message ? `El servidor no te dejó entrar: ${error.message}` : `El servidor no te dejó entrar (código ${error.code}).`;
+  }
+  return `No se pudo conectar al servidor (${getServerUrl()}). Si se está reiniciando, probá de nuevo en unos segundos.`;
+}
+
+/** Viajar a `cityId` usando un boleto STM de la mochila; si tenés, llega `travel:approved`. */
 export function sendTravelRequest(room: CityRoom, cityId: string) {
   const message: TravelMessage = { cityId };
   room.send(MessageType.TravelRequest, message);
@@ -87,10 +110,36 @@ export function sendTravelRequest(room: CityRoom, cityId: string) {
  * Viajar a otro barrio (con el boleto ya pagado): entrar a su sala con el mismo nombre, aspecto y clave. Hay que salir antes
  * de la sala actual (el server guarda la mochila al salir y la devuelve al entrar con la clave).
  */
-export function travelTo(cityId: string): Promise<CitySession> {
+export function travelTo(cityId: string, roomId?: string): Promise<CitySession> {
   if (!lastJoin) return Promise.reject(new Error("Todavía no se entró al juego"));
-  return joinCity(lastJoin.name, lastJoin.appearance, cityId);
+  return joinCity(lastJoin.name, lastJoin.appearance, cityId, roomId);
 }
+
+/**
+ * Mensajes del server que se reemiten tal cual por el EventBus: evento del bus → `MessageType`.
+ * El tipo del payload lo define `GameEvents`. Para un mensaje nuevo alcanza con sumar una línea acá.
+ */
+const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = {
+  "chat:message": MessageType.Chat,
+  "inventory:update": MessageType.Inventory,
+  "wallet:update": MessageType.Wallet,
+  "needs:update": MessageType.Needs,
+  faint: MessageType.Faint,
+  "shop:open": MessageType.ShopOpen,
+  "shop:result": MessageType.ShopResult,
+  "fishing:started": MessageType.FishStarted,
+  "fishing:result": MessageType.FishResult,
+  "vending:started": MessageType.VendStarted,
+  "vending:result": MessageType.VendResult,
+  "admin:nearby": MessageType.AdminNearby,
+  notice: MessageType.Notice,
+  announcement: MessageType.Announcement,
+  "travel:approved": MessageType.TravelApproved,
+  "box:opened": MessageType.BoxOpened,
+  "trade:invite": MessageType.TradeInvite,
+  "trade:state": MessageType.TradeState,
+  "trade:closed": MessageType.TradeClosed,
+};
 
 /**
  * Único lugar donde se registran los mensajes de red (room.onMessage).
@@ -98,80 +147,21 @@ export function travelTo(cityId: string): Promise<CitySession> {
  * Devuelve una función para desregistrar (idempotente frente a StrictMode).
  */
 export function bindRoomMessages(room: CityRoom): () => void {
-  const unbindChat = room.onMessage(MessageType.Chat, (message: ChatBroadcastMessage) => {
-    eventBus.emit("chat:message", message);
-  });
-  const unbindInventory = room.onMessage(MessageType.Inventory, (message: InventoryMessage) => {
-    eventBus.emit("inventory:update", message);
-  });
-  const unbindWallet = room.onMessage(MessageType.Wallet, (message: WalletMessage) => {
-    eventBus.emit("wallet:update", message);
-  });
-  const unbindShopOpen = room.onMessage(MessageType.ShopOpen, (message: ShopOpenMessage) => {
-    eventBus.emit("shop:open", message);
-  });
-  const unbindShopResult = room.onMessage(MessageType.ShopResult, (message: ShopResultMessage) => {
-    eventBus.emit("shop:result", message);
-  });
-  const unbindFishStarted = room.onMessage(MessageType.FishStarted, (message: FishStartedMessage) => {
-    eventBus.emit("fishing:started", message);
-  });
-  const unbindFishResult = room.onMessage(MessageType.FishResult, (message: FishResultMessage) => {
-    eventBus.emit("fishing:result", message);
-  });
-  const unbindVendStarted = room.onMessage(MessageType.VendStarted, (message: VendStartedMessage) => {
-    eventBus.emit("vending:started", message);
-  });
-  const unbindVendResult = room.onMessage(MessageType.VendResult, (message: VendResultMessage) => {
-    eventBus.emit("vending:result", message);
-  });
-  const unbindAdminNearby = room.onMessage(MessageType.AdminNearby, (message: AdminNearbyMessage) => {
-    eventBus.emit("admin:nearby", message);
-  });
-  const unbindNotice = room.onMessage(MessageType.Notice, (message: NoticeMessage) => {
-    eventBus.emit("notice", message);
-  });
-  const unbindAnnouncement = room.onMessage(MessageType.Announcement, (message: AnnouncementMessage) => {
-    eventBus.emit("announcement", message);
-  });
-  const unbindTravel = room.onMessage(MessageType.TravelApproved, (message: TravelMessage) => {
-    eventBus.emit("travel:approved", message);
-  });
-  const unbindBoxOpened = room.onMessage(MessageType.BoxOpened, (message: BoxOpenedMessage) => {
-    eventBus.emit("box:opened", message);
-  });
-  const unbindTradeInvite = room.onMessage(MessageType.TradeInvite, (message: TradeInviteMessage) => {
-    eventBus.emit("trade:invite", message);
-  });
-  const unbindTradeState = room.onMessage(MessageType.TradeState, (message: TradeStateMessage) => {
-    eventBus.emit("trade:state", message);
-  });
-  const unbindTradeClosed = room.onMessage(MessageType.TradeClosed, (message: TradeClosedMessage) => {
-    eventBus.emit("trade:closed", message);
-  });
-  // Mochila y saldo se piden recién ahora: si el server los mandara en onJoin podrían llegar antes
-  // de que existan los handlers y colyseus.js los descartaría.
+  const unbinds = (Object.keys(SERVER_MESSAGES) as (keyof GameEvents)[]).map((event) =>
+    room.onMessage(SERVER_MESSAGES[event]!, (message: GameEvents[typeof event]) => eventBus.emit(event, message)),
+  );
+  // Mochila, saldo y hambre se piden recién ahora: si el server los mandara en onJoin podrían llegar
+  // antes de que existan los handlers y colyseus.js los descartaría.
   room.send(MessageType.RequestInventory);
   room.send(MessageType.RequestWallet);
-  return () => {
-    unbindChat();
-    unbindInventory();
-    unbindWallet();
-    unbindShopOpen();
-    unbindShopResult();
-    unbindFishStarted();
-    unbindFishResult();
-    unbindVendStarted();
-    unbindVendResult();
-    unbindAdminNearby();
-    unbindNotice();
-    unbindAnnouncement();
-    unbindTravel();
-    unbindBoxOpened();
-    unbindTradeInvite();
-    unbindTradeState();
-    unbindTradeClosed();
-  };
+  room.send(MessageType.RequestNeeds);
+  return () => unbinds.forEach((unbind) => unbind());
+}
+
+/** Reordenar la mochila: lo del casillero `from` va al `to` (si hay algo, se intercambian o se juntan). */
+export function sendInventoryMove(room: CityRoom, from: number, to: number) {
+  const message: InventoryMoveMessage = { from, to };
+  room.send(MessageType.InventoryMove, message);
 }
 
 /** Pedir ponerse una prenda de la mochila (`itemId`) o guardar lo puesto en `slot` (`null`). */
@@ -181,8 +171,8 @@ export function sendEquip(room: CityRoom, slot: ItemSlot, itemId: string | null)
 }
 
 /** Comprar (`buy`) o vender (`sell`) una unidad de una prenda en una tienda. */
-export function sendShopTrade(room: CityRoom, action: "buy" | "sell", shopId: string, itemId: string) {
-  const message: ShopTradeMessage = { shopId, itemId };
+export function sendShopTrade(room: CityRoom, action: "buy" | "sell", shopId: string, itemId: string, quantity = 1) {
+  const message: ShopTradeMessage = { shopId, itemId, quantity };
   room.send(action === "buy" ? MessageType.ShopBuy : MessageType.ShopSell, message);
 }
 
@@ -190,6 +180,37 @@ export function sendShopTrade(room: CityRoom, action: "buy" | "sell", shopId: st
 export function sendShopHaggle(room: CityRoom, shopId: string, itemId: string, price: number) {
   const message: ShopHaggleMessage = { shopId, itemId, price };
   room.send(MessageType.ShopHaggle, message);
+}
+
+/** Mandar un mensaje de chat (o un comando "/algo") como si se escribiera en el `ChatBox`. */
+export function sendChat(room: CityRoom, text: string) {
+  room.send(MessageType.Chat, { text });
+}
+
+/** Comprar todo el carrito de una tienda (todo o nada: el server responde con `shop:result`). */
+export function sendShopCheckout(room: CityRoom, shopId: string, items: CartLine[]) {
+  const message: ShopCheckoutMessage = { shopId, items };
+  room.send(MessageType.ShopCheckout, message);
+}
+
+/** Guardia del sanatorio: pagar la consulta y quedar con la salud en 100. */
+export function sendHospitalHeal(room: CityRoom, shopId: string) {
+  room.send(MessageType.HospitalHeal, { shopId });
+}
+
+/** Veterinaria: adoptar una mascota con nombre, cambiárselo o despedirse. */
+export function sendPetAdopt(room: CityRoom, shopId: string, petId: string, name: string) {
+  const message: PetAdoptMessage = { shopId, petId, name };
+  room.send(MessageType.PetAdopt, message);
+}
+
+export function sendPetRename(room: CityRoom, shopId: string, name: string) {
+  const message: PetRenameMessage = { shopId, name };
+  room.send(MessageType.PetRename, message);
+}
+
+export function sendPetRelease(room: CityRoom, shopId: string) {
+  room.send(MessageType.PetRelease, { shopId });
 }
 
 /** Tirar la línea (`cast`) o recogerla (`stop`). */
@@ -203,12 +224,18 @@ export function sendVending(room: CityRoom, action: "start" | "stop") {
 }
 
 /** Comerse un pescado de la mochila (recupera energía). */
-export function sendFishEat(room: CityRoom, itemId: string) {
-  const message: FishEatMessage = { itemId };
-  room.send(MessageType.FishEat, message);
+export function sendFoodEat(room: CityRoom, itemId: string) {
+  const message: FoodEatMessage = { itemId };
+  room.send(MessageType.FoodEat, message);
 }
 
 /** Admin: mover el reloj del juego (el server ignora el pedido si no sos admin). */
+/** Admin: forzar el partido del Centenario ("on" con un partido de `MATCHES`), suspenderlo o volver al horario. */
+export function sendAdminMatch(room: CityRoom, mode: MatchMode, name?: string) {
+  const message: AdminMatchMessage = { mode, name };
+  room.send(MessageType.AdminMatch, message);
+}
+
 export function sendAdminSetTime(room: CityRoom, minuteOfDay: number) {
   const message: AdminSetTimeMessage = { minuteOfDay };
   room.send(MessageType.AdminSetTime, message);
@@ -226,6 +253,12 @@ export function sendAdminGive(room: CityRoom, itemId: string, quantity: number, 
 }
 
 /** Saludar a otro jugador (sale en el chat como mensaje propio). */
+/** Visita del COMCAR: burlarse de un preso (sale en el chat). */
+export function sendTaunt(room: CityRoom, targetId: string) {
+  const message: TargetPlayerMessage = { targetId };
+  room.send(MessageType.Taunt, message);
+}
+
 export function sendGreet(room: CityRoom, targetId: string) {
   const message: TargetPlayerMessage = { targetId };
   room.send(MessageType.Greet, message);

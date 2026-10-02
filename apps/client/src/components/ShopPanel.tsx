@@ -3,22 +3,19 @@
 import { useEffect, useState } from "react";
 import type { ItemDefinition } from "@montevideo-world/shared";
 import {
-  InventoryMessage,
   InventoryStack,
   Shop,
+  getCity,
   ShopResultMessage,
+  SHOP_MAX_QUANTITY,
   buyPrice,
-  difficultyStars,
-  FISH_BUY_MARKUP,
+  ITEM_CATEGORIES,
+  ITEM_CATEGORY_IDS,
   formatMoney,
   formatPercent,
   getItem,
   haggleChance,
   maxHagglePrice,
-  rodPerks,
-  rodStars,
-  cartPerks,
-  cartStars,
   isTool,
   maxStack,
   sellPrice,
@@ -27,38 +24,102 @@ import {
   wornestStack,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
-import { CityRoom, sendShopHaggle, sendShopTrade } from "@/lib/network";
+import { useGame } from "@/lib/gameStore";
+import { CityRoom, sendShopCheckout, sendShopHaggle, sendShopTrade } from "@/lib/network";
+import type { PanelProps } from "./panels";
 import { ItemIcon } from "./ItemIcon";
+import { PetShop } from "./PetShop";
+import { HospitalPanel } from "./HospitalPanel";
+import { itemPerks, itemRating } from "./itemCategoryUi";
 import { UiIcon } from "./UiIcon";
 
-interface ShopPanelProps {
+interface ShopViewProps {
   room: CityRoom;
   shop: Shop;
-  money: number | null;
-  inventory: InventoryMessage | null;
   onClose: () => void;
 }
 
 type Tab = "buy" | "sell";
+
+/** Cuánto queda a la vista el aviso de cómo salió la compra / venta. */
+const RESULT_MS = 5000;
+/** Si la respuesta no llega en este tiempo, el botón se vuelve a habilitar. */
+const PENDING_MS = 3000;
 
 /**
  * Panel de una tienda (se abre cuando el server avisa que llegaste). Comprar y vender son
  * intenciones: el server valida (cercanía, saldo, lugar en la mochila) y responde con `shop:result`;
  * saldo y mochila se actualizan con sus propios mensajes.
  */
-export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelProps) {
+export function ShopPanel({ room, cityId, onClose }: PanelProps) {
+  const shopId = useGame((state) => state.shopId);
+  const shop = shopId ? getCity(cityId)?.shops.find((candidate) => candidate.id === shopId) : undefined;
+  if (!shop) return null;
+  // La veterinaria no compra ni vende ítems: se adoptan mascotas.
+  if (shop.pets) return <PetShop room={room} shop={shop} onClose={onClose} />;
+  // La guardia del sanatorio tampoco: se paga la consulta para curarse.
+  if (shop.hospital) return <HospitalPanel room={room} shop={shop} onClose={onClose} />;
+  return <ShopView room={room} shop={shop} onClose={onClose} />;
+}
+
+function ShopView({ room, shop, onClose }: ShopViewProps) {
+  const money = useGame((state) => state.money);
+  const inventory = useGame((state) => state.inventory);
   const sellsSomething = shop.stock.length > 0;
   const [tab, setTab] = useState<Tab>(sellsSomething ? "buy" : "sell");
-  const [result, setResult] = useState<ShopResultMessage | null>(null);
+  /** Último resultado, con un número que cambia en cada uno (reinicia la animación del aviso). */
+  const [result, setResult] = useState<{ message: ShopResultMessage; key: number } | null>(null);
   /** Ítem que se está regateando (se abre su formulario debajo de la fila). */
   const [haggling, setHaggling] = useState<string | null>(null);
+  /** Cantidad elegida en cada fila (`"buy:id"` / `"sell:id"`); sin elegir, 1. */
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  /** Compra / venta esperando respuesta: el botón se deshabilita (así no se manda dos veces). */
+  const [pending, setPending] = useState<string | null>(null);
+  /** Carrito de la pestaña Comprar: id → unidades. Se compra todo junto con un solo botón. */
+  const [cart, setCart] = useState<Record<string, number>>({});
 
-  useEffect(() => eventBus.on("shop:result", setResult), []);
+  useEffect(
+    () =>
+      eventBus.on("shop:result", (message) => {
+        setResult({ message, key: Date.now() });
+        setPending(null);
+        // Compra del carrito hecha: se vacía.
+        if (message.ok && message.bought) setCart({});
+      }),
+    [],
+  );
+  // El aviso se va solo; si la respuesta no llega (se cortó algo), el botón se libera igual.
+  useEffect(() => {
+    if (!result) return;
+    const timer = window.setTimeout(() => setResult(null), RESULT_MS);
+    return () => window.clearTimeout(timer);
+  }, [result]);
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setTimeout(() => setPending(null), PENDING_MS);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
 
   const stacks = inventory?.stacks ?? [];
   const capacity = inventory?.capacity ?? 0;
-  const canStore = (itemId: string) =>
-    stacks.some((stack) => stack.itemId === itemId && stack.quantity < maxStack(getItem(itemId))) || stacks.length < capacity;
+  const canStore = (itemId: string) => fitCount(itemId) > 0;
+  /** Cuántas unidades más entran (mismo criterio que el server: pilas sin llenar y casilleros libres). */
+  function fitCount(itemId: string): number {
+    const limit = maxStack(getItem(itemId));
+    const free = Math.max(0, capacity - stacks.length);
+    const room = stacks.filter((stack) => stack.itemId === itemId).reduce((total, stack) => total + Math.max(0, limit - stack.quantity), 0);
+    return room + free * limit;
+  }
+  /** Cantidad elegida para esta fila, dentro de 1 … `max`. */
+  const quantityOf = (key: string, max: number) => Math.max(1, Math.min(max, quantities[key] ?? 1));
+  const setQuantity = (key: string, value: number) => setQuantities((current) => ({ ...current, [key]: value }));
+  /** La fila del último resultado (se resalta un momento). */
+  const flashed = (action: Tab, itemId: string) => {
+    if (!result?.message.ok || result.message.action !== action) return null;
+    const line = result.message.bought?.find((bought) => bought.itemId === itemId);
+    if (line) return { key: result.key, quantity: line.quantity };
+    return result.message.itemId === itemId ? { key: result.key, quantity: result.message.quantity ?? 1 } : null;
+  };
   const stock = shop.stock.map(getItem).filter((item) => item !== undefined);
   /**
    * Lo de la mochila que esta tienda compra (ropa en la ropería, pescado en la pescadería), una fila
@@ -74,9 +135,43 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
     else sellable.push({ itemId: stack.itemId, quantity: stack.quantity, uses: wornestStack(stacks, stack.itemId)?.uses });
   }
 
-  function trade(action: Tab, itemId: string) {
+  /** Pie de la tienda: cómo paga lo que compra (Vender) o cómo funciona lo que vende (Comprar). */
+  const notes =
+    tab === "sell"
+      ? shop.buys.map((category) => ITEM_CATEGORIES[category].sellNote).filter(Boolean)
+      : ITEM_CATEGORY_IDS.filter((category) => stock.some((item) => item.category === category)).flatMap(
+          (category) => ITEM_CATEGORIES[category].buyNote ?? [],
+        );
+
+  function trade(action: Tab, itemId: string, quantity: number) {
     setResult(null);
-    sendShopTrade(room, action, shop.id, itemId);
+    setPending(`${action}:${itemId}`);
+    sendShopTrade(room, action, shop.id, itemId, quantity);
+  }
+
+  const resultItem = result?.message.itemId ? getItem(result.message.itemId) : undefined;
+
+  /** El carrito: líneas con unidades, el total y si alcanza la plata. */
+  const cartLines = stock.flatMap((item) => (cart[item.id] ? [{ item, quantity: cart[item.id] }] : []));
+  const cartUnits = cartLines.reduce((sum, line) => sum + line.quantity, 0);
+  const cartTotal = cartLines.reduce((sum, line) => sum + buyPrice(line.item) * line.quantity, 0);
+  const cartAffordable = money !== null && money >= cartTotal;
+  const setCartQuantity = (itemId: string, quantity: number) =>
+    setCart((current) => {
+      const next = { ...current };
+      if (quantity > 0) next[itemId] = quantity;
+      else delete next[itemId];
+      return next;
+    });
+  function checkout() {
+    if (cartLines.length === 0) return;
+    setResult(null);
+    setPending("checkout");
+    sendShopCheckout(
+      room,
+      shop.id,
+      cartLines.map(({ item, quantity }) => ({ itemId: item.id, quantity })),
+    );
   }
 
   return (
@@ -113,50 +208,57 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
           </button>
         </div>
 
-        {result && <p className={`shop-result ${result.ok ? "ok" : "error"}`}>{result.text}</p>}
+        {/* Aviso de cómo salió: grande, con el ítem y el saldo, arriba de la lista (no se pierde al scrollear). */}
+        {result && (
+          <div key={result.key} className={`shop-toast ${result.message.ok ? "ok" : "error"}`} role="status" aria-live="polite">
+            <span className="shop-toast-mark" aria-hidden="true">
+              {result.message.ok ? "✓" : "✕"}
+            </span>
+            {resultItem && <ItemIcon item={resultItem} size={34} />}
+            <span className="shop-toast-text">
+              {result.message.text}
+              {result.message.ok && result.message.action && money !== null && (
+                <small>Ahora tenés {formatMoney(money)}.</small>
+              )}
+            </span>
+          </div>
+        )}
 
         <ul className="shop-list">
           {tab === "buy" &&
             stock.map((item) => {
               const price = buyPrice(item);
-              const affordable = money !== null && money >= price;
               const fits = canStore(item.id);
+              const inCart = cart[item.id] ?? 0;
+              const max = Math.min(SHOP_MAX_QUANTITY, fitCount(item.id));
+              const flash = flashed("buy", item.id);
               return (
-                <li key={item.id}>
+                <li key={item.id} className={`shop-row${inCart > 0 ? " in-cart" : ""}`}>
+                  {flash && (
+                    <span key={flash.key} className="shop-row-flash" aria-hidden="true">
+                      +{flash.quantity}
+                    </span>
+                  )}
                   <ItemIcon item={item} size={36} />
                   <span className="shop-item-name">
                     {item.name}
-                    {item.category === "fish" && (
-                      <span className="shop-stars" title={`Dificultad ${item.difficulty} de 5`}>
-                        {difficultyStars(item.difficulty)}
-                      </span>
-                    )}
-                    {item.category === "rod" && (
-                      <>
-                        <span className="shop-stars" title={`Nivel ${item.tier} de 4`}>
-                          {rodStars(item.tier)}
-                        </span>
-                        <span className="shop-perks">{rodPerks(item).join(" · ")}</span>
-                      </>
-                    )}
-                    {item.category === "cart" && (
-                      <>
-                        <span className="shop-stars" title={`Nivel ${item.tier} de 4`}>
-                          {cartStars(item.tier)}
-                        </span>
-                        <span className="shop-perks">{cartPerks(item).join(" · ")}</span>
-                      </>
-                    )}
+                    <ItemRating item={item} />
+                    {itemPerks(item).length > 0 && <span className="shop-perks">{itemPerks(item).join(" · ")}</span>}
                   </span>
                   <span className="shop-price">{formatMoney(price)}</span>
-                  <button
-                    type="button"
-                    disabled={!affordable || !fits}
-                    title={!affordable ? "No te alcanza la plata" : !fits ? "No tenés lugar en la mochila" : undefined}
-                    onClick={() => trade("buy", item.id)}
-                  >
-                    Comprar
-                  </button>
+                  <div className="shop-buy-actions">
+                    {fits ? (
+                      <QuantityPicker
+                        value={inCart}
+                        min={0}
+                        max={max}
+                        label={item.name}
+                        onChange={(value) => setCartQuantity(item.id, value)}
+                      />
+                    ) : (
+                      <span className="shop-no-room">Sin lugar</span>
+                    )}
+                  </div>
                 </li>
               );
             })}
@@ -168,8 +270,17 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
               const open = haggling === item.id;
               /** Usos que le quedan a la herramienta que se vende (undefined si no es herramienta). */
               const uses = isTool(item) ? stackUses(stack) : undefined;
+              const key = `sell:${item.id}`;
+              const max = Math.min(SHOP_MAX_QUANTITY, stack.quantity);
+              const quantity = quantityOf(key, max);
+              const flash = flashed("sell", item.id);
               return (
-                <li key={stack.itemId} className={open ? "haggling" : undefined}>
+                <li key={stack.itemId} className={open ? "shop-row haggling" : "shop-row"}>
+                  {flash && (
+                    <span key={flash.key} className="shop-row-flash sold" aria-hidden="true">
+                      −{flash.quantity}
+                    </span>
+                  )}
                   <ItemIcon item={item} size={36} />
                   <span className="shop-item-name">
                     {item.name}
@@ -181,15 +292,21 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
                         {stack.quantity > 1 ? " (se vende la más gastada)" : ""}
                       </span>
                     )}
-                    {item.category === "fish" && (
-                      <span className="shop-stars" title={`Dificultad ${item.difficulty} de 5`}>
-                        {difficultyStars(item.difficulty)}
-                      </span>
-                    )}
+                    {/* Las herramientas muestran sus usos en vez del nivel. */}
+                    {!isTool(item) && <ItemRating item={item} />}
                   </span>
                   <span className="shop-price">{formatMoney(sellPrice(item, uses))}</span>
                   <div className="shop-sell-actions">
-                    <button type="button" onClick={() => trade("sell", item.id)}>
+                    {max > 1 && (
+                      <QuantityPicker value={quantity} max={max} label={item.name} onChange={(value) => setQuantity(key, value)} />
+                    )}
+                    <button
+                      type="button"
+                      disabled={pending === key}
+                      aria-label={`Vender ${quantity} ${item.name}`}
+                      aria-busy={pending === key}
+                      onClick={() => trade("sell", item.id, quantity)}
+                    >
                       Vender
                     </button>
                     <button
@@ -219,41 +336,43 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
             })}
         </ul>
 
-        {tab === "sell" && sellable.length === 0 && (
-          <p className="shop-hint">
-            {shop.buys.includes("fish") ? (
-              <>No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.</>
-            ) : shop.buys.includes("rod") ? (
-              <>No tenés cañas en la mochila para vender.</>
-            ) : shop.buys.includes("cart") ? (
-              <>No tenés carritos en la mochila para vender.</>
-            ) : (
-              <>
-                No tenés ropa en la mochila para vender. Lo que tenés puesto no se vende: sacátelo primero desde la
-                mochila (<kbd>H</kbd>).
-              </>
+        {tab === "buy" && (
+          <div className={`shop-cart${cartUnits > 0 ? " filled" : ""}`}>
+            <span className="shop-cart-summary">
+              <span aria-hidden="true">🛒</span>{" "}
+              {cartUnits === 0 ? (
+                "Elegí cuántas unidades querés de cada cosa"
+              ) : (
+                <>
+                  {cartUnits} {cartUnits === 1 ? "producto" : "productos"} · <strong>{formatMoney(cartTotal)}</strong>
+                  {!cartAffordable && <small> · no te alcanza</small>}
+                </>
+              )}
+            </span>
+            {cartUnits > 0 && (
+              <button type="button" className="shop-cart-clear" onClick={() => setCart({})}>
+                Vaciar
+              </button>
             )}
-          </p>
+            <button
+              type="button"
+              className="shop-cart-buy"
+              disabled={cartUnits === 0 || !cartAffordable || pending === "checkout"}
+              aria-busy={pending === "checkout"}
+              title={cartUnits > 0 && !cartAffordable ? "No te alcanza la plata" : undefined}
+              onClick={checkout}
+            >
+              Comprar
+            </button>
+          </div>
+        )}
+
+        {tab === "sell" && sellable.length === 0 && shop.buys.length > 0 && (
+          <p className="shop-hint">{ITEM_CATEGORIES[shop.buys[0]].nothingToSell}</p>
         )}
 
         <footer>
-          {tab === "sell" && shop.buys.includes("clothing") ? "Por la ropa usada te pagan la mitad. " : ""}
-          {tab === "sell" && shop.buys.includes("fish") ? "El pescado se paga a precio completo. " : ""}
-          {tab === "sell" && shop.buys.includes("rod")
-            ? "Por una caña te pagan la mitad de su precio, menos cuanto más gastada esté. "
-            : ""}
-          {tab === "sell" && shop.buys.includes("cart")
-            ? "Por un carrito te pagan la mitad de su precio, menos cuanto más gastado esté. "
-            : ""}
-          {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "rod")
-            ? "Pescás siempre con la mejor caña que tengas en la mochila; cada tirada la gasta y al final se rompe. "
-            : ""}
-          {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "cart")
-            ? "Vendés siempre con el mejor carrito de la mochila, parado en la Explanada del Centenario; cada intento lo gasta y al final se rompe. "
-            : ""}
-          {tab === "buy" && shop.stock.some((id) => getItem(id)?.category === "fish")
-            ? `Comprar pescado sale ${Math.round((FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado. `
-            : ""}
+          {notes.map((note) => `${note} `)}
           <span className="key-hint">
             Apretá <kbd>Esc</kbd> para cerrar
           </span>
@@ -261,6 +380,51 @@ export function ShopPanel({ room, shop, money, inventory, onClose }: ShopPanelPr
       </section>
     </div>
   );
+}
+
+interface QuantityPickerProps {
+  value: number;
+  /** Lo mínimo (1 para vender; 0 en el carrito, que es "no lo quiero"). */
+  min?: number;
+  max: number;
+  /** Para los lectores de pantalla ("Cantidad de Torta frita"). */
+  label: string;
+  onChange: (value: number) => void;
+}
+
+/** − / número / +: cuántas unidades comprar o vender (`min` … `max`). Se puede tipear. */
+function QuantityPicker({ value, min = 1, max, label, onChange }: QuantityPickerProps) {
+  const set = (next: number) => onChange(Math.max(min, Math.min(max, Math.round(next) || min)));
+  return (
+    <span className="shop-qty" role="group" aria-label={`Cantidad de ${label}`}>
+      <button type="button" onClick={() => set(value - 1)} disabled={value <= min} aria-label="Una menos">
+        −
+      </button>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => set(Number(event.target.value))}
+        onFocus={(event) => event.target.select()}
+        aria-label="Cantidad"
+      />
+      <button type="button" onClick={() => set(value + 1)} disabled={value >= max} aria-label="Una más">
+        +
+      </button>
+    </span>
+  );
+}
+
+/** Estrellas del ítem (dificultad del pescado, nivel de la caña o el carrito), si tiene. */
+function ItemRating({ item }: { item: ItemDefinition }) {
+  const rating = itemRating(item);
+  return rating ? (
+    <span className="shop-stars" title={rating.title}>
+      {rating.stars}
+    </span>
+  ) : null;
 }
 
 interface HaggleFormProps {

@@ -204,6 +204,13 @@ export class LocalMover {
     const previousTile = this.serverTile;
     this.serverTile = tile;
 
+    // Un salto (el admin se teletransportó con `/trace`): aparece ahí, sin caminar ni predecir.
+    if (previousTile && Math.max(Math.abs(previousTile.x - tile.x), Math.abs(previousTile.y - tile.y)) > 2) {
+      this.prediction = null;
+      avatar.setPath([tile]);
+      return;
+    }
+
     const prediction = this.prediction;
     if (!prediction) {
       avatar.pushTile(tile.x, tile.y);

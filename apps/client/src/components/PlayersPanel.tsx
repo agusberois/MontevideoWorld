@@ -1,16 +1,14 @@
 "use client";
 
-import type { PlayerSummary } from "@/lib/eventBus";
+import { getCity } from "@montevideo-world/shared";
+import { useGame } from "@/lib/gameStore";
+import type { PanelProps } from "./panels";
 import { UiIcon } from "./UiIcon";
 
-interface PlayersPanelProps {
-  cityName: string;
-  players: PlayerSummary[];
-  onClose: () => void;
-}
-
 /** Lista de jugadores conectados en el barrio (tecla Tab). Vos primero, el resto por nombre. */
-export function PlayersPanel({ cityName, players, onClose }: PlayersPanelProps) {
+export function PlayersPanel({ cityId, onClose }: PanelProps) {
+  const players = useGame((state) => state.players);
+  const cityName = getCity(cityId)?.name ?? cityId;
   const sorted = [...players].sort(
     (a, b) => Number(b.isSelf) - Number(a.isSelf) || a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
   );

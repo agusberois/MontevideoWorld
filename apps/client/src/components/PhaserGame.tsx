@@ -34,5 +34,20 @@ export function PhaserGame({ session }: PhaserGameProps) {
     };
   }, [session]);
 
+  // Phaser cancela el pointerdown del canvas, así que tocar el mapa no le saca el foco al chat (y
+  // WASD, F, etc. seguían escribiendo). Se lo saca a mano, antes de que el evento llegue a Phaser.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const blurInput = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && (active.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName))) {
+        active.blur();
+      }
+    };
+    container.addEventListener("pointerdown", blurInput, { capture: true });
+    return () => container.removeEventListener("pointerdown", blurInput, { capture: true });
+  }, []);
+
   return <div ref={containerRef} className="game-container" />;
 }

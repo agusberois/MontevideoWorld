@@ -5,7 +5,7 @@
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
-export type ItemCategory = "clothing" | "fish" | "rod" | "cart" | "box";
+export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
@@ -101,13 +101,56 @@ export interface BoxItem extends ItemBase {
     category: "box";
     loot: readonly LootEntry[];
 }
-export type ItemDefinition = ClothingItem | FishItem | RodItem | CartItem | BoxItem;
+/**
+ * Boleto de ómnibus (STM): cada viaje a otro barrio gasta uno. Se compra en la Agencia STM, se apila
+ * en la mochila y se puede intercambiar.
+ */
+export interface TicketItem extends ItemBase {
+    category: "ticket";
+}
+/** Forma del ícono de cada comida (`ItemIcon.tsx`). */
+export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate";
+/**
+ * Comida: se compra en kioscos y en el Mercado, y se come desde la mochila o la barra rápida. Llena
+ * la saciedad (`hunger`) y da algo de energía (`energy`). Ver `needs.ts` y `edibleValue`.
+ */
+export interface FoodItem extends ItemBase {
+    category: "food";
+    shape: FoodShape;
+    hunger: number;
+    energy: number;
+    /** Lo que cura (0 = nada). */
+    health: number;
+}
+/** Forma del ícono de cada remedio (`ItemIcon.tsx`). */
+export type MedicineShape = "pills" | "bandage" | "vitamins" | "kit";
+/**
+ * Remedio: se compra en la farmacia y se toma desde la mochila o la barra rápida (`food:eat`, como
+ * la comida). Cura salud (`health`) y algunos dan energía; no llenan la panza.
+ */
+export interface MedicineItem extends ItemBase {
+    category: "medicine";
+    shape: MedicineShape;
+    health: number;
+    energy: number;
+}
+export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
 export declare const CLOTHING: readonly ClothingItem[];
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).
  */
 export declare const FISH: readonly FishItem[];
+/**
+ * Comidas. Las baratas llenan poco (o dan sobre todo energía, como el mate); las caras llenan
+ * mucho. Ver el balance en `docs/finished/necesidades-del-personaje.md`.
+ */
+export declare const FOODS: readonly FoodItem[];
+/**
+ * Remedios de la farmacia. Curan salud en el momento y se llevan en la mochila; por punto salen
+ * algo más caros que la guardia del sanatorio ($1 por punto), que hay que ir hasta Tres Cruces.
+ */
+export declare const MEDICINES: readonly MedicineItem[];
 /** Caña con la que arranca todo jugador nuevo (en la mochila). */
 export declare const BASIC_ROD_ID = "cana-basica";
 /** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
@@ -121,8 +164,41 @@ export declare const MYSTERY_BOX_ID = "caja-sorpresa";
  * intercambio. Los pesos de la caja de peces suman 100, así cada número es directamente el %.
  */
 export declare const BOXES: readonly BoxItem[];
+/** El boleto de STM (`TicketItem`): lo que gasta viajar entre barrios. */
+export declare const TICKET_ID = "boleto-stm";
+export declare const TICKETS: readonly TicketItem[];
 export declare const ITEMS: readonly ItemDefinition[];
-export declare const ITEM_CATEGORY_LABELS: Record<ItemCategory, string>;
+/** Una tienda paga por una prenda usada esta fracción de su precio. */
+export declare const SELL_RATIO = 0.5;
+/**
+ * Recargo de la pescadería al vender pescado: sale más caro que lo que paga por él, así comprar
+ * para revender nunca conviene y pescar sigue siendo la forma de ganar plata.
+ */
+export declare const FISH_BUY_MARKUP = 1.5;
+/** Cómo se comporta cada categoría de ítem en la mochila y en las tiendas (cliente y server). */
+export interface ItemCategoryInfo {
+    /** Para los textos ("En X no compran cañas") y la pestaña del maker. */
+    label: string;
+    /** Herramienta con desgaste: va de a una por casillero y vale según los usos que le quedan. */
+    tool: boolean;
+    /** Lo que cobra una tienda al venderla: `price` × esto (redondeado para arriba). */
+    buyMarkup: number;
+    /** Lo que paga una tienda al comprarla: `price` × esto (mínimo $1). */
+    sellRatio: number;
+    /** Pie de la pestaña Vender de una tienda que compra esta categoría. */
+    sellNote: string;
+    /** Pie de la pestaña Comprar de una tienda que vende alguno de esta categoría. */
+    buyNote?: string;
+    /** Pestaña Vender vacía: no tenés nada de esta categoría para venderle. */
+    nothingToSell: string;
+}
+/**
+ * Todas las categorías, en el orden en que se muestran (p. ej. en el maker). Para una nueva: sumarla
+ * a `ItemCategory` y acá; TypeScript pide después su ícono (`ItemIcon.tsx`), su vista en la mochila
+ * (`Backpack.tsx`) y qué hace en la barra rápida (`itemActions.ts`).
+ */
+export declare const ITEM_CATEGORIES: Record<ItemCategory, ItemCategoryInfo>;
+export declare const ITEM_CATEGORY_IDS: ItemCategory[];
 export declare function isRod(item: ItemDefinition | undefined): item is RodItem;
 /** La caña de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguna. */
 export declare function bestRod(itemIds: Iterable<string>): RodItem | undefined;
@@ -133,6 +209,24 @@ export declare function isCart(item: ItemDefinition | undefined): item is CartIt
 export declare function bestCart(itemIds: Iterable<string>): CartItem | undefined;
 /** "★★☆☆" para mostrar el nivel de un carrito. */
 export declare function cartStars(tier: CartTier): string;
+export declare function isFood(item: ItemDefinition | undefined): item is FoodItem;
+/** Lo que da comer algo: saciedad, energía y salud (negativa: hace mal). */
+export interface EdibleValue {
+    hunger: number;
+    energy: number;
+    health: number;
+    /** Pescado crudo: la salud que saca nunca la deja por debajo de `RAW_FISH_HEALTH_FLOOR` (`needs.ts`). */
+    raw?: boolean;
+}
+/**
+ * Qué da comerse (o tomarse, un remedio) este ítem, o undefined si no. La comida y los remedios, lo suyo; un pescado crudo llena
+ * según su dificultad (pejerrey +10 … corvina negra +30), da la mitad de eso en energía y saca un
+ * poco de salud.
+ */
+export declare function edibleValue(item: ItemDefinition | undefined): EdibleValue | undefined;
+/** "🍖 +30 · ⚡ +5 · ❤ +10" (o "❤ −2, crudo"): lo que da comerlo, para la mochila, la tienda y la barra rápida. */
+export declare function edibleLabel(value: EdibleValue): string;
+export declare function isTicket(item: ItemDefinition | undefined): item is TicketItem;
 export declare function isBox(item: ItemDefinition | undefined): item is BoxItem;
 /** Probabilidad (0–1) de cada premio de una caja, para mostrarla en la UI. */
 export declare function lootChances(box: BoxItem): {
@@ -164,6 +258,12 @@ export interface InventoryStack {
     quantity: number;
     /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
     uses?: number;
+    /**
+     * Casillero de la mochila (0 … capacidad − 1) donde está la pila: el jugador los reordena
+     * (`inventory:move`) y puede haber huecos. Lo pone el server; una unidad suelta (lo que sale de
+     * `Inventory.remove`, una oferta) no lo lleva.
+     */
+    slot?: number;
 }
 export declare function isTool(item: ItemDefinition | undefined): item is ToolItem;
 /** Cuántas unidades entran en un casillero: las herramientas van de a una (cada una con su desgaste). */
@@ -184,18 +284,11 @@ export declare function usesLabel(item: ToolItem, uses: number): string;
 export type OutfitIds = Record<ItemSlot, string>;
 export declare function getItem(id: string): ItemDefinition | undefined;
 export declare function isItemSlot(value: unknown): value is ItemSlot;
-/** Una tienda paga por una prenda usada esta fracción de su precio. */
-export declare const SELL_RATIO = 0.5;
-/**
- * Recargo de la pescadería al vender pescado: sale más caro que lo que paga por él, así comprar
- * para revender nunca conviene y pescar sigue siendo la forma de ganar plata.
- */
-export declare const FISH_BUY_MARKUP = 1.5;
-/** Lo que cuesta comprar un ítem en una tienda: la ropa a su precio, el pescado con recargo. */
+/** Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado sale más). */
 export declare function buyPrice(item: ItemDefinition): number;
 /**
- * Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. Una
- * herramienta gastada vale en proporción a los `uses` que le quedan.
+ * Lo que paga una tienda: el precio por el `sellRatio` de su categoría (la mitad por ropa usada, el
+ * completo por pescado; mínimo $1). Una herramienta gastada vale en proporción a los `uses` que le quedan.
  */
 export declare function sellPrice(item: ItemDefinition, uses?: number): number;
 export {};

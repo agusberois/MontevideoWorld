@@ -1,9 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getItem } from "@montevideo-world/shared";
-import { HotbarSlots, isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
+import { activateHotbar } from "@/lib/gameActions";
+import { gameStore, setHotbar, useGame } from "@/lib/gameStore";
+import { isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
 import { ItemActionContext, countInBag, isWorn, itemAction } from "@/lib/itemActions";
+import type { CityRoom } from "@/lib/network";
 import { isTouchDevice } from "@/lib/viewport";
 import { HotbarPicker } from "./HotbarPicker";
 import { ItemIcon } from "./ItemIcon";
@@ -11,13 +14,11 @@ import { ItemIcon } from "./ItemIcon";
 /** Mantener apretado un casillero este tiempo abre el selector (para cambiarlo o quitarlo). */
 const LONG_PRESS_MS = 450;
 
+/** Cuánto tiene que seguir faltando un ítem para sacarlo de la barra rápida. */
+const HOTBAR_CLEANUP_MS = 1000;
+
 interface HotbarProps {
-  slots: HotbarSlots;
-  /** Ropa puesta, mochila y pesca: para saber qué hace cada ítem y cuántos hay. */
-  context: ItemActionContext;
-  onChange: (slots: HotbarSlots) => void;
-  /** Usar el ítem del casillero (tecla 1–9 o clic). Ver `itemActions.ts`. */
-  onActivate: (index: number) => void;
+  room: CityRoom;
 }
 
 /**
@@ -27,7 +28,39 @@ interface HotbarProps {
  * apretado uno lleno abre `HotbarPicker` para elegir qué va ahí o quitarlo. Cada casillero muestra
  * si la prenda está puesta, cuántos hay en la mochila o si ya no lo tenés.
  */
-export function Hotbar({ slots, context, onChange, onActivate }: HotbarProps) {
+export function Hotbar({ room }: HotbarProps) {
+  const slots = useGame((state) => state.hotbar);
+  const outfit = useGame((state) => state.outfit);
+  const inventory = useGame((state) => state.inventory);
+  const fishing = useGame((state) => state.fishing);
+  const vending = useGame((state) => state.vending);
+  /** Ropa puesta, mochila y pesca: para saber qué hace cada ítem y cuántos hay. */
+  const context = useMemo<ItemActionContext>(
+    () => ({ room, outfit, inventory, fishing, vending }),
+    [room, outfit, inventory, fishing, vending],
+  );
+  const onChange = setHotbar;
+  /** Usar el ítem del casillero (tecla 1–9 o clic). Ver `itemActions.ts`. */
+  const onActivate = (index: number) => activateHotbar(room, index);
+
+  /**
+   * Lo que ya no tenés (ni en la mochila ni puesto: lo vendiste, lo comiste, lo intercambiaste) se
+   * saca de la barra y el casillero queda libre. Se espera un rato sin cambios porque al ponerse o
+   * sacarse algo la mochila y la ropa llegan por separado y, por un instante, la prenda no está en
+   * ningún lado.
+   */
+  useEffect(() => {
+    if (!inventory || !outfit) return;
+    const timer = window.setTimeout(() => {
+      const current = gameStore.getState().hotbar;
+      const next = current.map((itemId) => {
+        const item = itemId ? getItem(itemId) : undefined;
+        return item && (countInBag(inventory, item.id) > 0 || isWorn(item, outfit)) ? itemId : null;
+      });
+      if (next.some((itemId, index) => itemId !== current[index])) setHotbar(next);
+    }, HOTBAR_CLEANUP_MS);
+    return () => window.clearTimeout(timer);
+  }, [inventory, outfit]);
   const [dropTarget, setDropTarget] = useState<number | null>(null);
   /** Casillero con el selector abierto. */
   const [picking, setPicking] = useState<number | null>(null);

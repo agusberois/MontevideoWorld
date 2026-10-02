@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VENDING_GIFTS = exports.MATCH_GIFT_MULTIPLIER = exports.MATCH_WAIT_FACTOR = exports.MATCH_SALE_MULTIPLIER = exports.MATCHES = void 0;
+exports.VENDING_GIFTS = exports.MATCH_MODES = exports.MATCH_GIFT_MULTIPLIER = exports.MATCH_WAIT_FACTOR = exports.MATCH_SALE_MULTIPLIER = exports.CUSTOMER_LEAD_MS = exports.CustomerState = exports.MATCHES = void 0;
 exports.matchAt = matchAt;
+exports.getMatch = getMatch;
 exports.giftChance = giftChance;
 exports.saleRange = saleRange;
 exports.saleValue = saleValue;
@@ -13,6 +14,13 @@ exports.MATCHES = [
     { name: "Nacional – Peñarol", start: 15 * 60, end: 17 * 60 },
     { name: "Uruguay – Argentina", start: 21 * 60, end: 23 * 60 },
 ];
+/**
+ * El hincha que se acerca al carrito mientras se espera la venta (`Player.customer`, lo ven todos):
+ * sale a caminar `CUSTOMER_LEAD_MS` antes del resultado y, al saberse, compra o sigue de largo.
+ * Cancelar la venta (moverse, etc.) lo vuelve a `None` y se va sin decir nada.
+ */
+exports.CustomerState = { None: 0, Arriving: 1, Bought: 2, Passed: 3 };
+exports.CUSTOMER_LEAD_MS = 2200;
 /** Con partido, cada venta paga esto más… */
 exports.MATCH_SALE_MULTIPLIER = 2;
 /** …los hinchas llegan antes (multiplica la espera)… */
@@ -22,6 +30,14 @@ exports.MATCH_GIFT_MULTIPLIER = 2;
 /** El partido que se está jugando a esta hora del juego, si hay. */
 function matchAt(minuteOfDay) {
     return exports.MATCHES.find((match) => minuteOfDay >= match.start && minuteOfDay < match.end);
+}
+/**
+ * Partido forzado por el admin (`GameState.matchMode`): "auto" sigue el horario de `MATCHES`, "on"
+ * juega el partido elegido hasta que se vuelva a "auto" y "off" no deja que haya ninguno.
+ */
+exports.MATCH_MODES = ["auto", "on", "off"];
+function getMatch(name) {
+    return exports.MATCHES.find((match) => match.name === name);
 }
 /**
  * Lo que puede regalar un hincha contento (además de comprar): ropa de cancha. Es la única forma

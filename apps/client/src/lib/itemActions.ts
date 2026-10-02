@@ -1,6 +1,7 @@
-import { InventoryMessage, ItemDefinition, OutfitIds, fishStamina } from "@montevideo-world/shared";
+import { InventoryMessage, ItemDefinition, OutfitIds, edibleLabel, edibleValue } from "@montevideo-world/shared";
 import { eventBus } from "./eventBus";
-import { CityRoom, sendBoxOpen, sendEquip, sendFishEat, sendFishing, sendVending } from "./network";
+import { openPanel } from "./gameStore";
+import { CityRoom, sendBoxOpen, sendEquip, sendFoodEat, sendFishing, sendVending } from "./network";
 
 /**
  * Qué hace cada tipo de ítem al usarlo desde la barra rápida (tecla 1–9 o clic). Es el único lugar
@@ -61,10 +62,17 @@ export function itemAction(item: ItemDefinition, context: ItemActionContext): It
         run: () => eventBus.emit("notice", { text: "Para vender parate en la Explanada del Centenario, en Tres Cruces." }),
       };
     case "fish":
-      return inBag
-        ? { label: `comerlo (+${fishStamina(item.difficulty)} de energía)`, run: () => sendFishEat(room, item.id) }
-        : null;
+    case "food":
+    case "medicine": {
+      // Pescados y comida se comen (llenan el hambre y dan energía); los remedios se toman (curan).
+      const value = edibleValue(item);
+      const verb = item.category === "medicine" ? "tomar" : "comer";
+      return inBag && value ? { label: `${verb} (${edibleLabel(value)})`, run: () => sendFoodEat(room, item.id) } : null;
+    }
     case "box":
       return inBag ? { label: "abrirla", run: () => sendBoxOpen(room, item.id) } : null;
+    case "ticket":
+      // Un boleto se usa al viajar: el atajo abre la lista de barrios (como la tecla M).
+      return inBag ? { label: "elegir barrio", run: () => openPanel("cities") } : null;
   }
 }

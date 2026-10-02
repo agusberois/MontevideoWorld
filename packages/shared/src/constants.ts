@@ -2,7 +2,11 @@
 export const ROOM_NAME = "city";
 
 export const DEFAULT_PORT = 2567;
-export const MAX_PLAYERS_PER_ROOM = 50;
+/**
+ * Jugadores por sala. Con la sala llena, Colyseus abre otra copia del mismo barrio (no se ven entre
+ * sí: el HUD muestra "· 2"). Pensado para que 25–50 jugadores entren holgados en una sola.
+ */
+export const MAX_PLAYERS_PER_ROOM = 80;
 
 /** Tamaño de un tile isométrico en píxeles (rombo 2:1, estilo Habbo). */
 export const TILE_WIDTH = 64;

@@ -1,25 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FishResultMessage, LOW_USES, RodItem, rodPerks, usesLabel } from "@montevideo-world/shared";
+import { FISH_ENERGY_COST, FishResultMessage, LOW_USES, bestRod, rodPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
+import { toggleFishing } from "@/lib/gameActions";
+import { useGame } from "@/lib/gameStore";
+import type { CityRoom } from "@/lib/network";
 import { UiIcon } from "./UiIcon";
 
 interface FishingWidgetProps {
-  /** El avatar propio está parado en la escollera. */
-  canFish: boolean;
-  /** Tiene la línea en el agua (según el Schema). */
-  fishing: boolean;
-  /** Hay energía para tirar la línea. */
-  hasEnergy: boolean;
-  /** La caña con la que se pesca (la mejor de la mochila); undefined si no tiene ninguna. */
-  rod: RodItem | undefined;
-  /** Usos que le quedan a esa caña (se rompe al llegar a 0). */
-  uses: number;
-  /** Tirar o recoger la línea (lo mismo que la tecla F). */
-  onToggle: () => void;
-  /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
-  keyHint?: boolean;
+  room: CityRoom;
 }
 
 const RESULT_MS = 5000;
@@ -28,7 +18,21 @@ const RESULT_MS = 5000;
  * Pesca en la escollera: botón "Pescar (F)", barra de espera mientras la línea está en el agua
  * (la duración la decide el server) y aviso con lo que picó.
  */
-export function FishingWidget({ canFish, fishing, hasEnergy, rod, uses, onToggle, keyHint = true }: FishingWidgetProps) {
+export function FishingWidget({ room }: FishingWidgetProps) {
+  /** Si está parado en la escollera y si tiene la línea en el agua (según el Schema). */
+  const { canFish, fishing } = useGame((state) => state.fishing);
+  const energy = useGame((state) => state.energy);
+  const inventory = useGame((state) => state.inventory);
+  /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
+  const hasInteraction = useGame((state) => state.interaction !== null);
+  const keyHint = fishing || !hasInteraction;
+  const hasEnergy = energy === null || energy >= FISH_ENERGY_COST;
+  /** La caña con la que se pesca: la de mayor nivel y, entre iguales, la más gastada (como el server). */
+  const stacks = inventory?.stacks ?? [];
+  const rod = bestRod(stacks.map((stack) => stack.itemId));
+  const rodStack = rod && wornestStack(stacks, rod.id);
+  const uses = rodStack ? stackUses(rodStack) : 0;
+  const onToggle = () => toggleFishing(room);
   const [wait, setWait] = useState<{ id: number; durationMs: number } | null>(null);
   const [result, setResult] = useState<FishResultMessage | null>(null);
 

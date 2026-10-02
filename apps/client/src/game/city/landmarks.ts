@@ -76,7 +76,11 @@ export function landmarkPieces(landmark: Landmark): PlacedPiece[] {
     case "velodrome":
       return single(4, 26, drawVelodromo);
     case "stadium":
-      return single(5, 112, drawEstadioCentenario);
+      return single(CENTENARIO_BOWL.size, 112, drawEstadioCentenario);
+    case "cellBlock":
+      return single(3, 84, drawPabellon);
+    case "watchtower":
+      return single(1, 100, drawGarita);
   }
 }
 
@@ -756,32 +760,46 @@ function drawVelodromo(p: IsoPainter) {
  * Estadio Centenario: la Torre de los Homenajes (atrás, al oeste), la tribuna en escalones con los
  * colores de las cuatro tribunas, la cancha con sus líneas y el muro exterior.
  */
-function drawEstadioCentenario(p: IsoPainter) {
-  drawTorreHomenajes(p, -0.2, 2.0);
-  const cx = 2.2;
-  const cy = 2.0;
-  drawBowl(p, cx, cy, 1.0, 0.92, [
+/**
+ * Geometría del Estadio Centenario (coordenadas del dibujo base de 5 × 5, antes de escalar).
+ * `rings` va de afuera hacia adentro: el borde, cuatro escalones de tribuna y la cancha.
+ */
+const CENTENARIO_BOWL = {
+  size: 5,
+  cx: 2.2,
+  cy: 2.0,
+  aspectY: 0.92,
+  rings: [
     { r: 2.3, z: 34, color: 0xd9d4c9 },
     { r: 2.12, z: 30, color: 0xa9b3bb },
     { r: 1.92, z: 23, color: 0x8fa3ad },
     { r: 1.72, z: 16, color: 0xa9b3bb },
     { r: 1.52, z: 9, color: 0x8fa3ad },
     { r: 1.35, z: 4, color: 0x5f9a46 },
-  ], 0xbcb6aa, true);
-  // Cancha: rectángulo, mitad de cancha, círculo central y áreas.
-  const z = 4.2;
-  const hx = 0.95;
-  const hy = 0.6;
-  const g = p.g;
-  g.lineStyle(1, 0xffffff, 0.9);
-  g.strokePoints([p.p(cx - hx, cy - hy, z), p.p(cx + hx, cy - hy, z), p.p(cx + hx, cy + hy, z), p.p(cx - hx, cy + hy, z)], true);
-  g.lineBetween(p.p(cx, cy - hy, z).x, p.p(cx, cy - hy, z).y, p.p(cx, cy + hy, z).x, p.p(cx, cy + hy, z).y);
-  g.strokePoints(ovalPoints(p, cx, cy, 0.2, 0.2, z, 0, Math.PI * 2), true);
-  for (const side of [-1, 1]) {
-    const x0 = cx + side * hx;
-    const x1 = cx + side * (hx - 0.28);
-    g.strokePoints([p.p(x0, cy - 0.3, z), p.p(x1, cy - 0.3, z), p.p(x1, cy + 0.3, z), p.p(x0, cy + 0.3, z)], false);
-  }
+  ],
+} as const;
+
+function drawEstadioCentenario(p: IsoPainter) {
+  drawTorreHomenajes(p, -0.2, 2.0);
+  const { cx, cy, aspectY, rings } = CENTENARIO_BOWL;
+  // Las líneas van sobre el césped pero antes de la tribuna de adelante, que las tapa: si no, se
+  // dibujarían por encima de las gradas y la cancha se saldría del estadio.
+  const drawPitch = () => {
+    const z = 4.2;
+    const hx = 0.95;
+    const hy = 0.6;
+    const g = p.g;
+    g.lineStyle(1, 0xffffff, 0.9);
+    g.strokePoints([p.p(cx - hx, cy - hy, z), p.p(cx + hx, cy - hy, z), p.p(cx + hx, cy + hy, z), p.p(cx - hx, cy + hy, z)], true);
+    g.lineBetween(p.p(cx, cy - hy, z).x, p.p(cx, cy - hy, z).y, p.p(cx, cy + hy, z).x, p.p(cx, cy + hy, z).y);
+    g.strokePoints(ovalPoints(p, cx, cy, 0.2, 0.2, z, 0, Math.PI * 2), true);
+    for (const side of [-1, 1]) {
+      const x0 = cx + side * hx;
+      const x1 = cx + side * (hx - 0.28);
+      g.strokePoints([p.p(x0, cy - 0.3, z), p.p(x1, cy - 0.3, z), p.p(x1, cy + 0.3, z), p.p(x0, cy + 0.3, z)], false);
+    }
+  };
+  drawBowl(p, cx, cy, 1.0, aspectY, rings, 0xbcb6aa, true, drawPitch);
 }
 
 /** Torre de los Homenajes: alta, blanca, con nervaduras verticales, mirador y mástil con bandera. */
@@ -805,7 +823,7 @@ function drawTorreHomenajes(p: IsoPainter, x: number, y: number) {
 /**
  * Óvalo en escalones (estadio, velódromo) visto desde la cámara. `rings` va de afuera hacia
  * adentro: cada anillo baja de altura y el último es el centro (cancha). Para que lo de adelante
- * tape bien: primero la mitad de atrás de afuera hacia adentro, después el centro, y por último la
+ * tape bien: primero la mitad de atrás de afuera hacia adentro, después el centro (y `drawCenter`), y por último la
  * mitad de adelante de adentro hacia afuera, y el muro exterior.
  */
 function drawBowl(
@@ -817,6 +835,8 @@ function drawBowl(
   rings: ReadonlyArray<{ r: number; z: number; color: number }>,
   wall: number,
   pillars = false,
+  /** Lo que va sobre el centro (líneas de la cancha), tapado por la mitad de adelante. */
+  drawCenter?: () => void,
 ) {
   // "Adelante" = hacia la cámara (x + y crece): de -45° a 135°.
   const front: [number, number] = [-Math.PI / 4, (3 * Math.PI) / 4];
@@ -828,6 +848,7 @@ function drawBowl(
   for (let i = 0; i < rings.length - 1; i++) p.fill(shade(rings[i].color, -10), band(i, back));
   const last = rings.length - 1;
   p.fill(rings[last].color, arc(last, [0, Math.PI * 2]));
+  drawCenter?.();
   for (let i = rings.length - 2; i >= 0; i--) p.fill(rings[i].color, band(i, front));
 
   // Muro exterior (sólo se ve la mitad de adelante).
@@ -854,4 +875,64 @@ function ovalPoints(p: IsoPainter, cx: number, cy: number, rx: number, ry: numbe
     points.push(p.p(cx + Math.cos(t) * rx, cy + Math.sin(t) * ry, z));
   }
   return points;
+}
+
+// ---------------------------------------------------------------------------------------------
+// COMCAR.
+
+const PRISON_CONCRETE = 0xa9a49a;
+
+/**
+ * Pabellón de celdas: bloque gris de tres pisos con ventanitas enrejadas, una franja descascarada,
+ * la puerta de rejas al sur y el tanque de agua en la azotea.
+ */
+function drawPabellon(p: IsoPainter) {
+  const top = 66;
+  p.box(-0.45, -0.45, 2.45, 2.45, 0, top, boxColors(PRISON_CONCRETE));
+  for (const face of facesOf(2.45, 2.45)) {
+    p.faceRect(face, -0.45, 2.45, 0, 6, shade(PRISON_CONCRETE, -30));
+    p.faceRect(face, -0.45, 2.45, 22, 24, shade(PRISON_CONCRETE, -14));
+    p.faceRect(face, -0.45, 2.45, 44, 46, shade(PRISON_CONCRETE, -14));
+    barredWindows(p, face, -0.35, 2.35, 8, top - 4, 8, 3);
+  }
+  // Puerta de rejas.
+  const south: Face = { side: "south", y: 2.45 };
+  p.faceRect(south, 0.75, 1.25, 0, 16, 0x26292e);
+  for (let i = 1; i < 6; i++) {
+    const u = 0.75 + (0.5 * i) / 6;
+    p.faceRect(south, u - 0.012, u + 0.012, 0, 16, 0x8c9096);
+  }
+  // Pretil y tanque de agua.
+  p.box(-0.5, -0.5, 2.5, 2.5, top, top + 3, boxColors(shade(PRISON_CONCRETE, -8)));
+  p.box(0.2, 0.2, 0.75, 0.75, top + 3, top + 16, boxColors(0x7d8288));
+}
+
+/** Ventanas chicas con barrotes, en una grilla sobre la cara. */
+function barredWindows(p: IsoPainter, face: Face, u0: number, u1: number, z0: number, z1: number, cols: number, rows: number) {
+  const cellU = (u1 - u0) / cols;
+  const cellZ = (z1 - z0) / rows;
+  const w = cellU * 0.42;
+  const h = cellZ * 0.42;
+  for (let row = 0; row < rows; row++) {
+    const wz = z0 + row * cellZ + (cellZ - h) / 2;
+    for (let col = 0; col < cols; col++) {
+      const wu = u0 + col * cellU + (cellU - w) / 2;
+      p.faceRect(face, wu, wu + w, wz, wz + h, 0x22252a);
+      for (const t of [0.33, 0.66]) p.faceRect(face, wu + w * t - 0.008, wu + w * t + 0.008, wz, wz + h, 0x9aa0a6);
+    }
+  }
+}
+
+/** Garita de vigilancia: columna de hormigón, cabina con ventanales, techo y un reflector. */
+function drawGarita(p: IsoPainter) {
+  const legTop = 62;
+  const cabinTop = 80;
+  p.box(-0.16, -0.16, 0.16, 0.16, 0, legTop, boxColors(shade(PRISON_CONCRETE, -6)));
+  p.box(-0.34, -0.34, 0.34, 0.34, legTop - 3, legTop, boxColors(shade(PRISON_CONCRETE, -20)));
+  p.box(-0.3, -0.3, 0.3, 0.3, legTop, cabinTop, boxColors(0xd9d4c8));
+  for (const face of facesOf(0.3, 0.3)) p.faceRect(face, -0.24, 0.24, legTop + 6, cabinTop - 3, 0x2f3a44);
+  p.pyramid(-0.38, -0.38, 0.38, 0.38, cabinTop, cabinTop + 10, 0x5b4a3f, 0x463931);
+  // Reflector.
+  p.box(0.22, 0.22, 0.34, 0.34, cabinTop + 1, cabinTop + 5, boxColors(0x2b2b30));
+  p.fill(0xfff3b0, [p.p(0.34, 0.26, cabinTop + 4), p.p(0.34, 0.32, cabinTop + 4), p.p(0.34, 0.32, cabinTop + 2), p.p(0.34, 0.26, cabinTop + 2)]);
 }

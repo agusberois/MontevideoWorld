@@ -32,12 +32,19 @@ class Player extends schema_1.Schema {
         this.vending = false;
         /** Carrito con el que está vendiendo (id de `CARTS`; "" si no vende): los demás lo ven de su color. */
         this.cart = "";
+        /** Mascota que lo sigue (id de `PETS`; "" = ninguna) y su nombre: todos la ven. */
+        this.pet = "";
+        this.petName = "";
+        /** Preso en el COMCAR (`/ban`): segundos que le quedan (0 = libre). */
+        this.jailLeft = 0;
+        /** Hincha que se acerca al carrito (`CustomerState`: nadie, llegando, compró, siguió de largo). */
+        this.customer = 0;
         /** Sube en cada venta: los clientes muestran "¡Vendido!" sobre el vendedor. */
         this.sales = 0;
         /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
         this.kicks = 0;
-        /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `stamina.ts`. */
-        this.stamina = 100;
+        /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
+        this.energy = 100;
         /** Donador: aporta plata al proyecto. Se muestra un distintivo arriba del nombre (lo pone el admin con /donador). */
         this.donor = false;
         /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
@@ -93,6 +100,18 @@ __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "cart", void 0);
 __decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "pet", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "petName", void 0);
+__decorate([
+    (0, schema_1.type)("uint32")
+], Player.prototype, "jailLeft", void 0);
+__decorate([
+    (0, schema_1.type)("uint8")
+], Player.prototype, "customer", void 0);
+__decorate([
     (0, schema_1.type)("uint16")
 ], Player.prototype, "sales", void 0);
 __decorate([
@@ -100,7 +119,7 @@ __decorate([
 ], Player.prototype, "kicks", void 0);
 __decorate([
     (0, schema_1.type)("uint8")
-], Player.prototype, "stamina", void 0);
+], Player.prototype, "energy", void 0);
 __decorate([
     (0, schema_1.type)("boolean")
 ], Player.prototype, "donor", void 0);

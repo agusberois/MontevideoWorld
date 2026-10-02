@@ -33,10 +33,11 @@ export function saveHotbar(slots: HotbarSlots) {
   }
 }
 
-/** Qué se está arrastrando: un ítem y, si viene de la barra, desde qué casillero. */
+/** Qué se está arrastrando: un ítem y desde qué casillero de la barra o de la mochila viene. */
 export interface ItemDrag {
   itemId: string;
   fromHotbar?: number;
+  fromBackpack?: number;
 }
 
 const DRAG_TYPE = "application/x-montevideo-item";
@@ -55,9 +56,13 @@ export function readItemDrag(event: DragEvent): ItemDrag | null {
   try {
     const parsed: unknown = JSON.parse(event.dataTransfer.getData(DRAG_TYPE));
     if (typeof parsed !== "object" || parsed === null) return null;
-    const { itemId, fromHotbar } = parsed as Record<string, unknown>;
+    const { itemId, fromHotbar, fromBackpack } = parsed as Record<string, unknown>;
     if (typeof itemId !== "string") return null;
-    return { itemId, fromHotbar: typeof fromHotbar === "number" ? fromHotbar : undefined };
+    return {
+      itemId,
+      fromHotbar: typeof fromHotbar === "number" ? fromHotbar : undefined,
+      fromBackpack: typeof fromBackpack === "number" ? fromBackpack : undefined,
+    };
   } catch {
     return null;
   }

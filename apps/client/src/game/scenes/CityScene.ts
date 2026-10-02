@@ -3,16 +3,23 @@ import { getStateCallbacks } from "colyseus.js";
 import {
   BusStop,
   CityMap,
+  MapInteraction,
+  MapInteractionKind,
   MessageType,
   MoveMessage,
   OutfitIds,
   ShopVisitMessage,
   SitMessage,
   TilePoint,
-  WALK_STAMINA_COST,
-  WEEVIL_BITE_STAMINA,
+  WALK_ENERGY_COST,
+  WEEVIL_BITE_ENERGY,
   WEEVIL_KICK_RANGE,
   WeevilKickMessage,
+  weevilModeOf,
+  weevilTile,
+  CustomerState,
+  getPet,
+  MatchMode,
   getCityMap,
   getItem,
   isCart,
@@ -21,35 +28,32 @@ import type { Player } from "@montevideo-world/shared/schema";
 import { PlayerSummary, eventBus } from "@/lib/eventBus";
 import type { CityRoom } from "@/lib/network";
 import { CameraControl, DRAG_SLOP, FOLLOW_OFFSET_Y, isTyping } from "../CameraControl";
+import { AdminCoords } from "../AdminCoords";
 import { LocalMover, WASD_KEYS } from "../movement";
 import { CityRenderer, FLOOR_DEPTH, LOGO_TEXTURE } from "../city/CityRenderer";
 import { DayNight } from "../city/DayNight";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
 import { Avatar } from "../objects/Avatar";
+import { Customers } from "../objects/Customers";
+import { Pet } from "../objects/Pet";
 import { Weevil } from "../objects/Weevil";
 import { lookFromAppearance } from "../objects/avatarLook";
 
 const HOVER_DEPTH = FLOOR_DEPTH + 20;
-const HOVER_COLOR = 0xffffff;
-const BENCH_HOVER_COLOR = 0xffd166;
-const SHOP_HOVER_COLOR = 0x9ef0c9;
-const PALM_HOVER_COLOR = 0xff8a5c;
-const BUS_STOP_HOVER_COLOR = 0x6cb4ff;
+/** Color del borde al pasar el mouse, por tipo de cosa del mapa (ver `CityMap.interactionAt`). */
+const HOVER_COLORS: Record<MapInteractionKind, number> = {
+  floor: 0xffffff,
+  bench: 0xffd166,
+  shop: 0x9ef0c9,
+  palm: 0xff8a5c,
+  busStop: 0x6cb4ff,
+};
 /** Por encima de avatares y edificios: los textos flotantes ("-2", "¡Plaf!") se leen siempre. */
 const FLOAT_TEXT_DEPTH = 1_000_500;
 /** Cada cuánto se busca qué hay al lado para interactuar con F (y se actualiza el cartel). */
 const INTERACT_CHECK_MS = 100;
-/** Vecinos de un tile (8 direcciones). */
-const NEIGHBORS: readonly TilePoint[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-  { x: 1, y: 1 },
-  { x: 1, y: -1 },
-  { x: -1, y: 1 },
-  { x: -1, y: -1 },
-];
+/** Con F, qué cosa del mapa pegada al avatar se usa primero (el piso no cuenta: ya estás ahí). */
+const NEARBY_PRIORITY: readonly MapInteractionKind[] = ["shop", "busStop", "bench", "palm"];
 
 /** Algo con lo que se puede interactuar con F desde donde está el avatar propio. */
 interface Interaction {
@@ -94,11 +98,15 @@ export class CityScene extends Phaser.Scene {
   private localAvatar: Avatar | null = null;
   private avatars = new Map<string, Avatar>();
   private weevils = new Map<string, Weevil>();
+  /** Hinchas que se acercan a los carritos del Centenario (sólo dibujo). */
+  private customers!: Customers;
+  /** Mascota de cada jugador que tiene una (sessionId → mascota). */
+  private pets = new Map<string, Pet>();
   /** Último estado de pesca avisado a React, para emitir sólo cuando cambia. */
   private fishingStatus = "";
   /** Último estado de venta avisado a React. */
   private vendingStatus = "";
-  private lastStamina = -1;
+  private lastEnergy = -1;
   /**
    * Parada a la que está caminando el avatar propio y el tile donde va a quedar: al llegar se abre
    * la lista de barrios. Es sólo del cliente (viajar lo valida el server igual, desde donde sea).
@@ -125,6 +133,8 @@ export class CityScene extends Phaser.Scene {
   /** Lo que hay al lado para interactuar con F (ver `findInteraction`), y cuándo volver a buscar. */
   private interaction: Interaction | null = null;
   private nextInteractionCheck = 0;
+  /** Modo coordenadas del admin (tecla G): grilla, "x,y" bajo el mouse y Shift + clic para copiar. */
+  private adminCoords!: AdminCoords;
 
   constructor() {
     super(CityScene.KEY);
@@ -138,10 +148,12 @@ export class CityScene extends Phaser.Scene {
     this.localAvatar = null;
     this.avatars = new Map();
     this.weevils = new Map();
+    this.customers = new Customers(this, map);
+    this.pets = new Map();
     this.roster = new Map();
     this.fishingStatus = "";
     this.vendingStatus = "";
-    this.lastStamina = -1;
+    this.lastEnergy = -1;
     this.pendingBusStop = null;
     this.disposers = [];
     this.disposed = false;
@@ -179,10 +191,12 @@ export class CityScene extends Phaser.Scene {
       },
       now: () => this.time.now,
       // Sin energía el server no lo mueve: no se predice nada.
-      canWalk: () => (this.room.state.players.get(this.room.sessionId)?.stamina ?? 0) >= WALK_STAMINA_COST,
+      canWalk: () => (this.room.state.players.get(this.room.sessionId)?.energy ?? 0) >= WALK_ENERGY_COST,
     });
     this.offscreenArrow = this.add.graphics().setScrollFactor(0).setDepth(ARROW_DEPTH);
     this.bindWasd();
+    this.adminCoords = new AdminCoords(this, this.map, HOVER_DEPTH - 1, FLOAT_TEXT_DEPTH);
+    this.bindAdminCoords();
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.handlePointerMove, this);
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handlePointerDown, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.handlePointerUp, this);
@@ -216,6 +230,11 @@ export class CityScene extends Phaser.Scene {
     for (const avatar of this.avatars.values()) avatar.tick(delta);
     this.updateLocator();
     for (const weevil of this.weevils.values()) weevil.tick(delta);
+    this.customers.tick(delta);
+    for (const [sessionId, pet] of this.pets) {
+      const owner = this.avatars.get(sessionId);
+      if (owner) pet.follow(owner, delta);
+    }
     this.dayNight.update(delta);
     const self = this.localAvatar;
     this.city.updateOcclusion(self ? { x: self.x, y: self.y, depth: self.depth } : null, delta);
@@ -254,8 +273,9 @@ export class CityScene extends Phaser.Scene {
     let weevilId: string | null = null;
     let weevilDistance = WEEVIL_KICK_RANGE;
     this.room.state.weevils.forEach((weevil, id) => {
-      const distance = Math.hypot(weevil.x - at.x, weevil.y - at.y);
-      if (weevil.mode !== "dead" && distance <= weevilDistance) {
+      const tile = weevilTile(weevil);
+      const distance = Math.hypot(tile.x - at.x, tile.y - at.y);
+      if (weevilModeOf(weevil.mode) !== "dead" && distance <= weevilDistance) {
         weevilDistance = distance;
         weevilId = id;
       }
@@ -265,27 +285,14 @@ export class CityScene extends Phaser.Scene {
       return { key: `weevil:${id}`, label: "Patear al picudo", run: () => this.kickWeevil(id) };
     }
 
-    const shop = this.map.city.shops.find((candidate) => this.map.isNearShop(candidate, at.x, at.y));
-    if (shop) {
-      const tile = { x: shop.area.x, y: shop.area.y };
-      return { key: `shop:${shop.id}`, label: `Entrar a ${shop.name}`, run: () => this.visitShop(tile) };
+    // Lo del mapa que está pegado (un banco ocupado no cuenta), en el orden de `NEARBY_PRIORITY`.
+    const around = this.map
+      .interactionsAround(at.x, at.y)
+      .filter((hit) => hit.kind !== "bench" || !this.isBenchTaken(hit.target));
+    for (const kind of NEARBY_PRIORITY) {
+      const hit = around.find((candidate) => candidate.kind === kind);
+      if (hit) return this.describe(hit);
     }
-
-    const around = NEIGHBORS.map((step) => ({ x: at.x + step.x, y: at.y + step.y }));
-    const stop = around.map((tile) => this.map.busStopAt(tile.x, tile.y)).find((found) => found !== undefined);
-    if (stop) return { key: `stop:${stop.name}`, label: "Tomar el ómnibus", run: () => this.goToBusStop(stop) };
-
-    const bench = around.find((tile) => {
-      if (!this.map.benchAt(tile.x, tile.y)) return false;
-      for (const [id, other] of this.room.state.players) {
-        if (id !== this.room.sessionId && other.sitting && other.x === tile.x && other.y === tile.y) return false;
-      }
-      return true;
-    });
-    if (bench) return { key: `bench:${bench.x},${bench.y}`, label: "Sentarse", run: () => this.sitOn(bench) };
-
-    const palm = around.find((tile) => this.map.isPalm(tile.x, tile.y));
-    if (palm) return { key: `palm:${palm.x},${palm.y}`, label: "Sacudir la palmera", run: () => this.shakePalm(palm) };
 
     for (const [id, other] of this.room.state.players) {
       if (id === this.room.sessionId || Math.max(Math.abs(other.x - at.x), Math.abs(other.y - at.y)) > 1) continue;
@@ -303,6 +310,63 @@ export class CityScene extends Phaser.Scene {
       };
     }
     return null;
+  }
+
+  /**
+   * Qué hace cada cosa del mapa: lo mismo con el clic que con F. El cartel de F muestra `label`; el
+   * `key` identifica la cosa (para avisarle a React sólo cuando cambia).
+   */
+  private describe(hit: MapInteraction): Interaction {
+    const { x, y } = hit.target;
+    switch (hit.kind) {
+      case "busStop":
+        return { key: `stop:${hit.busStop.name}`, label: "Tomar el ómnibus", run: () => this.goToBusStop(hit.busStop) };
+      case "shop":
+        return { key: `shop:${hit.shop.id}`, label: `Entrar a ${hit.shop.name}`, run: () => this.visitShop(hit.target) };
+      case "palm":
+        return { key: `palm:${x},${y}`, label: "Sacudir la palmera", run: () => this.shakePalm(hit.target) };
+      case "bench":
+        return { key: `bench:${x},${y}`, label: "Sentarse", run: () => this.sitOn(hit.target) };
+      case "floor":
+        return { key: `floor:${x},${y}`, label: "Caminar", run: () => this.requestMove(hit.target) };
+    }
+  }
+
+  /** Si otro jugador está sentado en el banco de (x, y). */
+  private isBenchTaken(tile: TilePoint): boolean {
+    for (const [id, other] of this.room.state.players) {
+      if (id !== this.room.sessionId && other.sitting && other.x === tile.x && other.y === tile.y) return true;
+    }
+    return false;
+  }
+
+  /** Sólo el admin: G (o el botón del panel de admin) prende y apaga el modo coordenadas. */
+  private bindAdminCoords() {
+    const isAdmin = () => this.room.state.players.get(this.room.sessionId)?.admin === true;
+    const toggle = () => {
+      if (!isAdmin()) return;
+      this.adminCoords.setEnabled(!this.adminCoords.isEnabled());
+      eventBus.emit("admin:coords", this.adminCoords.isEnabled());
+      this.handlePointerMove(this.input.activePointer);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "KeyG" || event.repeat || isTyping(event) || document.querySelector(".modal-backdrop")) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      toggle();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    this.disposers.push(
+      () => window.removeEventListener("keydown", onKeyDown),
+      eventBus.on("admin:coords:toggle", toggle),
+    );
+  }
+
+  /** Shift + clic con el modo coordenadas: copia "x,y" del tile (para pasárselo a quien edifica). */
+  private copyTileCoords(tile: TilePoint) {
+    const text = `${tile.x},${tile.y}`;
+    const done = () => eventBus.emit("notice", { text: `📋 Copiado: ${text}` });
+    navigator.clipboard?.writeText(text).then(done, () => eventBus.emit("notice", { text: `Coordenada: ${text}` })) ??
+      eventBus.emit("notice", { text: `Coordenada: ${text}` });
   }
 
   /**
@@ -430,6 +494,14 @@ export class CityScene extends Phaser.Scene {
         firstTime = false;
         eventBus.emit("city:clock", minute);
       }),
+      $(this.room.state).listen("copy", (copy) => eventBus.emit("city:copy", copy)),
+      // Partido en el Centenario: React lo muestra (venta, admin).
+      $(this.room.state).listen("match", (match) => {
+        eventBus.emit("city:match", { name: match, mode: this.room.state.matchMode as MatchMode });
+      }),
+      $(this.room.state).listen("matchMode", (mode) => {
+        eventBus.emit("city:match", { name: this.room.state.match, mode: mode as MatchMode });
+      }),
     );
 
     this.disposers.push(
@@ -477,6 +549,18 @@ export class CityScene extends Phaser.Scene {
           }),
         );
 
+        // Mascota: la ven todos; se adopta, se renombra o se despide en la veterinaria.
+        const applyPet = () => this.applyPet(sessionId, player.pet, player.petName, avatar);
+        this.disposers.push($(player).listen("pet", applyPet), $(player).listen("petName", applyPet));
+
+        // Preso en el COMCAR: todos le ven el cartel "PRESO"; al propio, React le muestra cuánto le queda.
+        this.disposers.push(
+          $(player).listen("jailLeft", (left) => {
+            avatar.setPrisoner(left > 0);
+            if (isLocal) eventBus.emit("player:jail", left);
+          }),
+        );
+
         // Vendedor: grita lo que vende al empezar y muestra "¡Vendido!" en cada venta (lo ven todos).
         this.disposers.push(
           // El carrito se pone al empezar cada venta y se saca al terminar.
@@ -489,6 +573,10 @@ export class CityScene extends Phaser.Scene {
             if (previous === undefined || sales <= previous) return;
             this.floatText(avatar.x + 30, avatar.y - 50, "¡Vendido!", "#9ef0c9");
           }),
+          // El hincha que se acerca al carrito (llega, compra o sigue de largo).
+          $(player).listen("customer", (customer) => {
+            this.customers.update(sessionId, customer as CustomerState, { x: player.x, y: player.y });
+          }),
         );
 
         this.disposers.push(
@@ -499,7 +587,7 @@ export class CityScene extends Phaser.Scene {
             this.applyFishing(avatar, player, isLocal);
             this.applyVending(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
-            if (isLocal) this.emitStamina(player.stamina);
+            if (isLocal) this.emitEnergy(player.energy);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));
             if (isLocal) this.checkBusStopArrival(player);
           }),
@@ -507,7 +595,7 @@ export class CityScene extends Phaser.Scene {
 
         if (isLocal) {
           eventBus.emit("player:admin", player.admin);
-          this.emitStamina(player.stamina);
+          this.emitEnergy(player.energy);
           eventBus.emit("player:self", { name: player.name, color: player.color });
           eventBus.emit("player:outfit", outfitIds(player));
         }
@@ -519,12 +607,17 @@ export class CityScene extends Phaser.Scene {
     // Picudos rojos: los mueve el server; acá se dibujan, se animan los mordiscos y las muertes.
     this.disposers.push(
       $(this.room.state).weevils.onAdd((state, id) => {
-        const weevil = new Weevil(this, id, state.x, state.y);
+        const start = weevilTile(state);
+        const weevil = new Weevil(this, id, start.x, start.y);
         this.weevils.set(id, weevil);
-        this.disposers.push(
-          $(state).onChange(() => weevil.setTarget(state.x, state.y)),
+        // Las escuchas son del picudo: se sueltan cuando se va (si no, se juntan cientos por sesión).
+        weevil.bind(
+          $(state).onChange(() => {
+            const tile = weevilTile(state);
+            weevil.setTarget(tile.x, tile.y);
+          }),
           $(state).listen("mode", (mode) => {
-            if (mode === "dead") {
+            if (weevilModeOf(mode) === "dead") {
               weevil.die();
               this.floatText(weevil.x, weevil.y - 18, "¡Plaf!", "#ffd166");
             }
@@ -533,7 +626,7 @@ export class CityScene extends Phaser.Scene {
             if (previous === undefined || bites <= previous) return;
             weevil.bite();
             const victim = this.avatars.get(state.targetId);
-            if (victim) this.floatText(victim.x, victim.y - 70, `-${WEEVIL_BITE_STAMINA}`, "#ff6b6b");
+            if (victim) this.floatText(victim.x, victim.y - 70, `-${WEEVIL_BITE_ENERGY}`, "#ff6b6b");
           }),
         );
       }),
@@ -554,6 +647,9 @@ export class CityScene extends Phaser.Scene {
           this.localAvatar = null;
         }
         avatar?.destroy();
+        this.pets.get(sessionId)?.destroy();
+        this.pets.delete(sessionId);
+        this.customers.remove(sessionId);
         this.avatars.delete(sessionId);
         this.roster.delete(sessionId);
         this.emitRoster();
@@ -566,7 +662,7 @@ export class CityScene extends Phaser.Scene {
     // La caña se ve del color de la que está usando (las mejores, más vistosas).
     const rod = player.rod ? getItem(player.rod) : undefined;
     const rodColor = rod ? Phaser.Display.Color.HexStringToColor(rod.color).color : undefined;
-    avatar.setFishing(player.fishing, this.map.waterDirection(player.x, player.y) ?? "south", rodColor);
+    avatar.setFishing(player.fishing, this.map.fishingSpot(player.x, player.y) ?? { facing: "south", distance: 2 }, rodColor);
     if (!isLocal) return;
     const status = { canFish: this.map.canFishAt(player.x, player.y), fishing: player.fishing };
     const key = `${status.canFish}|${status.fishing}`;
@@ -611,6 +707,20 @@ export class CityScene extends Phaser.Scene {
 
 
 
+  /** Crea, renombra o saca la mascota del jugador según su Schema. */
+  private applyPet(sessionId: string, petId: string, petName: string, owner: Avatar) {
+    if (sessionId === this.room.sessionId) eventBus.emit("player:pet", { id: petId, name: petName });
+    const current = this.pets.get(sessionId);
+    const definition = petId ? getPet(petId) : undefined;
+    if (current && current.definition.id === definition?.id) {
+      current.setPetName(petName);
+      return;
+    }
+    current?.destroy();
+    this.pets.delete(sessionId);
+    if (definition) this.pets.set(sessionId, new Pet(this, definition, petName, owner));
+  }
+
   /** Carrito al costado mientras vende; al avatar propio además le avisa a React si puede vender. */
   private applyVending(avatar: Avatar, player: Player, isLocal: boolean) {
     const cart = getItem(player.cart);
@@ -624,10 +734,10 @@ export class CityScene extends Phaser.Scene {
     eventBus.emit("vending:status", status);
   }
 
-  private emitStamina(stamina: number) {
-    if (stamina === this.lastStamina) return;
-    this.lastStamina = stamina;
-    eventBus.emit("player:stamina", stamina);
+  private emitEnergy(energy: number) {
+    if (energy === this.lastEnergy) return;
+    this.lastEnergy = energy;
+    eventBus.emit("player:energy", energy);
   }
 
   private emitRoster() {
@@ -675,14 +785,6 @@ export class CityScene extends Phaser.Scene {
     return best;
   }
 
-  /** Palmera en el tile o un poco "detrás" (clic en las hojas), si hay. */
-  private palmAt(tile: { x: number; y: number }): { x: number; y: number } | undefined {
-    for (let k = 0; k <= PALM_CLICK_REACH; k++) {
-      if (this.map.isPalm(tile.x + k, tile.y + k)) return { x: tile.x + k, y: tile.y + k };
-    }
-    return undefined;
-  }
-
   /** Texto que sube y se desvanece ("-2" de una picadura, "¡Plaf!" de una patada). */
   private floatText(x: number, y: number, text: string, color: string) {
     const label = this.add
@@ -704,44 +806,21 @@ export class CityScene extends Phaser.Scene {
     }
     const tile = this.pointerTile(pointer);
     this.hover.clear();
+    this.adminCoords.hover(tile);
     if (this.weevilAt(pointer) || this.otherPlayerAt(pointer)) {
       this.input.setDefaultCursor("pointer");
       return;
     }
-    const palm = this.palmAt(tile);
-    if (palm) {
-      const { top, right, bottom, left } = tileDiamond(palm.x, palm.y);
-      this.input.setDefaultCursor("pointer");
-      this.hover.lineStyle(2, PALM_HOVER_COLOR, 0.95);
-      this.hover.strokePoints([top, right, bottom, left], true);
-      return;
-    }
-    if (this.map.busStopAt(tile.x, tile.y)) {
-      const { top, right, bottom, left } = tileDiamond(tile.x, tile.y);
-      this.input.setDefaultCursor("pointer");
-      this.hover.lineStyle(2, BUS_STOP_HOVER_COLOR, 0.95);
-      this.hover.strokePoints([top, right, bottom, left], true);
-      return;
-    }
-    const shop = this.map.shopAt(tile.x, tile.y);
-    const isBench = Boolean(this.map.benchAt(tile.x, tile.y));
-    this.input.setDefaultCursor(isBench || shop ? "pointer" : "default");
-
-    if (shop) {
-      // Toda la planta de la tienda.
-      const { x, y, width, height } = shop.area;
-      const top = tileDiamond(x, y).top;
-      const right = tileDiamond(x + width - 1, y).right;
-      const bottom = tileDiamond(x + width - 1, y + height - 1).bottom;
-      const left = tileDiamond(x, y + height - 1).left;
-      this.hover.lineStyle(2, SHOP_HOVER_COLOR, 0.95);
-      this.hover.strokePoints([top, right, bottom, left], true);
-      return;
-    }
-    if (!isBench && !this.map.isWalkable(tile.x, tile.y)) return;
-
-    const { top, right, bottom, left } = tileDiamond(tile.x, tile.y);
-    this.hover.lineStyle(2, isBench ? BENCH_HOVER_COLOR : HOVER_COLOR, 0.9);
+    const hit = this.map.interactionAt(tile.x, tile.y, { palmReach: PALM_CLICK_REACH });
+    this.input.setDefaultCursor(hit && hit.kind !== "floor" ? "pointer" : "default");
+    if (!hit) return;
+    // Lo que marca (toda la planta si es una tienda), con el color de su tipo.
+    const { x, y, width, height } = hit.area;
+    const top = tileDiamond(x, y).top;
+    const right = tileDiamond(x + width - 1, y).right;
+    const bottom = tileDiamond(x + width - 1, y + height - 1).bottom;
+    const left = tileDiamond(x, y + height - 1).left;
+    this.hover.lineStyle(2, HOVER_COLORS[hit.kind], 0.95);
     this.hover.strokePoints([top, right, bottom, left], true);
   }
 
@@ -774,6 +853,12 @@ export class CityScene extends Phaser.Scene {
       this.showLocator();
       return;
     }
+    // Modo coordenadas (admin): Shift + clic copia la coordenada y no camina.
+    const event = pointer.event as MouseEvent | undefined;
+    if (this.adminCoords.isEnabled() && event?.shiftKey) {
+      this.copyTileCoords(this.pointerTile(pointer));
+      return;
+    }
     // Cualquier clic nuevo cancela la ida a una parada (si es otra parada, se vuelve a poner).
     this.pendingBusStop = null;
     // Y la predicción del camino anterior: si el clic es para caminar se vuelve a predecir; si es
@@ -797,37 +882,11 @@ export class CityScene extends Phaser.Scene {
     // Todo lo que lo hace caminar (piso, parada, tienda, palmera, banco) con la cámara libre: la
     // cámara vuelve al avatar y lo sigue, así se ve cómo va hasta ahí.
     const tile = this.pointerTile(pointer);
-    const busStop = this.map.busStopAt(tile.x, tile.y);
-    if (busStop) {
-      this.goToBusStop(busStop);
-      this.cameraControl.returnToTarget();
-      this.showClickMarker(tile.x, tile.y);
-      return;
-    }
-    if (this.map.shopAt(tile.x, tile.y)) {
-      this.visitShop(tile);
-      this.cameraControl.returnToTarget();
-      this.showClickMarker(tile.x, tile.y);
-      return;
-    }
-    const palm = this.palmAt(tile);
-    if (palm) {
-      this.shakePalm(palm);
-      this.cameraControl.returnToTarget();
-      this.showClickMarker(palm.x, palm.y);
-      return;
-    }
-    if (this.map.benchAt(tile.x, tile.y)) {
-      this.sitOn(tile);
-      this.cameraControl.returnToTarget();
-      this.showClickMarker(tile.x, tile.y);
-      return;
-    }
-    if (!this.map.isWalkable(tile.x, tile.y)) return;
-
-    this.requestMove(tile);
+    const hit = this.map.interactionAt(tile.x, tile.y, { palmReach: PALM_CLICK_REACH });
+    if (!hit) return;
+    this.describe(hit).run();
     this.cameraControl.returnToTarget();
-    this.showClickMarker(tile.x, tile.y);
+    this.showClickMarker(hit.target.x, hit.target.y);
   }
 
   // --- Acciones sobre las cosas del barrio (las usan el clic y la tecla de interactuar) ---------
@@ -845,6 +904,7 @@ export class CityScene extends Phaser.Scene {
     eventBus.emit("player:click", {
       sessionId,
       name: player.name,
+      jailed: player.jailLeft > 0,
       screenX: canvas.left + (x * canvas.width) / this.scale.width,
       screenY: canvas.top + (y * canvas.height) / this.scale.height,
     });
@@ -891,8 +951,11 @@ export class CityScene extends Phaser.Scene {
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
     this.dayNight.dispose();
+    this.adminCoords?.dispose();
     this.avatars.clear();
     this.weevils.clear();
+    this.customers.dispose();
+    this.pets.clear();
     this.roster.clear();
     this.localAvatar = null;
     // Al destruir el juego entero (salir, se cortó la conexión) sólo llega DESTROY, y para entonces

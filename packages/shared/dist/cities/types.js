@@ -22,6 +22,10 @@ exports.TileChar = {
     Palm: "P",
     /** Escollera: espigón de piedra que entra en el agua. Caminable; desde acá se pesca. */
     Jetty: "E",
+    /** Muro de hormigón con alambre de púas (el COMCAR), no caminable. */
+    Wall: "W",
+    /** Reja de barrotes (el COMCAR): no caminable, pero se ve a través. */
+    Fence: "F",
 };
 exports.WALKABLE_TILE_CHARS = new Set([
     exports.TileChar.Rambla,

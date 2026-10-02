@@ -283,6 +283,41 @@ button,
   }
 }
 
+/* Inicio de sesión: la misma tarjeta, más angosta, con el botón de Google. */
+.login-card {
+  max-width: 400px;
+}
+
+.join-card .login-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid #dadce0;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.join-card .login-google:hover {
+  background: #f4f6f9;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.join-card .login-google:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.login-google-icon {
+  flex: none;
+}
+
 .join-error {
   margin-top: 12px;
   color: var(--danger);
@@ -600,6 +635,12 @@ button,
   gap: 8px;
 }
 
+.city-menu-note {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .city-menu-badge {
   padding: 2px 8px;
   border-radius: 999px;
@@ -767,6 +808,19 @@ button,
 
 .backpack-cell:has(button):hover {
   border-color: var(--accent);
+}
+
+/* Reordenar la mochila: casillero levantado (celulares) y casillero donde se va a soltar. */
+.backpack-cell.moving {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  opacity: 0.7;
+}
+
+.backpack-cell.drop-target {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .backpack-cell-name {
@@ -978,6 +1032,253 @@ button,
   color: var(--danger);
 }
 
+/* ---------- Tienda: cantidad y compra ---------- */
+
+/* Carrito: la fila elegida se marca y abajo queda la barra con el total y un solo "Comprar". */
+.shop-row.in-cart {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.shop-no-room {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.shop-cart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+}
+
+.shop-cart.filled {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.shop-cart-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.shop-cart-summary strong {
+  color: #06d6a0;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-cart-summary small {
+  color: var(--danger);
+}
+
+.shop-cart-buy,
+.shop-cart-clear {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.shop-cart-buy {
+  background: var(--accent);
+  color: #0b0d14;
+}
+
+.shop-cart-buy:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.shop-cart-clear {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--muted);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+
+/* Aviso de cómo salió la compra / venta: grande, con el ítem, arriba de la lista. */
+.shop-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  animation: shop-toast-in 0.28s ease-out;
+}
+
+.shop-toast.ok {
+  border-color: rgba(6, 214, 160, 0.55);
+  background: rgba(6, 214, 160, 0.16);
+  color: #9ef0c9;
+}
+
+.shop-toast.error {
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.16);
+  color: var(--danger);
+  animation: shop-toast-in 0.28s ease-out, shop-toast-shake 0.35s ease-in-out 0.28s;
+}
+
+.shop-toast-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #06d6a0;
+  color: #0b0d14;
+  font-size: 0.95rem;
+}
+
+.shop-toast.error .shop-toast-mark {
+  background: var(--danger);
+}
+
+.shop-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.3;
+}
+
+.shop-toast-text small {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+@keyframes shop-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes shop-toast-shake {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* La fila comprada / vendida brilla un momento y muestra "+5" / "−5". */
+.shop-list li.shop-row {
+  position: relative;
+}
+
+.shop-row-flash {
+  position: absolute;
+  inset: 0 -8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 46px;
+  border-radius: 8px;
+  background: rgba(6, 214, 160, 0.18);
+  color: #06d6a0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  pointer-events: none;
+  animation: shop-row-flash 1.4s ease-out forwards;
+}
+
+.shop-row-flash.sold {
+  background: rgba(255, 209, 102, 0.16);
+  color: #ffd166;
+}
+
+@keyframes shop-row-flash {
+  0% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.shop-buy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* − / número / + */
+.shop-qty {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+.shop-list .shop-qty button {
+  min-width: 26px;
+  padding: 4px 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.shop-qty input {
+  width: 34px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.shop-qty input::-webkit-outer-spin-button,
+.shop-qty input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* Celulares: botones de cantidad de al menos ~36 px y el selector arriba del botón. */
+@media (max-width: 760px), (max-height: 500px) {
+  .shop-list .shop-qty button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .shop-qty input {
+    width: 40px;
+    min-height: 36px;
+  }
+
+  .shop-buy-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .shop-list {
   max-height: min(52vh, 420px);
   margin: 0;
@@ -1028,6 +1329,100 @@ button,
   background: rgba(255, 255, 255, 0.12);
   color: var(--muted);
   cursor: not-allowed;
+}
+
+/* Veterinaria: elegir mascota (fila entera como opción), nombre y adoptar. */
+.shop-list .pet-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+
+.shop-list .pet-option[aria-checked="true"] {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pet-icon {
+  flex: none;
+}
+
+.pet-name-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.pet-adopt {
+  margin: 4px 16px 12px;
+}
+
+.pet-name-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+}
+
+.pet-name-form button,
+.pet-current button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pet-name-form button:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.pet-current {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 16px 14px;
+}
+
+.pet-current p {
+  margin: 0;
+}
+
+.pet-current small {
+  color: var(--muted);
+}
+
+.pet-current .pet-release-toggle {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: underline;
+  padding: 4px 0;
+}
+
+.pet-current .pet-release-yes {
+  background: #e63946;
+  color: #fff;
+}
+
+.pet-release {
+  font-size: 0.85rem;
 }
 
 .shop-hint {
@@ -1255,21 +1650,29 @@ button,
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
-/* ---------- Energía (stamina) ---------- */
+/* ---------- Necesidades (energía, hambre) ---------- */
 
-.hud-stamina {
+.hud-energy {
   color: #06d6a0;
 }
 
-.hud-stamina.mid {
+.hud-hunger {
+  color: #f4a259;
+}
+
+.hud-health {
+  color: #ff6b81;
+}
+
+.hud-need.mid {
   color: var(--system);
 }
 
-.hud-stamina.low {
+.hud-need.low {
   color: var(--danger);
 }
 
-.hud-stamina-bar {
+.hud-need-bar {
   width: 64px;
   height: 7px;
   overflow: hidden;
@@ -1277,7 +1680,7 @@ button,
   background: rgba(255, 255, 255, 0.12);
 }
 
-.hud-stamina-bar span {
+.hud-need-bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
@@ -1285,20 +1688,104 @@ button,
   transition: width 0.25s linear;
 }
 
-.hud-stamina-value {
+.hud-need-value {
   min-width: 2.2em;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
-.hud-stamina.low .ui-icon {
-  animation: stamina-blink 1s steps(2, start) infinite;
+.hud-need.low .ui-icon {
+  animation: need-blink 1s steps(2, start) infinite;
 }
 
-@keyframes stamina-blink {
+@keyframes need-blink {
   to {
     visibility: hidden;
   }
+}
+
+/* ---------- Desmayo y guardia del sanatorio ---------- */
+
+/* Pantalla negra del desmayo: entra de golpe y se va aclarando. */
+.faint-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #000;
+  color: #f4f4f4;
+  text-align: center;
+  pointer-events: none;
+  animation: faint-fade linear forwards;
+}
+
+.faint-overlay p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+@keyframes faint-fade {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* La ambulancia: luz que titila arriba. */
+.travel-siren {
+  animation: siren 0.5s steps(2, start) infinite;
+}
+
+@keyframes siren {
+  to {
+    fill: #1d6fb8;
+  }
+}
+
+.hospital-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.hospital-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #ff6b81;
+  font-size: 1rem;
+}
+
+.hospital-health strong {
+  font-size: 1.3rem;
+}
+
+.hospital-health.low {
+  color: var(--danger);
+}
+
+.hospital-heal {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #ff6b81;
+  color: #1a0a0e;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hospital-heal:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .fishing-cast:disabled {
@@ -1582,6 +2069,11 @@ button,
   background: rgba(255, 159, 28, 0.1);
 }
 
+.admin-presets button[aria-pressed="true"] {
+  border-color: #ff9f1c;
+  background: rgba(255, 159, 28, 0.18);
+}
+
 .admin-presets small {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -1646,6 +2138,47 @@ button,
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+}
+
+/* Preso en el COMCAR (/ban): cartel fijo abajo del HUD con lo que queda de condena. */
+.jail-banner {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  left: 12px;
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  border: 1px solid rgba(230, 57, 70, 0.6);
+  border-left: 4px solid #e63946;
+  border-radius: 12px;
+  background: rgba(18, 21, 31, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.jail-banner p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.jail-banner strong {
+  color: #ff6b6b;
+}
+
+.jail-banner-icon {
+  font-size: 1.4rem;
+}
+
+.jail-banner-time {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Cuánto le queda al anuncio en pantalla. */
@@ -2638,7 +3171,7 @@ button,
   .hud-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
     overflow: hidden;
   }
@@ -2657,17 +3190,32 @@ button,
     min-width: 0;
   }
 
+  /* Si no entra todo, el nombre del barrio se corta con "…" (las barras y la plata no). */
   .hud-city-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .hud-stamina {
+  .hud-info > :not(.hud-city) {
+    flex: none;
+  }
+
+  .hud-energy {
     margin-left: auto;
   }
 
-  .hud-stamina-bar {
-    width: 40px;
+  .hud-need-bar {
+    width: 22px;
+  }
+
+  .hud .hud-need {
+    gap: 3px;
+  }
+
+  /* Con dos barras no entra el número: el nivel se ve en la barra (y el lector de pantalla lee el valor). */
+  .hud-need-value {
+    display: none;
   }
 
   .hud .hud-button {
@@ -2715,6 +3263,17 @@ button,
 
   .announcement p {
     font-size: 0.9rem;
+  }
+
+  .jail-banner {
+    top: calc(var(--safe-top) + var(--hud-height) + 8px);
+    right: calc(var(--edge) + var(--safe-right));
+    left: calc(var(--edge) + var(--safe-left));
+    padding: 8px 10px;
+  }
+
+  .jail-banner p {
+    font-size: 0.85rem;
   }
 
   .notice {

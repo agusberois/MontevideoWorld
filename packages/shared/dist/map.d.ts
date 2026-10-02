@@ -1,4 +1,49 @@
 import { Bench, BusStop, CityDefinition, Shop, TilePoint, TileRect } from "./cities";
+export type FishingFacing = "south" | "east" | "west" | "north";
+/** Hacia dónde mira quien pesca y a cuántos tiles cae la boya (ver `CityMap.fishingSpot`). */
+export interface FishingSpot {
+    facing: FishingFacing;
+    distance: number;
+}
+/**
+ * Con qué cosa fija del mapa se interactúa en un tile (clic, hover o la tecla F). `target` es el tile
+ * al que apunta la acción y `area`, lo que se marca al pasar el mouse (toda la tienda, o un tile).
+ * Para algo nuevo del mapa (puertas, carteles, cajeros…): sumar su `kind` acá y en `interactionAt`.
+ */
+export type MapInteraction = {
+    kind: "busStop";
+    target: TilePoint;
+    area: TileRect;
+    busStop: BusStop;
+} | {
+    kind: "shop";
+    target: TilePoint;
+    area: TileRect;
+    shop: Shop;
+} | {
+    kind: "palm";
+    target: TilePoint;
+    area: TileRect;
+} | {
+    kind: "bench";
+    target: TilePoint;
+    area: TileRect;
+    bench: Bench;
+}
+/** Piso caminable: ir hasta ahí. */
+ | {
+    kind: "floor";
+    target: TilePoint;
+    area: TileRect;
+};
+export type MapInteractionKind = MapInteraction["kind"];
+export interface InteractionOptions {
+    /**
+     * Hasta cuántos tiles en diagonal hacia atrás (+1, +1) se busca una palmera: las hojas se dibujan
+     * encima de los tiles de adelante y el clic ahí también la sacude. 0 = sólo el tile.
+     */
+    palmReach?: number;
+}
 /**
  * Grilla de un barrio lista para consultar: qué hay en cada tile, qué se puede caminar
  * (layout menos los edificios emblemáticos) y pathfinding. Cliente y servidor la usan igual.
@@ -14,10 +59,13 @@ export declare class CityMap {
     /** Se vende con carrito parado en la zona de venta del barrio (si tiene una). */
     canVendAt(x: number, y: number): boolean;
     /**
-     * Hacia dónde está el agua desde (x, y): para orientar al que pesca. Se prueban primero sur y
-     * este (de frente a la cámara) y después oeste y norte.
+     * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
+     * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera
+     * el agua no está pegada) y a cuántos tiles cae la boya: uno adentro del agua si se puede, así no
+     * queda en la orilla. A igual distancia se prefieren sur y este (de frente a la cámara).
+     * undefined si no hay agua al alcance.
      */
-    waterDirection(x: number, y: number): "south" | "east" | "west" | "north" | undefined;
+    fishingSpot(x: number, y: number): FishingSpot | undefined;
     /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
     isPalm(x: number, y: number): boolean;
     /** ¿El tile (x, y) está pegado a la palmera (incluye diagonales)? Desde ahí se la sacude. */
@@ -34,6 +82,17 @@ export declare class CityMap {
     /** Tile desde el que uno se sienta: el de enfrente del banco o, si no se puede, uno vecino. */
     benchApproach(bench: Bench): TilePoint | undefined;
     busStopAt(x: number, y: number): BusStop | undefined;
+    /**
+     * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+     * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
+     * se mueven y los resuelve quien llama.
+     */
+    interactionAt(x: number, y: number, { palmReach }?: InteractionOptions): MapInteraction | undefined;
+    /**
+     * Lo que hay en los 8 tiles pegados a (x, y), sin el piso: con qué se puede interactuar sin
+     * caminar (tecla F). Una tienda aparece una vez aunque toque varios tiles.
+     */
+    interactionsAround(x: number, y: number): MapInteraction[];
     inBounds(x: number, y: number): boolean;
     /** Carácter del layout (`TileChar`), o undefined fuera del mapa. */
     tileAt(x: number, y: number): string | undefined;
@@ -52,6 +111,8 @@ export declare class CityMap {
     followRoute(from: TilePoint, route: readonly TilePoint[]): TilePoint[] | null;
     walkableTilesIn({ x, y, width, height }: TileRect): TilePoint[];
     spawnTiles(): TilePoint[];
+    /** Cárcel: dónde aparecen los presos (el patio, del lado de adentro de la reja). Vacío si no es cárcel. */
+    prisonTiles(): TilePoint[];
     /**
      * BFS en 8 direcciones sin cortar esquinas.
      * Devuelve la lista de tiles a recorrer (sin incluir el origen), o [] si no hay camino.

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAKER_MAX_QUANTITY = exports.MAKER_RANGE = exports.MAX_ROUTE_LENGTH = exports.MessageType = void 0;
+exports.MAKER_MAX_QUANTITY = exports.MAKER_RANGE = exports.SHOP_MAX_QUANTITY = exports.MAX_ROUTE_LENGTH = exports.MessageType = void 0;
 exports.isPlayerKey = isPlayerKey;
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 exports.MessageType = {
@@ -10,18 +10,30 @@ exports.MessageType = {
     Equip: "equip",
     /** Cliente → Servidor: pedir el contenido de la mochila (al conectarse). */
     RequestInventory: "inventory:get",
+    /** Cliente → Servidor: mover lo del casillero `from` al `to` de la mochila (mover, intercambiar o juntar). */
+    InventoryMove: "inventory:move",
     /** Servidor → Cliente (sólo al dueño): contenido de la mochila. */
     Inventory: "inventory",
     /** Cliente → Servidor: pedir el saldo (al conectarse). */
     RequestWallet: "wallet:get",
+    /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
+    RequestNeeds: "needs:get",
     /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
     Wallet: "wallet",
+    /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
+    Needs: "needs",
+    /** Servidor → Cliente: te desmayaste (salud en 0). */
+    Faint: "faint",
+    /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
+    HospitalHeal: "hospital:heal",
     /** Cliente → Servidor: clic en una tienda (caminar hasta ella y abrirla). */
     ShopVisit: "shop:visit",
     /** Servidor → Cliente: llegaste a la tienda, abrí su panel. */
     ShopOpen: "shop:open",
     /** Cliente → Servidor: comprar / vender una unidad de una prenda. */
     ShopBuy: "shop:buy",
+    /** Cliente → Servidor: comprar todo el carrito de una (todo o nada). */
+    ShopCheckout: "shop:checkout",
     ShopSell: "shop:sell",
     /** Cliente → Servidor: vender regateando, todo o nada (ver `haggle.ts`). */
     ShopHaggle: "shop:haggle",
@@ -31,8 +43,8 @@ exports.MessageType = {
     FishCast: "fish:cast",
     /** Cliente → Servidor: recoger la línea sin esperar (cancela la pesca). */
     FishStop: "fish:stop",
-    /** Cliente → Servidor: comerse un pescado de la mochila (recupera energía). */
-    FishEat: "fish:eat",
+    /** Cliente → Servidor: comerse algo de la mochila (comida o un pescado): llena el hambre y da energía. */
+    FoodEat: "food:eat",
     /** Servidor → Cliente: empezaste a pescar; algo (o nada) va a picar en `durationMs`. */
     FishStarted: "fish:started",
     /** Servidor → Cliente: cómo terminó la pesca. */
@@ -55,13 +67,15 @@ exports.MessageType = {
     AdminNearby: "admin:nearby",
     /** Cliente (admin) → Servidor: crear ítems del catálogo en la mochila propia o de un jugador cercano. */
     AdminGive: "admin:give",
+    /** Cliente (admin) → Servidor: forzar (o no) el partido en el Centenario, en todos los barrios. */
+    AdminMatch: "admin:match",
     /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
     Announcement: "announcement",
     /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */
     BoxOpen: "box:open",
     /** Servidor → Cliente: qué salió de la caja (para mostrar la sorpresa). */
     BoxOpened: "box:opened",
-    /** Cliente → Servidor: comprar el boleto para viajar a otro barrio (`TRAVEL_FARE`). */
+    /** Cliente → Servidor: viajar a otro barrio usando un boleto STM de la mochila (`TICKET_ID`). */
     TravelRequest: "travel:request",
     /** Servidor → Cliente: boleto pagado; ya se puede salir y entrar al barrio `cityId`. */
     TravelApproved: "travel:ok",
@@ -71,6 +85,12 @@ exports.MessageType = {
     WeevilKick: "weevil:kick",
     /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
     Greet: "greet",
+    /** Cliente → Servidor: en la veterinaria, adoptar una mascota con nombre, cambiarle el nombre o despedirse. */
+    PetAdopt: "pet:adopt",
+    PetRename: "pet:rename",
+    PetRelease: "pet:release",
+    /** Cliente → Servidor: una visita del COMCAR se burla de un preso (sale en el chat, como el saludo). */
+    Taunt: "taunt",
     /** Cliente → Servidor: invitar a otro jugador a intercambiar. */
     TradeRequest: "trade:request",
     /** Servidor → Cliente (sólo al invitado): alguien te invita a intercambiar. */
@@ -94,6 +114,8 @@ function isPlayerKey(value) {
 }
 /** Largo máximo de `MoveMessage.path` (lo de más se ignora y el server completa con `findPath`). */
 exports.MAX_ROUTE_LENGTH = 256;
+/** Cuántas unidades se pueden comprar o vender de una vez (`ShopTradeMessage.quantity`). */
+exports.SHOP_MAX_QUANTITY = 99;
 /** Tiles (en cualquier dirección, contando diagonales) a los que el admin puede darle ítems a otro con el maker. */
 exports.MAKER_RANGE = 6;
 /** Máximo de unidades por pedido del maker. */

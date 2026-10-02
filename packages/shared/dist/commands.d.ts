@@ -43,6 +43,21 @@ export declare const COMMANDS: readonly [{
     readonly description: "Carga plata a un jugador del barrio (sin nombre, a vos).";
     readonly role: "admin";
 }, {
+    readonly name: "curar";
+    readonly usage: "/curar [jugador]";
+    readonly description: "Llena energía, hambre y salud de un jugador del barrio (sin nombre, a vos).";
+    readonly role: "admin";
+}, {
+    readonly name: "ban";
+    readonly usage: "/ban <minutos> <jugador>";
+    readonly description: "Manda al jugador preso al COMCAR por esos minutos (aunque salga y vuelva a entrar). Con 0, lo libera.";
+    readonly role: "admin";
+}, {
+    readonly name: "trace";
+    readonly usage: "/trace <jugador>";
+    readonly description: "Te lleva al lado de un jugador conectado, esté en el barrio que esté (sin boleto).";
+    readonly role: "admin";
+}, {
     readonly name: "donador";
     readonly usage: "/donador <si|no> [jugador]";
     readonly description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).";

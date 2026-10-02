@@ -5,8 +5,20 @@ import cors, { CorsOptions } from "cors";
 import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { DEFAULT_PORT, ROOM_NAME, formatMoney, lifetimeValue, unprofitableTools } from "@montevideo-world/shared";
-import { playerStore } from "./playerStore";
+import {
+  DEFAULT_PORT,
+  MAX_FOOD_SHARE,
+  ROOM_NAME,
+  foodCostPerHour,
+  foodTooExpensiveFor,
+  formatMoney,
+  formatPercent,
+  hourlyIncome,
+  lifetimeValue,
+  unprofitableTools,
+} from "@montevideo-world/shared";
+import { liveRooms, tickMetrics } from "./metrics";
+import { playerStore, travelTickets } from "./playerStore";
 import { CityRoom } from "./rooms/CityRoom";
 
 // Cañas y carritos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
@@ -14,6 +26,13 @@ import { CityRoom } from "./rooms/CityRoom";
 for (const tool of unprofitableTools()) {
   console.warn(
     `[Balance] ${tool.name} no es rentable: deja ~${formatMoney(Math.floor(lifetimeValue(tool)))} en ${tool.maxUses} usos y cuesta ${formatMoney(tool.price)}.`,
+  );
+}
+// Comer tiene que costar una parte chica de lo que se gana: con ninguna herramienta la comida de una
+// hora de trabajo puede pasar de MAX_FOOD_SHARE de lo que deja (ver `needsBalance.ts`).
+for (const { tool, share } of foodTooExpensiveFor()) {
+  console.warn(
+    `[Balance] Con ${tool.name} comer se lleva ${formatPercent(share)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(foodCostPerHour()))}/h de comida contra ~${formatMoney(Math.round(hourlyIncome(tool)))}/h.`,
   );
 }
 
@@ -43,13 +62,20 @@ app.get("/", (_req, res) => {
   res.type("text/plain").send("Montevideo World server OK");
 });
 
+// Estado y métricas: salas (barrio, copia, jugadores, picudos), duración de los ticks en una
+// ventana reciente (todas las salas juntas) y la última escritura del archivo de jugadores.
 app.get("/health", async (_req, res) => {
   const rooms = await matchMaker.query({ name: ROOM_NAME });
+  const memory = process.memoryUsage();
   res.json({
     ok: true,
     uptime: process.uptime(),
     rooms: rooms.length,
     players: rooms.reduce((total, room) => total + room.clients, 0),
+    cities: [...liveRooms].map((room) => room.stats()),
+    ticks: { players: tickMetrics.players.summary(), weevils: tickMetrics.weevils.summary() },
+    store: { players: playerStore.size, lastFlush: playerStore.lastFlush, travelTickets: travelTickets.size },
+    memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
   });
 });
 

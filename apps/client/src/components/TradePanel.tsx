@@ -2,7 +2,6 @@
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import {
-  InventoryMessage,
   InventoryStack,
   TRADE_MAX_ITEMS,
   TradeOffer,
@@ -15,6 +14,7 @@ import {
   usesLabel,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
+import { useGame } from "@/lib/gameStore";
 import { CityRoom, sendTradeAccept, sendTradeCancel, sendTradeOffer } from "@/lib/network";
 import { ItemIcon } from "./ItemIcon";
 import { ToolWear } from "./ToolWear";
@@ -22,8 +22,6 @@ import { UiIcon } from "./UiIcon";
 
 interface TradePanelProps {
   room: CityRoom;
-  inventory: InventoryMessage | null;
-  money: number | null;
 }
 
 /**
@@ -31,7 +29,9 @@ interface TradePanelProps {
  * `trade:closed`. Cada cambio de oferta es una intención: el server valida contra la mochila real,
  * anula las aceptaciones y les reenvía el estado a los dos. Esc o ✕ cancelan el intercambio.
  */
-export function TradePanel({ room, inventory, money }: TradePanelProps) {
+export function TradePanel({ room }: TradePanelProps) {
+  const inventory = useGame((state) => state.inventory);
+  const money = useGame((state) => state.money);
   const [trade, setTrade] = useState<TradeStateMessage | null>(null);
   const [moneyDraft, setMoneyDraft] = useState("");
 

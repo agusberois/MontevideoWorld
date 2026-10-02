@@ -11,6 +11,19 @@ export interface Match {
 }
 /** Los partidos de cada día del juego (con `DAY_LENGTH_MINUTES` = 24, cada uno dura 2 minutos reales). */
 export declare const MATCHES: readonly Match[];
+/**
+ * El hincha que se acerca al carrito mientras se espera la venta (`Player.customer`, lo ven todos):
+ * sale a caminar `CUSTOMER_LEAD_MS` antes del resultado y, al saberse, compra o sigue de largo.
+ * Cancelar la venta (moverse, etc.) lo vuelve a `None` y se va sin decir nada.
+ */
+export declare const CustomerState: {
+    readonly None: 0;
+    readonly Arriving: 1;
+    readonly Bought: 2;
+    readonly Passed: 3;
+};
+export type CustomerState = (typeof CustomerState)[keyof typeof CustomerState];
+export declare const CUSTOMER_LEAD_MS = 2200;
 /** Con partido, cada venta paga esto más… */
 export declare const MATCH_SALE_MULTIPLIER = 2;
 /** …los hinchas llegan antes (multiplica la espera)… */
@@ -19,6 +32,13 @@ export declare const MATCH_WAIT_FACTOR = 0.6;
 export declare const MATCH_GIFT_MULTIPLIER = 2;
 /** El partido que se está jugando a esta hora del juego, si hay. */
 export declare function matchAt(minuteOfDay: number): Match | undefined;
+/**
+ * Partido forzado por el admin (`GameState.matchMode`): "auto" sigue el horario de `MATCHES`, "on"
+ * juega el partido elegido hasta que se vuelva a "auto" y "off" no deja que haya ninguno.
+ */
+export declare const MATCH_MODES: readonly ["auto", "on", "off"];
+export type MatchMode = (typeof MATCH_MODES)[number];
+export declare function getMatch(name: string): Match | undefined;
 /**
  * Lo que puede regalar un hincha contento (además de comprar): ropa de cancha. Es la única forma
  * de conseguir prendas sin comprarlas.

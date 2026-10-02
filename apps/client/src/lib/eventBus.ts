@@ -9,6 +9,9 @@ import type {
   VendResultMessage,
   VendStartedMessage,
   InventoryMessage,
+  MatchMode,
+  NeedsMessage,
+  FaintMessage,
   NoticeMessage,
   OutfitIds,
   ShopOpenMessage,
@@ -53,7 +56,15 @@ export interface GameEvents {
   /** Red → React: cómo salió la venta. */
   "vending:result": VendResultMessage;
   /** Phaser → React: energía del avatar propio (0–100), cada vez que cambia. */
-  "player:stamina": number;
+  "player:energy": number;
+  /** Red → React: necesidades privadas del jugador (hambre). */
+  "needs:update": NeedsMessage;
+  /** Red → React: te desmayaste (pantalla negra con el texto). */
+  faint: FaintMessage;
+  /** Phaser → React: segundos de condena que le quedan al avatar propio en el COMCAR (0 = libre). */
+  "player:jail": number;
+  /** Phaser → React: la mascota del avatar propio (id de `PETS` y nombre; "" = ninguna). */
+  "player:pet": { id: string; name: string };
   /** Red → React: aviso breve del server para este jugador. */
   notice: NoticeMessage;
   /** Phaser → React: el avatar propio es admin (entró con `ADMIN_NAME`). */
@@ -64,6 +75,14 @@ export interface GameEvents {
   announcement: AnnouncementMessage;
   /** Phaser → React: hora del juego, minuto del día 0–1439 (Schema). */
   "city:clock": number;
+  /** Phaser → React: qué copia del barrio es la sala (1 = la primera; ver `GameState.copy`). */
+  "city:copy": number;
+  /** Phaser → React: partido en el Centenario ("" = ninguno) y si el admin lo forzó (`GameState`). */
+  "city:match": { name: string; mode: MatchMode };
+  /** Phaser → React (admin): el modo coordenadas (tecla G) quedó prendido o apagado. */
+  "admin:coords": boolean;
+  /** React → Phaser (admin): botón del panel de admin para prender / apagar el modo coordenadas. */
+  "admin:coords:toggle": null;
   /** Red → React: se abrió una caja sorpresa y salió `prizeId`. */
   "box:opened": BoxOpenedMessage;
   /** Red → React: boleto pagado, ya se puede viajar al barrio. */
@@ -92,6 +111,8 @@ export interface GameEvents {
 export interface PlayerClick {
   sessionId: string;
   name: string;
+  /** Preso en el COMCAR: las visitas pueden burlarse. */
+  jailed: boolean;
   screenX: number;
   screenY: number;
 }

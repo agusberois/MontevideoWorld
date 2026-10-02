@@ -222,6 +222,83 @@ const BENCH_IRON = 0x2b2b30;
  * Banco de plaza de madera con patas de hierro. `facing` es hacia dónde mira quien se sienta:
  * el respaldo queda del lado opuesto (norte u oeste) y el asiento en el centro del tile.
  */
+const WALL_CONCRETE = 0xa8a397;
+const WALL_HEIGHT = 34;
+const WIRE = 0x2b2b30;
+
+/**
+ * Muro de la cárcel (`TileChar.Wall`): hormigón con una franja más oscura abajo y, arriba, postes y
+ * alambre de púas a lo largo del muro (`alongX` / `alongY`: si sigue hacia el este-oeste o el
+ * norte-sur, según los muros vecinos; en las esquinas, los dos).
+ */
+export function wallSpec(alongX: boolean, alongY: boolean): PieceSpec {
+  return {
+    key: `wall-${alongX ? 1 : 0}${alongY ? 1 : 0}`,
+    width: 1,
+    height: 1,
+    maxZ: WALL_HEIGHT + 12,
+    draw: (p) => {
+      p.box(-0.5, -0.5, 0.5, 0.5, 0, WALL_HEIGHT, boxColors(WALL_CONCRETE), false);
+      for (const face of [
+        { side: "south", y: 0.5 },
+        { side: "east", x: 0.5 },
+      ] as const) {
+        p.faceRect(face, -0.5, 0.5, 0, 5, shade(WALL_CONCRETE, -28));
+        p.faceRect(face, -0.5, 0.5, WALL_HEIGHT - 3, WALL_HEIGHT, shade(WALL_CONCRETE, 14));
+      }
+      const top = WALL_HEIGHT;
+      // Postes en el medio y alambre (dos hilos) a lo largo del muro.
+      p.line(p.p(0, 0, top), p.p(0, 0, top + 11), WIRE, 1.5);
+      const wire = (x0: number, y0: number, x1: number, y1: number) => {
+        for (const z of [top + 5, top + 10]) p.line(p.p(x0, y0, z), p.p(x1, y1, z), WIRE, 1, 0.85);
+        // Púas: cruces chiquitas sobre el hilo de arriba.
+        for (const t of [0.25, 0.75]) {
+          const px = x0 + (x1 - x0) * t;
+          const py = y0 + (y1 - y0) * t;
+          const point = p.p(px, py, top + 10);
+          p.line({ x: point.x - 1.5, y: point.y - 1.5 }, { x: point.x + 1.5, y: point.y + 1.5 }, WIRE, 1);
+          p.line({ x: point.x - 1.5, y: point.y + 1.5 }, { x: point.x + 1.5, y: point.y - 1.5 }, WIRE, 1);
+        }
+      };
+      if (alongX || !alongY) wire(-0.5, 0, 0.5, 0);
+      if (alongY) wire(0, -0.5, 0, 0.5);
+    },
+  };
+}
+
+const FENCE_BAR = 0x3b4046;
+const FENCE_HEIGHT = 34;
+
+/**
+ * Reja de la cárcel (`TileChar.Fence`): barrotes finos entre dos travesaños, con un poste grueso al
+ * medio. Se ve a través: desde la explanada de visitas se ve el patio de los presos.
+ */
+export function fenceSpec(alongX: boolean): PieceSpec {
+  return {
+    key: `fence-${alongX ? "x" : "y"}`,
+    width: 1,
+    height: 1,
+    maxZ: FENCE_HEIGHT + 6,
+    draw: (p) => {
+      const at = (t: number, z: number) => (alongX ? p.p(-0.5 + t, 0, z) : p.p(0, -0.5 + t, z));
+      // Base de hormigón baja.
+      if (alongX) p.box(-0.5, -0.06, 0.5, 0.06, 0, 4, boxColors(WALL_CONCRETE), false);
+      else p.box(-0.06, -0.5, 0.06, 0.5, 0, 4, boxColors(WALL_CONCRETE), false);
+      const bars = 7;
+      for (let i = 0; i < bars; i++) {
+        const t = (i + 0.5) / bars;
+        p.line(at(t, 4), at(t, FENCE_HEIGHT), FENCE_BAR, 1.3);
+        // Punta de lanza.
+        const tip = at(t, FENCE_HEIGHT + 3);
+        const base = at(t, FENCE_HEIGHT);
+        p.fill(FENCE_BAR, [tip, { x: base.x - 1.5, y: base.y }, { x: base.x + 1.5, y: base.y }]);
+      }
+      for (const z of [8, FENCE_HEIGHT - 3]) p.line(at(0, z), at(1, z), FENCE_BAR, 2);
+      p.line(at(0.5, 0), at(0.5, FENCE_HEIGHT + 2), shade(FENCE_BAR, -10), 3);
+    },
+  };
+}
+
 export function benchSpec(facing: "south" | "east"): PieceSpec {
   return {
     key: `bench-${facing}`,
@@ -328,7 +405,54 @@ const ROD_COLORS = [0x8a6a45, 0x2a9d8f, 0x3a3f4c, 0xc9a227];
 /** Colores de las botellas de refresco y las bolsas de garrapiñada de la vidriera del kiosco. */
 const KIOSK_COLORS = [0xe63946, 0x2a9d8f, 0xf2b705, 0x6cace4];
 
+/** Colores de las camitas para mascotas de la vidriera de la veterinaria. */
+const PET_BED_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2a9d8f];
+
 const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
+  pharmacy: {
+    facade: 0xf4f6f8,
+    trim: 0x2e9e5b,
+    glass: 0xbfe3ee,
+    awning: 0x2e9e5b,
+    // Cruz verde de farmacia (pares) y cajitas de remedios de colores (impares).
+    showcase: (p, face, u, i) => {
+      if (i % 2 === 0) {
+        p.faceRect(face, u - 0.025, u + 0.025, 10, 20, 0x2e9e5b);
+        p.faceRect(face, u - 0.075, u + 0.075, 13.5, 16.5, 0x2e9e5b);
+        return;
+      }
+      const color = [0xd7263d, 0xf2a541, 0x6cace4][i % 3];
+      p.faceRect(face, u - 0.07, u + 0.01, 9, 14, color);
+      p.faceRect(face, u - 0.01, u + 0.07, 9, 17, 0xf4f6f8);
+      p.faceRect(face, u - 0.005, u + 0.065, 13, 14, color);
+    },
+  },
+  pets: {
+    facade: 0xe3f0e1,
+    trim: 0x3f7d4f,
+    glass: 0xbfe3ee,
+    awning: 0xf6e7c8,
+    // Huesitos (pares) y camitas de colores (impares) en la vidriera.
+    showcase: (p, face, u, i) => {
+      if (i % 2 === 0) {
+        p.faceRect(face, u - 0.06, u + 0.06, 13, 14.5, 0xf4efe3);
+        for (const end of [-0.07, 0.05]) p.faceRect(face, u + end, u + end + 0.02, 12, 16, 0xf4efe3);
+        return;
+      }
+      const color = PET_BED_COLORS[i % PET_BED_COLORS.length];
+      p.facePoly(
+        face,
+        [
+          [u - 0.09, 9],
+          [u + 0.09, 9],
+          [u + 0.08, 13],
+          [u - 0.08, 13],
+        ],
+        color,
+      );
+      p.faceRect(face, u - 0.06, u + 0.06, 11, 12.5, shade(color, 30));
+    },
+  },
   clothing: {
     facade: 0xe9dcc0,
     trim: 0x2f6f5e,
@@ -377,6 +501,17 @@ const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
           0xb8c4cc,
         );
       }
+    },
+  },
+  stm: {
+    facade: 0xf4f6f8,
+    trim: 0x1d6fb8,
+    glass: 0xbfe3ee,
+    awning: 0x1d6fb8,
+    // Boletos en la vidriera: tarjetitas blancas con la franja azul o verde.
+    showcase: (p, face, u, i) => {
+      p.faceRect(face, u - 0.08, u + 0.08, 10, 19, 0xffffff);
+      p.faceRect(face, u - 0.08, u + 0.08, 16, 19, i % 2 === 0 ? 0x1d6fb8 : 0x2e9e5b);
     },
   },
   kiosk: {

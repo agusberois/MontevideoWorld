@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CHAT_BUBBLE_MS, ClothingItem, OutfitIds, STEP_MS, TilePoint } from "@montevideo-world/shared";
+import { CHAT_BUBBLE_MS, ClothingItem, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
@@ -15,7 +15,7 @@ const DONOR_TAG_HEIGHT = 16;
  * Nombre y globo van en un Container aparte, por encima de todos los edificios
  * (que tapan al cuerpo del avatar cuando pasa por detrás, pero nunca su nombre ni lo que dice).
  */
-const OVERLAY_DEPTH = 1_000_000;
+export const OVERLAY_DEPTH = 1_000_000;
 const BUBBLE_MAX_WIDTH = 180;
 const BUBBLE_PADDING = 8;
 /**
@@ -71,12 +71,14 @@ const UNDERWEAR_COLOR = 0xe4e1da;
 
 export type SitFacing = "south" | "east";
 /** Hacia dónde mira el que pesca (hacia el agua). */
-export type FishFacing = "south" | "east" | "west" | "north";
+export type FishFacing = FishingSpot["facing"];
 
 /** Pescando: el brazo cercano sostiene la caña adelante. */
 const FISH_ARM_ANGLE = -1.0;
 const ROD_COLOR = 0x6b4a2f;
 const LINE_COLOR = 0xe8eef2;
+/** Punta de la caña en coordenadas del cuerpo (de ahí sale la tanza). */
+const ROD_TIP = { x: 60, y: -88 };
 
 /** Vendiendo: cada cuánto ofrece la mercadería levantando el brazo, y cuánto dura el gesto. */
 const VEND_WAVE_EVERY_MS = 2400;
@@ -138,6 +140,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly cart: Phaser.GameObjects.Graphics;
   private readonly overlay: Phaser.GameObjects.Container;
   private readonly donorTag: Phaser.GameObjects.Text;
+  /** "🔒 PRESO" arriba del nombre mientras está preso en el COMCAR (`Player.jailLeft`). */
+  private readonly prisonerTag: Phaser.GameObjects.Text;
   private bubble: Phaser.GameObjects.Container | null = null;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
 
@@ -156,6 +160,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   private sitScaleX = 1;
   private fishing = false;
   private fishFacing: FishFacing = "south";
+  /** A cuántos tiles del avatar cae la boya, en la dirección de `fishFacing` (ver `CityMap.fishingSpot`). */
+  private fishDistance = 2;
   /** Tiempo que le queda a la patada en curso (ms); 0 = no está pateando. */
   private kickLeft = 0;
   private rodColor = ROD_COLOR;
@@ -254,8 +260,20 @@ export class Avatar extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 1)
       .setVisible(Boolean(config.isDonor));
 
+    this.prisonerTag = scene.add
+      .text(0, DONOR_TAG_Y, "🔒 PRESO", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "9px",
+        fontStyle: "bold",
+        color: "#ffffff",
+        backgroundColor: "#e63946",
+        padding: { x: 5, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setVisible(false);
+
     this.add([shadow, this.body_]);
-    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, label]);
+    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, label]);
     this.syncDepth();
     scene.add.existing(this);
   }
@@ -263,11 +281,30 @@ export class Avatar extends Phaser.GameObjects.Container {
   /** Donador o no (lo marca el admin; puede cambiar estando conectado). */
   setDonor(donor: boolean) {
     this.donorTag.setVisible(donor);
+    this.layoutTags();
   }
 
-  /** Altura del globo de chat: más arriba si tiene el distintivo de donador. */
+  /** Preso en el COMCAR o no (cambia estando conectado: lo banean, cumple). */
+  setPrisoner(prisoner: boolean) {
+    if (this.prisonerTag.visible === prisoner) return;
+    this.prisonerTag.setVisible(prisoner);
+    this.layoutTags();
+  }
+
+  /** Distintivos arriba del nombre, apilados: primero "PRESO", arriba "DONADOR". */
+  private layoutTags() {
+    let y = DONOR_TAG_Y;
+    for (const tag of [this.prisonerTag, this.donorTag]) {
+      if (!tag.visible) continue;
+      tag.setY(y);
+      y -= DONOR_TAG_HEIGHT;
+    }
+  }
+
+  /** Altura del globo de chat: más arriba por cada distintivo (donador, preso). */
   private bubbleY(): number {
-    return BUBBLE_OFFSET_Y - (this.donorTag.visible ? DONOR_TAG_HEIGHT : 0);
+    const tags = Number(this.donorTag.visible) + Number(this.prisonerTag.visible);
+    return BUBBLE_OFFSET_Y - tags * DONOR_TAG_HEIGHT;
   }
 
   /**
@@ -291,6 +328,17 @@ export class Avatar extends Phaser.GameObjects.Container {
   setPath(tiles: readonly TilePoint[]) {
     this.queue = [];
     for (const tile of tiles) this.pushTile(tile.x, tile.y);
+  }
+
+  /** ¿Todavía tiene tiles por recorrer (o un paso en curso)? */
+  isWalking(): boolean {
+    return this.segment !== null || this.queue.length > 0;
+  }
+
+  /** Transparencia del avatar, con su nombre y globo (para que aparezca o se vaya de a poco). */
+  setFade(alpha: number) {
+    this.setAlpha(alpha);
+    this.overlay.setAlpha(alpha);
   }
 
   /** Aparece directamente en el tile, sin caminar. */
@@ -347,10 +395,11 @@ export class Avatar extends Phaser.GameObjects.Container {
   }
 
   /** Pescando desde la escollera (`facing` = hacia el agua) o no, con una caña de `rodColor`. */
-  setFishing(fishing: boolean, facing: FishFacing = "south", rodColor = ROD_COLOR) {
+  setFishing(fishing: boolean, spot: FishingSpot = { facing: "south", distance: 2 }, rodColor = ROD_COLOR) {
     if (fishing && rodColor !== this.rodColor) this.drawRod(rodColor);
     this.fishing = fishing;
-    this.fishFacing = facing;
+    this.fishFacing = spot.facing;
+    this.fishDistance = spot.distance;
     this.rod.setVisible(fishing);
     this.fishingLine.setVisible(fishing);
     if (!fishing) this.fishingLine.clear();
@@ -596,17 +645,24 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.fishTime += delta;
     const sway = Math.sin(this.fishTime / 450) * 3;
     const bob = Math.sin(this.fishTime / 300) * 1.5;
+    // La boya cae en el centro del tile de agua (`fishDistance` tiles hacia `facing`). El cuerpo ya
+    // está espejado según la dirección, así que en x siempre es hacia +x; en y, un tile hacia el sur
+    // o el este baja en pantalla y uno hacia el norte o el oeste sube.
+    const front = facing === "south" || facing === "east";
+    const bx = this.fishDistance * (TILE_WIDTH / 2) + sway;
+    const by = this.fishDistance * (TILE_HEIGHT / 2) * (front ? 1 : -1) + bob;
     const g = this.fishingLine.clear();
     g.lineStyle(1, LINE_COLOR, 0.9);
     g.beginPath();
-    g.moveTo(60, -88);
-    g.lineTo(68 + sway * 0.5, -40);
-    g.lineTo(72 + sway, 10 + bob);
+    g.moveTo(ROD_TIP.x, ROD_TIP.y);
+    // La tanza cuelga: el punto del medio queda más abajo que la recta entre la punta y la boya.
+    g.lineTo((ROD_TIP.x + bx) / 2 + sway * 0.5, (ROD_TIP.y + by) / 2 + 14);
+    g.lineTo(bx, by);
     g.strokePath();
     g.fillStyle(0xe63946, 1);
-    g.fillCircle(72 + sway, 10 + bob, 2.5);
+    g.fillCircle(bx, by, 2.5);
     g.fillStyle(0xffffff, 1);
-    g.fillCircle(72 + sway, 8 + bob, 1.4);
+    g.fillCircle(bx, by - 2, 1.4);
   }
 
   /** De frente con el carrito a la derecha; cada tanto levanta el brazo para ofrecer. */

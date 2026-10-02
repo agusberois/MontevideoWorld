@@ -31,11 +31,15 @@ export declare const TileChar: {
     readonly Palm: "P";
     /** Escollera: espigón de piedra que entra en el agua. Caminable; desde acá se pesca. */
     readonly Jetty: "E";
+    /** Muro de hormigón con alambre de púas (el COMCAR), no caminable. */
+    readonly Wall: "W";
+    /** Reja de barrotes (el COMCAR): no caminable, pero se ve a través. */
+    readonly Fence: "F";
 };
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -72,7 +76,7 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "none";
 export interface Shop {
     id: string;
     name: string;
@@ -87,6 +91,10 @@ export interface Shop {
     stock: readonly string[];
     /** Categorías que compra. */
     buys: readonly ItemCategory[];
+    /** Mascotas que se adoptan acá (ids de `PETS`): la tienda abre el panel de adopción. */
+    pets?: readonly string[];
+    /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
+    hospital?: boolean;
 }
 /**
  * Zona donde se puede vender con un carrito (p. ej. la explanada del Estadio Centenario): los
@@ -119,6 +127,14 @@ export interface CityDefinition {
     /** Edificio emblemático (`Landmark.id`) sobre cuyo techo va el cartel con el logo de Montevideo World. */
     logoSign?: {
         landmarkId: string;
+    };
+    /**
+     * Cárcel (el COMCAR): los presos (`/ban`) aparecen en `yard`, encerrados; los que llegan en
+     * ómnibus son visitas y aparecen en `spawnArea`, del otro lado de la reja, y se van cuando quieren.
+     * No se muestra en la landing.
+     */
+    prison?: {
+        yard: TileRect;
     };
 }
 //# sourceMappingURL=types.d.ts.map

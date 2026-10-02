@@ -4,7 +4,11 @@ exports.PLAYER_COLORS = exports.CHAT_BUBBLE_MS = exports.CHAT_COOLDOWN_MS = expo
 /** Nombre con el que el servidor registra la sala principal. */
 exports.ROOM_NAME = "city";
 exports.DEFAULT_PORT = 2567;
-exports.MAX_PLAYERS_PER_ROOM = 50;
+/**
+ * Jugadores por sala. Con la sala llena, Colyseus abre otra copia del mismo barrio (no se ven entre
+ * sí: el HUD muestra "· 2"). Pensado para que 25–50 jugadores entren holgados en una sola.
+ */
+exports.MAX_PLAYERS_PER_ROOM = 80;
 /** Tamaño de un tile isométrico en píxeles (rombo 2:1, estilo Habbo). */
 exports.TILE_WIDTH = 64;
 exports.TILE_HEIGHT = 32;

@@ -2,6 +2,7 @@ import type { Appearance } from "./appearance";
 import type { InventoryStack, ItemSlot } from "./items";
 import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
+import type { MatchMode } from "./vending";
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 export declare const MessageType: {
     readonly Move: "move";
@@ -10,18 +11,30 @@ export declare const MessageType: {
     readonly Equip: "equip";
     /** Cliente → Servidor: pedir el contenido de la mochila (al conectarse). */
     readonly RequestInventory: "inventory:get";
+    /** Cliente → Servidor: mover lo del casillero `from` al `to` de la mochila (mover, intercambiar o juntar). */
+    readonly InventoryMove: "inventory:move";
     /** Servidor → Cliente (sólo al dueño): contenido de la mochila. */
     readonly Inventory: "inventory";
     /** Cliente → Servidor: pedir el saldo (al conectarse). */
     readonly RequestWallet: "wallet:get";
+    /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
+    readonly RequestNeeds: "needs:get";
     /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
     readonly Wallet: "wallet";
+    /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
+    readonly Needs: "needs";
+    /** Servidor → Cliente: te desmayaste (salud en 0). */
+    readonly Faint: "faint";
+    /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
+    readonly HospitalHeal: "hospital:heal";
     /** Cliente → Servidor: clic en una tienda (caminar hasta ella y abrirla). */
     readonly ShopVisit: "shop:visit";
     /** Servidor → Cliente: llegaste a la tienda, abrí su panel. */
     readonly ShopOpen: "shop:open";
     /** Cliente → Servidor: comprar / vender una unidad de una prenda. */
     readonly ShopBuy: "shop:buy";
+    /** Cliente → Servidor: comprar todo el carrito de una (todo o nada). */
+    readonly ShopCheckout: "shop:checkout";
     readonly ShopSell: "shop:sell";
     /** Cliente → Servidor: vender regateando, todo o nada (ver `haggle.ts`). */
     readonly ShopHaggle: "shop:haggle";
@@ -31,8 +44,8 @@ export declare const MessageType: {
     readonly FishCast: "fish:cast";
     /** Cliente → Servidor: recoger la línea sin esperar (cancela la pesca). */
     readonly FishStop: "fish:stop";
-    /** Cliente → Servidor: comerse un pescado de la mochila (recupera energía). */
-    readonly FishEat: "fish:eat";
+    /** Cliente → Servidor: comerse algo de la mochila (comida o un pescado): llena el hambre y da energía. */
+    readonly FoodEat: "food:eat";
     /** Servidor → Cliente: empezaste a pescar; algo (o nada) va a picar en `durationMs`. */
     readonly FishStarted: "fish:started";
     /** Servidor → Cliente: cómo terminó la pesca. */
@@ -55,13 +68,15 @@ export declare const MessageType: {
     readonly AdminNearby: "admin:nearby";
     /** Cliente (admin) → Servidor: crear ítems del catálogo en la mochila propia o de un jugador cercano. */
     readonly AdminGive: "admin:give";
+    /** Cliente (admin) → Servidor: forzar (o no) el partido en el Centenario, en todos los barrios. */
+    readonly AdminMatch: "admin:match";
     /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
     readonly Announcement: "announcement";
     /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */
     readonly BoxOpen: "box:open";
     /** Servidor → Cliente: qué salió de la caja (para mostrar la sorpresa). */
     readonly BoxOpened: "box:opened";
-    /** Cliente → Servidor: comprar el boleto para viajar a otro barrio (`TRAVEL_FARE`). */
+    /** Cliente → Servidor: viajar a otro barrio usando un boleto STM de la mochila (`TICKET_ID`). */
     readonly TravelRequest: "travel:request";
     /** Servidor → Cliente: boleto pagado; ya se puede salir y entrar al barrio `cityId`. */
     readonly TravelApproved: "travel:ok";
@@ -71,6 +86,12 @@ export declare const MessageType: {
     readonly WeevilKick: "weevil:kick";
     /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
     readonly Greet: "greet";
+    /** Cliente → Servidor: en la veterinaria, adoptar una mascota con nombre, cambiarle el nombre o despedirse. */
+    readonly PetAdopt: "pet:adopt";
+    readonly PetRename: "pet:rename";
+    readonly PetRelease: "pet:release";
+    /** Cliente → Servidor: una visita del COMCAR se burla de un preso (sale en el chat, como el saludo). */
+    readonly Taunt: "taunt";
     /** Cliente → Servidor: invitar a otro jugador a intercambiar. */
     readonly TradeRequest: "trade:request";
     /** Servidor → Cliente (sólo al invitado): alguien te invita a intercambiar. */
@@ -154,11 +175,32 @@ export interface ChatBroadcastMessage {
     to?: string;
 }
 /** Servidor → Cliente: la mochila del jugador (privada, no viaja en el Schema). */
+/** Cliente → Servidor: adoptar `petId` en la tienda `shopId` y llamarla `name`. */
+export interface PetAdoptMessage {
+    shopId: string;
+    petId: string;
+    name: string;
+}
+/** Cliente → Servidor: nuevo nombre para tu mascota (en la tienda `shopId`). */
+export interface PetRenameMessage {
+    shopId: string;
+    name: string;
+}
+/** Cliente → Servidor: casilleros de la mochila (0 … capacidad − 1). */
+export interface InventoryMoveMessage {
+    from: number;
+    to: number;
+}
 export interface InventoryMessage {
     stacks: InventoryStack[];
     capacity: number;
 }
 /** Servidor → Cliente: el saldo del jugador (privado, no viaja en el Schema). */
+/** Servidor → Cliente: hambre (saciedad) y salud, 0–100 redondeadas. Privadas: no van en el Schema. */
+export interface NeedsMessage {
+    hunger: number;
+    health: number;
+}
 export interface WalletMessage {
     balance: number;
 }
@@ -171,10 +213,27 @@ export interface ShopVisitMessage {
 export interface ShopOpenMessage {
     shopId: string;
 }
-/** Cliente → Servidor: comprar o vender una unidad de `itemId` en la tienda `shopId`. */
+/** Cuántas unidades se pueden comprar o vender de una vez (`ShopTradeMessage.quantity`). */
+export declare const SHOP_MAX_QUANTITY = 99;
+/** Cliente → Servidor: comprar o vender `quantity` unidades (1 si no viene) de `itemId` en la tienda `shopId`. */
 export interface ShopTradeMessage {
     shopId: string;
     itemId: string;
+    /** Entero de 1 a `SHOP_MAX_QUANTITY`. Regatear es siempre de a una. */
+    quantity?: number;
+}
+/** Una línea del carrito: `quantity` (1 … `SHOP_MAX_QUANTITY`) unidades de `itemId`. */
+export interface CartLine {
+    itemId: string;
+    quantity: number;
+}
+/**
+ * Cliente → Servidor: comprar todo el carrito en la tienda `shopId`, en una sola compra. Es todo o
+ * nada: si no alcanza la plata o no entra en la mochila, no se compra nada.
+ */
+export interface ShopCheckoutMessage {
+    shopId: string;
+    items: CartLine[];
 }
 /** Cliente → Servidor: vender una unidad de `itemId` pidiendo `price` (todo o nada). */
 export interface ShopHaggleMessage extends ShopTradeMessage {
@@ -184,9 +243,15 @@ export interface ShopHaggleMessage extends ShopTradeMessage {
 export interface ShopResultMessage {
     ok: boolean;
     text: string;
+    /** Compra o venta (no regateo ni otras tiendas): qué ítem y cuántas unidades salieron, para resaltarlo. */
+    action?: "buy" | "sell";
+    itemId?: string;
+    quantity?: number;
+    /** Compra del carrito: lo que se compró, para resaltar cada fila. */
+    bought?: CartLine[];
 }
-/** Cliente → Servidor: comerse una unidad del pescado `itemId`. */
-export interface FishEatMessage {
+/** Cliente → Servidor: comerse una unidad de `itemId` (comida o pescado). */
+export interface FoodEatMessage {
     itemId: string;
 }
 /** Servidor → Cliente: la línea está en el agua; el resultado llega en `durationMs`. */
@@ -241,6 +306,11 @@ export interface AdminNearbyMessage {
  * `targetId`, a la mochila propia; con él, a la de ese jugador (tiene que estar a `MAKER_RANGE`).
  * Las herramientas salen nuevas. Lo que no entra en la mochila no se crea.
  */
+/** Cliente (admin) → Servidor: `mode` del partido (ver `MatchMode`); con "on", `name` es uno de `MATCHES`. */
+export interface AdminMatchMessage {
+    mode: MatchMode;
+    name?: string;
+}
 export interface AdminGiveMessage {
     itemId: string;
     quantity: number;
@@ -255,6 +325,14 @@ export interface AnnouncementMessage {
 /** Cliente → Servidor: viajar a `cityId`; Servidor → Cliente: boleto pagado para `cityId`. */
 export interface TravelMessage {
     cityId: string;
+    /** Sólo Servidor → Cliente: entrar a esta sala justa (una copia del barrio, ver `/trace`). */
+    roomId?: string;
+    /** Sólo Servidor → Cliente: te lleva la ambulancia (desmayo), no el ómnibus. */
+    ambulance?: boolean;
+}
+/** Servidor → Cliente: te desmayaste (pantalla negra con `text`; si hay que viajar, llega `travel:ok`). */
+export interface FaintMessage {
+    text: string;
 }
 /** Cliente → Servidor: patear al picudo `id` (hay que estar cerca: `WEEVIL_KICK_RANGE`). */
 export interface WeevilKickMessage {
@@ -314,19 +392,26 @@ export interface ClientToServerMessages {
     [MessageType.Sit]: SitMessage;
     [MessageType.Equip]: EquipMessage;
     [MessageType.RequestInventory]: undefined;
+    [MessageType.InventoryMove]: InventoryMoveMessage;
     [MessageType.RequestWallet]: undefined;
+    [MessageType.RequestNeeds]: undefined;
+    [MessageType.HospitalHeal]: {
+        shopId: string;
+    };
     [MessageType.ShopVisit]: ShopVisitMessage;
     [MessageType.ShopBuy]: ShopTradeMessage;
+    [MessageType.ShopCheckout]: ShopCheckoutMessage;
     [MessageType.ShopSell]: ShopTradeMessage;
     [MessageType.ShopHaggle]: ShopHaggleMessage;
     [MessageType.FishCast]: undefined;
     [MessageType.FishStop]: undefined;
-    [MessageType.FishEat]: FishEatMessage;
+    [MessageType.FoodEat]: FoodEatMessage;
     [MessageType.VendStart]: undefined;
     [MessageType.VendStop]: undefined;
     [MessageType.AdminSetTime]: AdminSetTimeMessage;
     [MessageType.AdminNearbyRequest]: undefined;
     [MessageType.AdminGive]: AdminGiveMessage;
+    [MessageType.AdminMatch]: AdminMatchMessage;
     [MessageType.BoxOpen]: BoxOpenMessage;
     [MessageType.TravelRequest]: TravelMessage;
     [MessageType.PalmShake]: {
@@ -335,6 +420,12 @@ export interface ClientToServerMessages {
     };
     [MessageType.WeevilKick]: WeevilKickMessage;
     [MessageType.Greet]: TargetPlayerMessage;
+    [MessageType.PetAdopt]: PetAdoptMessage;
+    [MessageType.PetRename]: PetRenameMessage;
+    [MessageType.PetRelease]: {
+        shopId: string;
+    };
+    [MessageType.Taunt]: TargetPlayerMessage;
     [MessageType.TradeRequest]: TargetPlayerMessage;
     [MessageType.TradeRespond]: TradeRespondMessage;
     [MessageType.TradeOffer]: TradeOffer;
@@ -345,6 +436,8 @@ export interface ServerToClientMessages {
     [MessageType.Chat]: ChatBroadcastMessage;
     [MessageType.Inventory]: InventoryMessage;
     [MessageType.Wallet]: WalletMessage;
+    [MessageType.Needs]: NeedsMessage;
+    [MessageType.Faint]: FaintMessage;
     [MessageType.ShopOpen]: ShopOpenMessage;
     [MessageType.ShopResult]: ShopResultMessage;
     [MessageType.FishStarted]: FishStartedMessage;

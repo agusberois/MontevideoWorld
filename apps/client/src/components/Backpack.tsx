@@ -1,15 +1,18 @@
 "use client";
 
 import {
+  ItemDefinition,
+  InventoryStack,
+  isTool,
   INVENTORY_CAPACITY,
   ITEM_SLOTS,
   ITEM_SLOT_LABELS,
-  InventoryMessage,
   ItemSlot,
-  OutfitIds,
   BoxItem,
   difficultyStars,
-  fishStamina,
+  edibleLabel,
+  edibleValue,
+  FoodItem,
   formatMoney,
   getClothing,
   getItem,
@@ -29,21 +32,31 @@ import {
   rodPerks,
   rodStars,
 } from "@montevideo-world/shared";
-import { useState } from "react";
+import { DragEvent, useRef, useState } from "react";
 import { isItemDrag, readItemDrag, startItemDrag } from "@/lib/hotbar";
 import { isTouchDevice } from "@/lib/viewport";
-import { CityRoom, sendBoxOpen, sendEquip } from "@/lib/network";
+import { useGame } from "@/lib/gameStore";
+import { sendBoxOpen, sendEquip, sendFoodEat, sendInventoryMove } from "@/lib/network";
+import type { PanelProps } from "./panels";
 import { ItemIcon, SlotPlaceholderIcon } from "./ItemIcon";
 import { ToolWear } from "./ToolWear";
 import { UiIcon } from "./UiIcon";
 
-interface BackpackProps {
-  room: CityRoom;
-  /** Ropa puesta según el Schema (llega por el EventBus); null hasta que se sincroniza. */
-  outfit: OutfitIds | null;
-  /** Mochila según el server (mensaje privado); null hasta que llega. */
-  inventory: InventoryMessage | null;
-  onClose: () => void;
+
+/** Toque largo en celulares para levantar un casillero y moverlo. */
+const LONG_PRESS_MS = 450;
+
+/** Cómo se ve y qué hace un casillero de la mochila (ver `cellView`). */
+interface CellView {
+  onClick: () => void;
+  title: string;
+  ariaLabel?: string;
+  /** Clase extra del casillero ("box", "rod-in-use"). */
+  className?: string;
+  /** El clic muestra la info del ítem (no lo usa). */
+  showsDetail?: boolean;
+  /** Es la herramienta con la que pescás o vendés ahora. */
+  inUse?: boolean;
 }
 
 /**
@@ -52,7 +65,9 @@ interface BackpackProps {
  * Las prendas se pueden arrastrar a la barra de acceso rápido (1–9).
  * Son intenciones: el server valida y la UI se actualiza con el Schema y el mensaje de inventario.
  */
-export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
+export function Backpack({ room, onClose }: PanelProps) {
+  const outfit = useGame((state) => state.outfit);
+  const inventory = useGame((state) => state.inventory);
   /** Info del ítem tocado (cañas, carritos, pescados): en celulares no hay tooltips. */
   const [detail, setDetail] = useState<string | null>(null);
   // En pantallas táctiles el arrastre nativo no anda: la barra rápida se arma tocándola (HotbarPicker).
@@ -62,7 +77,44 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
   /** Mismo criterio que el server: se apila sobre una pila igual o va a un casillero libre. */
   const canStore = (itemId: string) =>
     stacks.some((stack) => stack.itemId === itemId && stack.quantity < maxStack(getItem(itemId))) || stacks.length < capacity;
-  const cells = Array.from({ length: capacity }, (_, index) => stacks[index]);
+  /** Cada pila en su casillero (`slot`); si no trae uno (no debería), al primero libre. */
+  const cells: Array<InventoryStack | undefined> = Array.from({ length: capacity }, () => undefined);
+  for (const stack of stacks) {
+    const slot = stack.slot !== undefined && stack.slot < capacity && !cells[stack.slot] ? stack.slot : cells.findIndex((cell) => !cell);
+    if (slot >= 0) cells[slot] = stack;
+  }
+  /** Celulares: casillero "levantado" con un toque largo; el próximo toque lo deja en otro. */
+  const [moving, setMoving] = useState<number | null>(null);
+  /** Casillero sobre el que se está arrastrando algo de la mochila (para resaltarlo). */
+  const [dropTarget, setDropTarget] = useState<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const longPressed = useRef(false);
+  const cancelPress = () => {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  const moveTo = (from: number, to: number) => {
+    if (from !== to) sendInventoryMove(room, from, to);
+    setMoving(null);
+  };
+  /** Props de cada casillero para recibir lo que se arrastra desde otro casillero de la mochila. */
+  const dropProps = (index: number) => ({
+    onDragOver: (event: DragEvent) => {
+      if (!isItemDrag(event)) return;
+      event.preventDefault();
+      setDropTarget(index);
+    },
+    onDragLeave: () => setDropTarget((current) => (current === index ? null : current)),
+    onDrop: (event: DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setDropTarget(null);
+      const drag = readItemDrag(event);
+      if (drag?.fromBackpack !== undefined) moveTo(drag.fromBackpack, index);
+    },
+  });
+  const cellClass = (index: number, extra?: string) =>
+    ["backpack-cell", extra, moving === index && "moving", dropTarget === index && "drop-target"].filter(Boolean).join(" ");
 
   const equip = (slot: ItemSlot, itemId: string | null) => sendEquip(room, slot, itemId);
   const hasBox = stacks.some((stack) => isBox(getItem(stack.itemId)));
@@ -74,6 +126,82 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
   const rodInUse = bestRodItem && wornestStack(stacks, bestRodItem.id);
   const bestCartItem = bestCart(stacks.map((stack) => stack.itemId));
   const cartInUse = bestCartItem && wornestStack(stacks, bestCartItem.id);
+
+  /**
+   * Qué hace cada casillero según la categoría del ítem: ropa → ponérsela; caja → abrirla; caña,
+   * carrito, pescado → mostrar su info (en celulares no hay tooltips). Una categoría nueva no
+   * compila hasta tener su caso.
+   */
+  function cellView(item: ItemDefinition, stack: InventoryStack): CellView {
+    const units = stack.quantity > 1 ? `, ${stack.quantity} unidades` : "";
+    switch (item.category) {
+      case "clothing":
+        return {
+          onClick: () => equip(item.slot, item.id),
+          title: `${item.name} — clic para ponértelo, o arrastralo a la barra 1–9`,
+          ariaLabel: `${item.name}${units}`,
+        };
+      case "box":
+        return {
+          className: "box",
+          onClick: () => sendBoxOpen(room, item.id),
+          title: boxTitle(item),
+          ariaLabel: `${item.name}${units}: abrir`,
+        };
+      case "rod": {
+        const inUse = stack === rodInUse;
+        const text = rodTitle(item, inUse, stackUses(stack));
+        return {
+          className: inUse ? "rod-in-use" : undefined,
+          showsDetail: true,
+          inUse,
+          onClick: () => setDetail(text),
+          title: `${text}. Arrastrala a la barra 1–9 para pescar con un atajo.`,
+        };
+      }
+      case "cart": {
+        const inUse = stack === cartInUse;
+        const text = cartTitle(item, inUse, stackUses(stack));
+        return {
+          className: inUse ? "rod-in-use" : undefined,
+          showsDetail: true,
+          inUse,
+          onClick: () => setDetail(text),
+          title: `${text}. Arrastralo a la barra 1–9 para vender con un atajo.`,
+        };
+      }
+      case "ticket": {
+        const text = `${item.name} — cada viaje en ómnibus a otro barrio usa uno. Se puede intercambiar.`;
+        return {
+          showsDetail: true,
+          onClick: () => setDetail(text),
+          title: `${text} Arrastralo a la barra 1–9 para abrir la lista de barrios.`,
+        };
+      }
+      case "fish":
+        // Los pescados se venden en el Mercado del Puerto o se comen desde la barra rápida (tocarlos
+        // muestra su info: comerse uno caro por un toque sin querer sería feo).
+        return {
+          showsDetail: true,
+          onClick: () => setDetail(fishTitle(item)),
+          title: `${fishTitle(item)} Arrastralo a la barra 1–9 para comerlo.`,
+        };
+      case "food":
+        return {
+          onClick: () => sendFoodEat(room, item.id),
+          title: `${foodTitle(item)} Clic para comerlo.`,
+          ariaLabel: `Comer ${item.name}`,
+        };
+      case "medicine": {
+        const value = edibleValue(item);
+        return {
+          onClick: () => sendFoodEat(room, item.id),
+          title: `${item.name} — tomarlo: ${value ? edibleLabel(value) : ""}. Clic para tomarlo.`,
+          ariaLabel: `Tomar ${item.name}`,
+        };
+      }
+    }
+  }
 
   return (
     <div
@@ -142,100 +270,59 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
           <ul className="backpack-grid">
             {cells.map((stack, index) => {
               const item = stack ? getItem(stack.itemId) : undefined;
-              if (!stack || !item) return <li key={`empty-${index}`} className="backpack-cell empty" />;
+              if (!stack || !item) {
+                return (
+                  <li
+                    key={`empty-${index}`}
+                    className={cellClass(index, "empty")}
+                    {...dropProps(index)}
+                    onClick={() => moving !== null && moveTo(moving, index)}
+                  />
+                );
+              }
               const qty = stack.quantity > 1 && <span className="backpack-qty">x{stack.quantity}</span>;
-              if (item.category === "box") {
-                return (
-                  <li key={`${stack.itemId}-${index}`} className="backpack-cell box">
-                    <button
-                      type="button"
-                      draggable={!touch}
-                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      onClick={() => sendBoxOpen(room, item.id)}
-                      title={boxTitle(item)}
-                      aria-label={`${item.name}${stack.quantity > 1 ? `, ${stack.quantity} unidades` : ""}: abrir`}
-                    >
-                      <ItemIcon item={item} size={40} />
-                      <span className="backpack-cell-name">{item.name}</span>
-                      {qty}
-                    </button>
-                  </li>
-                );
-              }
-              if (item.category === "rod") {
-                const inUse = stack === rodInUse;
-                return (
-                  <li key={`${stack.itemId}-${index}`} className={`backpack-cell${inUse ? " rod-in-use" : ""}`}>
-                    <button
-                      type="button"
-                      className="backpack-cell-static"
-                      draggable={!touch}
-                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      onClick={() => setDetail(rodTitle(item, inUse, stackUses(stack)))}
-                      title={`${rodTitle(item, inUse, stackUses(stack))}. Arrastrala a la barra 1–9 para pescar con un atajo.`}
-                    >
-                      <ItemIcon item={item} size={40} />
-                      <span className="backpack-cell-name">{item.name}</span>
-                      {qty}
-                      {inUse && <span className="backpack-badge">En uso</span>}
-                      <ToolWear item={item} uses={stackUses(stack)} />
-                    </button>
-                  </li>
-                );
-              }
-              if (item.category === "cart") {
-                const inUse = stack === cartInUse;
-                return (
-                  <li key={`${stack.itemId}-${index}`} className={`backpack-cell${inUse ? " rod-in-use" : ""}`}>
-                    <button
-                      type="button"
-                      className="backpack-cell-static"
-                      draggable={!touch}
-                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      onClick={() => setDetail(cartTitle(item, inUse, stackUses(stack)))}
-                      title={`${cartTitle(item, inUse, stackUses(stack))}. Arrastralo a la barra 1–9 para vender con un atajo.`}
-                    >
-                      <ItemIcon item={item} size={40} />
-                      <span className="backpack-cell-name">{item.name}</span>
-                      {qty}
-                      {inUse && <span className="backpack-badge">En uso</span>}
-                      <ToolWear item={item} uses={stackUses(stack)} />
-                    </button>
-                  </li>
-                );
-              }
-              if (item.category === "fish") {
-                // Los pescados se venden en el Mercado del Puerto o se comen desde la barra rápida.
-                return (
-                  <li key={`${stack.itemId}-${index}`} className="backpack-cell">
-                    <button
-                      type="button"
-                      className="backpack-cell-static"
-                      draggable={!touch}
-                      onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                      onClick={() => setDetail(fishTitle(item))}
-                      title={`${fishTitle(item)} Arrastralo a la barra 1–9 para comerlo.`}
-                    >
-                      <ItemIcon item={item} size={40} />
-                      <span className="backpack-cell-name">{item.name}</span>
-                      {qty}
-                    </button>
-                  </li>
-                );
-              }
+              const view = cellView(item, stack);
               return (
-                <li key={`${stack.itemId}-${index}`} className="backpack-cell">
+                <li key={`${stack.itemId}-${index}`} className={cellClass(index, view.className)} {...dropProps(index)}>
                   <button
                     type="button"
+                    className={view.showsDetail ? "backpack-cell-static" : undefined}
                     draggable={!touch}
-                    onDragStart={(event) => startItemDrag(event, { itemId: item.id })}
-                    onClick={() => equip(item.slot, item.id)}
-                    title={`${item.name} — clic para ponértelo, o arrastralo a la barra 1–9`}
-                    aria-label={`${item.name}${stack.quantity > 1 ? `, ${stack.quantity} unidades` : ""}`}
+                    onDragStart={(event) => {
+                      cancelPress();
+                      startItemDrag(event, { itemId: item.id, fromBackpack: index });
+                    }}
+                    onDragEnd={() => setDropTarget(null)}
+                    onClick={() => {
+                      // Después de un toque largo (que levantó el casillero) no se usa el ítem.
+                      if (longPressed.current) {
+                        longPressed.current = false;
+                        return;
+                      }
+                      if (moving !== null) return moveTo(moving, index);
+                      view.onClick();
+                    }}
+                    onPointerDown={(event) => {
+                      if (event.pointerType === "mouse") return;
+                      longPressed.current = false;
+                      cancelPress();
+                      pressTimer.current = window.setTimeout(() => {
+                        longPressed.current = true;
+                        setMoving(index);
+                      }, LONG_PRESS_MS);
+                    }}
+                    onPointerUp={cancelPress}
+                    onPointerLeave={cancelPress}
+                    onPointerCancel={cancelPress}
+                    onContextMenu={(event) => touch && event.preventDefault()}
+                    title={view.title}
+                    aria-label={view.ariaLabel}
                   >
                     <ItemIcon item={item} size={40} />
                     <span className="backpack-cell-name">{item.name}</span>
                     {qty}
+                    {view.inUse && <span className="backpack-badge">En uso</span>}
+                    {isTool(item) && <ToolWear item={item} uses={stackUses(stack)} />}
                   </button>
                 </li>
               );
@@ -247,8 +334,18 @@ export function Backpack({ room, outfit, inventory, onClose }: BackpackProps) {
             </p>
           )}
           {stacks.length === 0 && <p className="backpack-hint">Vacía. Lo que te saques se guarda acá.</p>}
-          {touch && stacks.length > 0 && (
-            <p className="backpack-hint">Para la barra rápida, tocá un casillero vacío de la barra (o mantené apretado uno lleno).</p>
+          {moving !== null ? (
+            <p className="backpack-hint" role="status">
+              Tocá el casillero donde lo querés poner (o el mismo para dejarlo donde está).
+            </p>
+          ) : (
+            stacks.length > 0 && (
+              <p className="backpack-hint">
+                {touch
+                  ? "Para ordenar la mochila, mantené apretado un ítem y tocá dónde ponerlo. Para la barra rápida, tocá un casillero vacío de la barra (o mantené apretado uno lleno)."
+                  : "Arrastrá los ítems para ordenarlos (sobre otro, se intercambian; sobre uno igual, se juntan) o a la barra rápida."}
+              </p>
+            )
           )}
           {hasBox && (
             <p className="backpack-hint">🎁 Para abrir una caja sorpresa, tocala{touch ? "" : " o tirala fuera de la mochila"}.</p>
@@ -285,5 +382,11 @@ function cartTitle(cart: CartItem, inUse: boolean, uses: number): string {
 
 /** "Corvina negra ★★★★★ — en el Mercado del Puerto lo pagan $60. Comerlo da +30 de energía." */
 function fishTitle(fish: FishItem): string {
-  return `${fish.name} ${difficultyStars(fish.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(fish.price)}. Comerlo da +${fishStamina(fish.difficulty)} de energía.`;
+  const value = edibleValue(fish);
+  return `${fish.name} ${difficultyStars(fish.difficulty)} — en el Mercado del Puerto lo pagan ${formatMoney(fish.price)}. Comerlo: ${value ? edibleLabel(value) : ""}.`;
+}
+
+function foodTitle(food: FoodItem): string {
+  const value = edibleValue(food);
+  return `${food.name} — comerlo: ${value ? edibleLabel(value) : ""}.`;
 }

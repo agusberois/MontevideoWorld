@@ -1,27 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CartItem, LOW_USES, Match, VendResultMessage, cartPerks, usesLabel } from "@montevideo-world/shared";
+import { LOW_USES, VEND_ENERGY_COST, VendResultMessage, bestCart, cartPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
+import { toggleVending } from "@/lib/gameActions";
+import { useGame } from "@/lib/gameStore";
+import type { CityRoom } from "@/lib/network";
 import { UiIcon } from "./UiIcon";
 
 interface VendingWidgetProps {
-  /** El avatar propio está parado en la zona de venta (explanada del Centenario). */
-  canVend: boolean;
-  /** Está ofreciendo la mercadería (según el Schema). */
-  vending: boolean;
-  /** Hay energía para vender. */
-  hasEnergy: boolean;
-  /** El carrito con el que se vende (el mejor de la mochila); undefined si no tiene ninguno. */
-  cart: CartItem | undefined;
-  /** Usos que le quedan a ese carrito (se rompe al llegar a 0). */
-  uses: number;
-  /** El partido que se está jugando en el Centenario, si hay (se vende el doble). */
-  match: Match | undefined;
-  /** Ofrecer o dejar de vender (lo mismo que la tecla F en la explanada). */
-  onToggle: () => void;
-  /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
-  keyHint?: boolean;
+  room: CityRoom;
 }
 
 const RESULT_MS = 5000;
@@ -30,7 +18,23 @@ const RESULT_MS = 5000;
  * Vender en la explanada del Centenario: botón "Vender (F)", barra de espera mientras ofrece (la
  * duración la decide el server) y aviso con lo que pasó. Usa los mismos estilos que la pesca.
  */
-export function VendingWidget({ canVend, vending, hasEnergy, cart, uses, match, onToggle, keyHint = true }: VendingWidgetProps) {
+export function VendingWidget({ room }: VendingWidgetProps) {
+  /** Si está parado en la explanada del Centenario y si está ofreciendo (según el Schema). */
+  const { canVend, vending } = useGame((state) => state.vending);
+  const energy = useGame((state) => state.energy);
+  const inventory = useGame((state) => state.inventory);
+  /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
+  const hasInteraction = useGame((state) => state.interaction !== null);
+  const keyHint = vending || !hasInteraction;
+  const hasEnergy = energy === null || energy >= VEND_ENERGY_COST;
+  /** El carrito con el que se vende: el de mayor nivel y, entre iguales, el más gastado (como el server). */
+  const stacks = inventory?.stacks ?? [];
+  const cart = bestCart(stacks.map((stack) => stack.itemId));
+  const cartStack = cart && wornestStack(stacks, cart.id);
+  const uses = cartStack ? stackUses(cartStack) : 0;
+  /** El partido que se está jugando en el Centenario, si hay (se vende el doble; lo dice el server). */
+  const match = useGame((state) => state.match);
+  const onToggle = () => toggleVending(room);
   const [wait, setWait] = useState<{ id: number; durationMs: number } | null>(null);
   const [result, setResult] = useState<VendResultMessage | null>(null);
 
@@ -57,7 +61,7 @@ export function VendingWidget({ canVend, vending, hasEnergy, cart, uses, match, 
   return (
     <div className="fishing" role="status" aria-live="polite">
       {result && <p className={`fishing-result ${result.ok ? "ok" : "miss"}`}>{result.text}</p>}
-      {canVend && match && <p className="vending-match">⚽ {match.name}: ¡se vende el doble!</p>}
+      {canVend && match && <p className="vending-match">⚽ {match}: ¡se vende el doble!</p>}
       {vending ? (
         <div className="fishing-card">
           <span className="fishing-label" title={cart ? `Vendiendo con ${cart.name}` : undefined}>

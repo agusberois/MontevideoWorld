@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   ITEMS,
-  ITEM_CATEGORY_LABELS,
+  ITEM_CATEGORIES,
+  ITEM_CATEGORY_IDS,
   ItemCategory,
   MAKER_MAX_QUANTITY,
   MAKER_RANGE,
@@ -21,8 +22,8 @@ interface MakerPanelProps {
   onClose: () => void;
 }
 
-/** Orden de las secciones del maker. */
-const CATEGORY_ORDER: readonly ItemCategory[] = ["clothing", "fish", "rod", "cart", "box"];
+/** Orden de las secciones del maker: el del catálogo de categorías. */
+const CATEGORY_ORDER = ITEM_CATEGORY_IDS;
 const QUICK_QUANTITIES = [1, 5, 10];
 
 /**
@@ -180,7 +181,7 @@ export function MakerPanel({ room, onClose }: MakerPanelProps) {
                   <span className="maker-tab-arrow" aria-hidden="true">
                     ▸
                   </span>
-                  <span className="maker-tab-label">{ITEM_CATEGORY_LABELS[category]}</span>
+                  <span className="maker-tab-label">{ITEM_CATEGORIES[category].label}</span>
                   <span className="maker-tab-count">{list.length}</span>
                 </button>
                 {expanded && (

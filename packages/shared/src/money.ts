@@ -9,10 +9,10 @@ export const STARTING_MONEY = 100;
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 export const MAX_MONEY = 1_000_000_000;
 
-/** Boleto de ómnibus (STM) para viajar de un barrio a otro. */
+/** Precio del boleto de ómnibus (STM, `TICKET_ID`) en la Agencia STM: cada viaje entre barrios gasta uno. */
 export const TRAVEL_FARE = 52;
 
-/** Cuánto vale un boleto ya pagado: hay que entrar al barrio de destino antes de que venza. */
+/** Pase de viaje (boleto ya usado): hay que entrar al barrio de destino antes de que venza. */
 export const TRAVEL_TICKET_MS = 30_000;
 
 /** ¿Es un monto válido para cobrar o pagar? (entero positivo y dentro del tope) */

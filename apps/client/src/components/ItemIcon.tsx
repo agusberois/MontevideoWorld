@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { FishItem, ItemDefinition, ItemSlot, ItemStyle } from "@montevideo-world/shared";
+import type { FishItem, FoodShape, ItemCategory, MedicineShape, ItemDefinition, ItemSlot, ItemStyle } from "@montevideo-world/shared";
 
 /** Aclara (amount > 0) u oscurece (amount < 0) un "#rrggbb" mezclándolo con blanco o negro. */
 function mix(hex: string, amount: number): string {
@@ -201,6 +201,135 @@ function cartShape(fill: string, dark: string, tier: number) {
   );
 }
 
+/** Boleto de ómnibus: tarjeta con muescas, franja de color y "STM". */
+function ticketShape(fill: string, dark: string) {
+  return (
+    <>
+      <path
+        d="M4 9 H28 V13 A3 3 0 0 0 28 19 V23 H4 V19 A3 3 0 0 0 4 13 Z"
+        fill="#f4f6f8"
+        stroke={dark}
+        strokeWidth={1.4}
+        strokeLinejoin="round"
+      />
+      <rect x={4.7} y={9.7} width={22.6} height={4.3} fill={fill} />
+      <line x1={21} y1={15} x2={21} y2={22.3} stroke={dark} strokeWidth={1} strokeDasharray="1.5 1.5" />
+      <text x={12.5} y={21} textAnchor="middle" fontSize={6} fontWeight={800} fontFamily="system-ui, sans-serif" fill={fill}>
+        STM
+      </text>
+    </>
+  );
+}
+
+/** Comidas: torta frita, alfajor, mate, pancho, chivito y pescado a la plancha. */
+function foodShape(kind: FoodShape, fill: string, dark: string, light: string): ReactNode {
+  const outline = { stroke: dark, strokeWidth: 1.3, strokeLinejoin: "round" as const };
+  switch (kind) {
+    case "tortaFrita":
+      return (
+        <>
+          <ellipse cx={16} cy={17} rx={12} ry={8} fill={fill} {...outline} />
+          <circle cx={16} cy={16} r={1.6} fill={dark} />
+          <path d="M9 14 L10 15 M21 19 L22 20 M12 20 L13 21 M20 12.5 L21 13.5" stroke="#f4efe3" strokeWidth={1.2} strokeLinecap="round" />
+        </>
+      );
+    case "alfajor":
+      return (
+        <>
+          <ellipse cx={16} cy={20} rx={11} ry={5} fill={fill} {...outline} />
+          <rect x={5} y={15} width={22} height={4} fill="#f4e3c3" />
+          <ellipse cx={16} cy={14.5} rx={11} ry={5} fill={fill} {...outline} />
+          <path d="M9 13 Q12 11.5 15 13 M17 12 Q20 10.5 23 12.5" stroke={light} strokeWidth={1} fill="none" />
+        </>
+      );
+    case "mate":
+      return (
+        <>
+          <path d="M8 12 Q7 26 16 27 Q25 26 24 12 Z" fill="#8a5a2b" {...outline} />
+          <ellipse cx={16} cy={12} rx={8} ry={2.5} fill={fill} {...outline} />
+          <path d="M18 12 L23 3" stroke="#c9ccd1" strokeWidth={2.2} strokeLinecap="round" />
+          <path d="M9 17 H23" stroke="#c9a227" strokeWidth={1.4} />
+        </>
+      );
+    case "pancho":
+      return (
+        <>
+          <path d="M4 17 Q16 27 28 17 L27 15 Q16 22 5 15 Z" fill="#e0a84a" {...outline} />
+          <rect x={3} y={12} width={26} height={5} rx={2.5} fill={fill} {...outline} />
+          <path d="M6 14.5 Q9 12.5 12 14.5 T18 14.5 T24 14.5" stroke="#f2c500" strokeWidth={1.4} fill="none" />
+          <path d="M4 15 Q16 9 28 15 L27 11 Q16 5 5 11 Z" fill="#e8b65a" {...outline} />
+        </>
+      );
+    case "chivito":
+      return (
+        <>
+          <path d="M4 20 Q16 26 28 20 L28 22 Q16 28 4 22 Z" fill={fill} {...outline} />
+          <path d="M5 19 H27" stroke="#5f9a46" strokeWidth={2.2} />
+          <path d="M5 17 H27" stroke="#c0392b" strokeWidth={1.8} />
+          <path d="M5 15 H27" stroke="#7a3e1e" strokeWidth={2.2} />
+          <ellipse cx={16} cy={13} rx={6} ry={2} fill="#ffffff" />
+          <circle cx={16} cy={13} r={1.6} fill="#f2b705" />
+          <path d="M4 13 Q16 3 28 13 Z" fill={fill} {...outline} />
+        </>
+      );
+    case "fishPlate":
+      return (
+        <>
+          <ellipse cx={16} cy={19} rx={13} ry={7} fill="#f4f6f8" {...outline} />
+          <path d="M8 18 Q14 12 21 17 L25 14 L25 21 L21 19 Q14 24 8 18 Z" fill={fill} stroke={dark} strokeWidth={1} />
+          <path d="M11 17 L13 19 M14 16 L16 18.5 M17 16.5 L19 18.5" stroke="#9a6b3a" strokeWidth={1} strokeLinecap="round" />
+          <circle cx={6.5} cy={21} r={1.8} fill="#f2e86d" />
+        </>
+      );
+  }
+}
+
+/** Remedios: blíster de pastillas (Perifar), curita, frasco de vitaminas y botiquín. */
+function medicineShape(kind: MedicineShape, fill: string, dark: string): ReactNode {
+  const outline = { stroke: dark, strokeWidth: 1.3, strokeLinejoin: "round" as const };
+  switch (kind) {
+    case "pills":
+      return (
+        <>
+          <rect x={5} y={7} width={22} height={18} rx={2.5} fill="#e6e9ee" {...outline} />
+          {[10, 16, 22].flatMap((cx) =>
+            [12.5, 19.5].map((cy) => <ellipse key={`${cx}-${cy}`} cx={cx} cy={cy} rx={2.4} ry={2.6} fill={fill} stroke={dark} strokeWidth={0.8} />),
+          )}
+        </>
+      );
+    case "bandage":
+      return (
+        <g transform="rotate(-35 16 16)">
+          <rect x={3} y={11} width={26} height={10} rx={5} fill={fill} {...outline} />
+          <rect x={12} y={11.5} width={8} height={9} fill="#f4efe3" />
+          {[14, 16, 18].map((x) => (
+            <circle key={x} cx={x} cy={16} r={0.7} fill={dark} />
+          ))}
+        </g>
+      );
+    case "vitamins":
+      return (
+        <>
+          <rect x={10} y={4} width={12} height={4} rx={1} fill="#f4f6f8" {...outline} />
+          <rect x={8} y={8} width={16} height={20} rx={3} fill={fill} {...outline} />
+          <rect x={10} y={13} width={12} height={8} rx={1} fill="#f4f6f8" />
+          <text x={16} y={19.5} textAnchor="middle" fontSize={6} fontWeight={800} fontFamily="system-ui, sans-serif" fill={dark}>
+            C
+          </text>
+        </>
+      );
+    case "kit":
+      return (
+        <>
+          <path d="M12 9 V6.5 Q12 5 13.5 5 H18.5 Q20 5 20 6.5 V9" fill="none" {...outline} />
+          <rect x={4} y={9} width={24} height={18} rx={3} fill={fill} {...outline} />
+          <rect x={14} y={12} width={4} height={12} fill="#ffffff" />
+          <rect x={10} y={16} width={12} height={4} fill="#ffffff" />
+        </>
+      );
+  }
+}
+
 /** Caja de regalo con moño (cajas sorpresa). */
 function boxShape(fill: string, dark: string, light: string) {
   const ribbon = "#ffd166";
@@ -225,6 +354,22 @@ const SLOT_PLACEHOLDER_STYLE: Record<ItemSlot, ItemStyle> = {
   shoes: "sneakers",
 };
 
+/** Dibujo de cada categoría: una categoría nueva no compila hasta tener el suyo. */
+const CATEGORY_ICONS: { [C in ItemCategory]: (item: Extract<ItemDefinition, { category: C }>) => ReactNode } = {
+  clothing: (item) => shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
+  fish: (item) => fishShape(item.shape, item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
+  food: (item) => foodShape(item.shape, item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
+  medicine: (item) => medicineShape(item.shape, item.color, mix(item.color, -0.45)),
+  rod: (item) => rodShape(item.color, mix(item.color, -0.45), item.tier),
+  cart: (item) => cartShape(item.color, mix(item.color, -0.45), item.tier),
+  box: (item) => boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
+  ticket: (item) => ticketShape(item.color, mix(item.color, -0.45)),
+};
+
+function itemShape(item: ItemDefinition): ReactNode {
+  return (CATEGORY_ICONS[item.category] as (item: ItemDefinition) => ReactNode)(item);
+}
+
 interface ItemIconProps {
   item: ItemDefinition;
   size?: number;
@@ -235,15 +380,7 @@ export function ItemIcon({ item, size = 30 }: ItemIconProps) {
   return (
     <span className="item-icon" style={{ width: size, height: size }} aria-hidden="true">
       <svg viewBox="0 0 32 32" width={size - 4} height={size - 4}>
-        {item.category === "fish"
-          ? fishShape(item.shape, item.color, mix(item.color, -0.45), mix(item.color, 0.55))
-          : item.category === "box"
-            ? boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55))
-            : item.category === "rod"
-              ? rodShape(item.color, mix(item.color, -0.45), item.tier)
-              : item.category === "cart"
-                ? cartShape(item.color, mix(item.color, -0.45), item.tier)
-                : shape(item.style, item.color, mix(item.color, -0.45), mix(item.color, 0.55))}
+        {itemShape(item)}
       </svg>
     </span>
   );

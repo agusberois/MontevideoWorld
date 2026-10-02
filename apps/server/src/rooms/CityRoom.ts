@@ -1,5 +1,10 @@
-import { Client, Delayed, Room } from "@colyseus/core";
+import { Client, Delayed, Room, ServerError } from "@colyseus/core";
 import {
+  JAILED_JOIN_CODE,
+  JAILED_KICK_CODE,
+  JAIL_CITY_ID,
+  JAIL_TRAVEL_GRACE_MS,
+  formatJailLeft,
   Bench,
   CHAT_COOLDOWN_MS,
   ChatBroadcastMessage,
@@ -8,6 +13,13 @@ import {
   EquipMessage,
   ITEM_SLOTS,
   InventoryMessage,
+  InventoryMoveMessage,
+  PetAdoptMessage,
+  ShopCheckoutMessage,
+  ItemDefinition,
+  PetRenameMessage,
+  getPet,
+  sanitizePetName,
   JoinOptions,
   MAX_PLAYERS_PER_ROOM,
   MAX_ROUTE_LENGTH,
@@ -19,24 +31,40 @@ import {
   AnnouncementMessage,
   BoxOpenMessage,
   SPAWN_CITY_ID,
-  TRAVEL_FARE,
+  TICKET_ID,
+  whereToBuy,
   TRAVEL_TICKET_MS,
   TravelMessage,
   getCity,
-  WEEVIL_BITE_STAMINA,
+  WEEVIL_BITE_ENERGY,
   WEEVIL_REWARD,
   WeevilKickMessage,
   STARTING_MONEY,
   isPlayerKey,
-  FishEatMessage,
+  FoodEatMessage,
+  NeedsMessage,
+  FaintMessage,
+  HOSPITAL_CITY_ID,
+  HOSPITAL_SHOP_ID,
+  LOW_HEALTH,
+  MAX_HEALTH,
+  WEAK_ENERGY_CAP,
+  WEEVIL_BITE_HEALTH,
+  faintFee,
+  hospitalPrice,
+  edibleLabel,
+  edibleValue,
+  hungerLevel,
+  FISH_HUNGER_COST,
+  VEND_HUNGER_COST,
+  WALK_HUNGER_COST,
   MAX_MONEY,
   ShopHaggleMessage,
   haggleChance,
   isValidHagglePrice,
   maxHagglePrice,
   FishItem,
-  MAX_STAMINA,
-  fishStamina,
+  MAX_ENERGY,
   STARTER_INVENTORY,
   bestRod,
   BoxOpenedMessage,
@@ -48,6 +76,7 @@ import {
   ShopOpenMessage,
   ShopResultMessage,
   ShopTradeMessage,
+  SHOP_MAX_QUANTITY,
   formatMoney,
   sellPrice,
   SitMessage,
@@ -55,14 +84,12 @@ import {
   WalletMessage,
   getCityMap,
   EXHAUSTED_RECOVERY,
-  FISH_STAMINA_COST,
+  FISH_ENERGY_COST,
   FishResultMessage,
   FishStartedMessage,
-  IDLE_STAMINA_REGEN,
   NoticeMessage,
-  SIT_STAMINA_REGEN,
-  WALK_STAMINA_COST,
-  ITEM_CATEGORY_LABELS,
+  WALK_ENERGY_COST,
+  ITEM_CATEGORIES,
   buyPrice,
   fishWithArticle,
   getClothing,
@@ -79,31 +106,38 @@ import {
   TradeRespondMessage,
   TradeStateMessage,
   normalizeTradeOffer,
-  VEND_STAMINA_COST,
+  VEND_ENERGY_COST,
   VendResultMessage,
   VendStartedMessage,
   bestCart,
-  matchAt,
+  MATCH_MODES,
+  AdminMatchMessage,
+  CUSTOMER_LEAD_MS,
+  CustomerState,
   ToolItem,
   TradeOffer,
   AdminGiveMessage,
   AdminNearbyMessage,
   MAKER_MAX_QUANTITY,
   MAKER_RANGE,
+  MessageTypeName,
 } from "@montevideo-world/shared";
 import { GameState, Player } from "@montevideo-world/shared/schema";
 import { CommandHost, runCommand } from "../commands";
 import { rollCatch } from "../fishing";
 import { rollSale } from "../vending";
-import { WeevilManager } from "../weevils";
-import { SessionOwner, activeSessions, playerStore, travelTickets } from "../playerStore";
+import { WeevilManager, WeevilTarget } from "../weevils";
+import { SessionOwner, activeSessions, issueTravelTicket, playerStore, travelTickets } from "../playerStore";
 import { PrivateMailbox, playerDirectory } from "../directory";
+import { bans } from "../bans";
 import { isAdminName } from "../env";
 import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
-import { Stamina } from "../stamina";
+import { Needs } from "../needs";
 import { Trade, TradeManager, TradeParty, checkOffer, clampOffer, executeTrade, partnerOf } from "../trades";
 import { Wallet } from "../wallet";
+import { RateLimiter, UNKNOWN_MESSAGE_TYPE } from "../rateLimit";
+import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
 
 /**
  * Una sala por barrio: se registra con `filterBy(["cityId"])`, así cada `cityId` de las opciones
@@ -116,11 +150,32 @@ const WEEVIL_TICK_MS = 100;
 const SAVE_INTERVAL_MS = 15_000;
 /** Código de cierre para la sesión vieja cuando la misma clave entra de nuevo. */
 const DUPLICATE_SESSION_CODE = 4001;
+/** Código de cierre para un cliente que spamea mensajes de forma sostenida (ver `rateLimit.ts`). */
+const RATE_LIMIT_CODE = 4002;
 
 /** Canal de presence por el que viajan los anuncios del admin a todas las salas (todos los barrios). */
 const ANNOUNCEMENT_TOPIC = "announcements";
 
-export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMailbox {
+/**
+ * Copias abiertas de cada barrio (cityId → números en uso). Cada sala nueva toma el número libre más
+ * bajo y lo devuelve al cerrarse. En memoria del proceso, como `playerDirectory`: una sola instancia.
+ */
+const openCopies = new Map<string, Set<number>>();
+
+function takeCopyNumber(cityId: string): number {
+  const used = openCopies.get(cityId) ?? new Set<number>();
+  openCopies.set(cityId, used);
+  let copy = 1;
+  while (used.has(copy)) copy += 1;
+  used.add(copy);
+  return copy;
+}
+
+function releaseCopyNumber(cityId: string, copy: number) {
+  openCopies.get(cityId)?.delete(copy);
+}
+
+export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMailbox, RoomStatsSource {
   maxClients = MAX_PLAYERS_PER_ROOM;
 
   /** Estado sólo de servidor: no se sincroniza, por eso no vive en el Schema. */
@@ -129,7 +184,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   private pendingSits = new Map<string, Bench>();
   private inventories = new Map<string, Inventory>();
   private wallets = new Map<string, Wallet>();
-  private staminas = new Map<string, Stamina>();
+  private needs = new Map<string, Needs>();
+  /** Lista de jugadores que se les pasa a los picudos en cada tick (reutilizada, ver `WeevilHost.players`). */
+  private weevilTargets: WeevilTarget[] = [];
   /** Tienda a la que va cada jugador: se le abre cuando llega. */
   private pendingShops = new Map<string, Shop>();
   /** Palmera a la que va cada jugador: la sacude al llegar. */
@@ -140,66 +197,118 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   private fishingTimers = new Map<string, Delayed>();
   /** Vendiendo: el timer que resuelve la venta de cada jugador. */
   private vendingTimers = new Map<string, Delayed>();
+  /** Vendiendo: el timer que hace salir al hincha hacia el carrito (`CUSTOMER_LEAD_MS` antes del resultado). */
+  private customerTimers = new Map<string, Delayed>();
   /** Partido que se está jugando en el Centenario (sólo en el barrio con zona de venta), para anunciarlo. */
   private currentMatch: string | null = null;
   private lastChatAt = new Map<string, number>();
+  /** Lo último que se le mandó a cada uno de sus necesidades privadas (para mandar sólo si cambió). */
+  private sentNeeds = new Map<string, NeedsMessage>();
   /** Clave secreta de cada sesión: con ella se guarda y se recupera su progreso (`playerStore`). */
   private playerKeys = new Map<string, string>();
   /** Invitaciones e intercambios entre jugadores de esta sala. */
   private trades = new TradeManager();
   private messageSeq = 0;
+  /** Límite de frecuencia por cliente y por tipo de mensaje: lo aplica `handle` a todos. */
+  private rateLimiter = new RateLimiter();
+  /** "barrio#copia (roomId)", para los avisos del log. */
+  private label = "";
   private map!: CityMap;
   private spawnTiles: TilePoint[] = [];
+  /** Cárcel: dónde aparecen los presos (el patio); vacío en los demás barrios. */
+  private prisonTiles: TilePoint[] = [];
 
   onCreate(options: Partial<JoinOptions> = {}) {
     const map = typeof options.cityId === "string" ? getCityMap(options.cityId) : undefined;
     if (!map) throw new Error(`Barrio desconocido: ${String(options.cityId)}`);
     this.map = map;
     this.spawnTiles = map.spawnTiles();
+    this.prisonTiles = map.prisonTiles();
 
     this.state = new GameState();
+    this.state.copy = takeCopyNumber(map.city.id);
+    this.label = `${map.city.id}#${this.state.copy} (${this.roomId})`;
+    liveRooms.add(this);
+    if (this.state.copy > 1) console.log(`[CityRoom ${this.roomId}] ${map.city.id} lleno: se abrió la copia ${this.state.copy}`);
 
-    this.onMessage(MessageType.Move, (client, message: unknown) => this.handleMove(client, message));
-    this.onMessage(MessageType.Chat, (client, message: unknown) => this.handleChat(client, message));
-    this.onMessage(MessageType.Sit, (client, message: unknown) => this.handleSit(client, message));
-    this.onMessage(MessageType.Equip, (client, message: unknown) => this.handleEquip(client, message));
-    this.onMessage(MessageType.RequestInventory, (client) => this.sendInventory(client));
-    this.onMessage(MessageType.RequestWallet, (client) => this.sendWallet(client));
-    this.onMessage(MessageType.ShopVisit, (client, message: unknown) => this.handleShopVisit(client, message));
-    this.onMessage(MessageType.ShopBuy, (client, message: unknown) => this.handleShopBuy(client, message));
-    this.onMessage(MessageType.ShopSell, (client, message: unknown) => this.handleShopSell(client, message));
-    this.onMessage(MessageType.ShopHaggle, (client, message: unknown) => this.handleShopHaggle(client, message));
-    this.onMessage(MessageType.FishCast, (client) => this.handleFishCast(client));
-    this.onMessage(MessageType.FishStop, (client) => this.stopFishing(client.sessionId));
-    this.onMessage(MessageType.FishEat, (client, message: unknown) => this.handleFishEat(client, message));
-    this.onMessage(MessageType.VendStart, (client) => this.handleVendStart(client));
-    this.onMessage(MessageType.VendStop, (client) => this.stopVending(client.sessionId));
-    this.onMessage(MessageType.AdminSetTime, (client, message: unknown) => this.handleAdminSetTime(client, message));
-    this.onMessage(MessageType.AdminNearbyRequest, (client) => this.sendNearby(client));
-    this.onMessage(MessageType.AdminGive, (client, message: unknown) => this.handleAdminGive(client, message));
-    this.onMessage(MessageType.BoxOpen, (client, message: unknown) => this.handleBoxOpen(client, message));
-    this.onMessage(MessageType.TravelRequest, (client, message: unknown) => this.handleTravelRequest(client, message));
-    this.onMessage(MessageType.PalmShake, (client, message: unknown) => this.handlePalmShake(client, message));
-    this.onMessage(MessageType.WeevilKick, (client, message: unknown) => this.handleWeevilKick(client, message));
-    this.onMessage(MessageType.Greet, (client, message: unknown) => this.handleGreet(client, message));
-    this.onMessage(MessageType.TradeRequest, (client, message: unknown) => this.handleTradeRequest(client, message));
-    this.onMessage(MessageType.TradeRespond, (client, message: unknown) => this.handleTradeRespond(client, message));
-    this.onMessage(MessageType.TradeOffer, (client, message: unknown) => this.handleTradeOffer(client, message));
-    this.onMessage(MessageType.TradeAccept, (client) => this.handleTradeAccept(client));
-    this.onMessage(MessageType.TradeCancel, (client) => this.cancelTrade(client.sessionId, "cancel"));
+    this.handle(MessageType.Move, (client, message) => this.handleMove(client, message));
+    this.handle(MessageType.Chat, (client, message) => this.handleChat(client, message));
+    this.handle(MessageType.Sit, (client, message) => this.handleSit(client, message));
+    this.handle(MessageType.Equip, (client, message) => this.handleEquip(client, message));
+    this.handle(MessageType.RequestInventory, (client) => this.sendInventory(client));
+    this.handle(MessageType.InventoryMove, (client, message) => this.handleInventoryMove(client, message));
+    this.handle(MessageType.RequestWallet, (client) => this.sendWallet(client));
+    this.handle(MessageType.RequestNeeds, (client) => this.sendNeeds(client));
+    this.handle(MessageType.HospitalHeal, (client, message) => this.handleHospitalHeal(client, message));
+    this.handle(MessageType.ShopVisit, (client, message) => this.handleShopVisit(client, message));
+    this.handle(MessageType.ShopBuy, (client, message) => this.handleShopBuy(client, message));
+    this.handle(MessageType.ShopSell, (client, message) => this.handleShopSell(client, message));
+    this.handle(MessageType.ShopHaggle, (client, message) => this.handleShopHaggle(client, message));
+    this.handle(MessageType.FishCast, (client) => this.handleFishCast(client));
+    this.handle(MessageType.FishStop, (client) => this.stopFishing(client.sessionId));
+    this.handle(MessageType.FoodEat, (client, message) => this.handleFoodEat(client, message));
+    this.handle(MessageType.VendStart, (client) => this.handleVendStart(client));
+    this.handle(MessageType.VendStop, (client) => this.stopVending(client.sessionId));
+    this.handle(MessageType.AdminSetTime, (client, message) => this.handleAdminSetTime(client, message));
+    this.handle(MessageType.AdminNearbyRequest, (client) => this.sendNearby(client));
+    this.handle(MessageType.AdminGive, (client, message) => this.handleAdminGive(client, message));
+    this.handle(MessageType.AdminMatch, (client, message) => this.handleAdminMatch(client, message));
+    this.handle(MessageType.BoxOpen, (client, message) => this.handleBoxOpen(client, message));
+    this.handle(MessageType.TravelRequest, (client, message) => this.handleTravelRequest(client, message));
+    this.handle(MessageType.PalmShake, (client, message) => this.handlePalmShake(client, message));
+    this.handle(MessageType.WeevilKick, (client, message) => this.handleWeevilKick(client, message));
+    this.handle(MessageType.Greet, (client, message) => this.handleGreet(client, message));
+    this.handle(MessageType.ShopCheckout, (client, message) => this.handleShopCheckout(client, message));
+    this.handle(MessageType.PetAdopt, (client, message) => this.handlePetAdopt(client, message));
+    this.handle(MessageType.PetRename, (client, message) => this.handlePetRename(client, message));
+    this.handle(MessageType.PetRelease, (client, message) => this.handlePetRelease(client, message));
+    this.handle(MessageType.Taunt, (client, message) => this.handleTaunt(client, message));
+    this.handle(MessageType.TradeRequest, (client, message) => this.handleTradeRequest(client, message));
+    this.handle(MessageType.TradeRespond, (client, message) => this.handleTradeRespond(client, message));
+    this.handle(MessageType.TradeOffer, (client, message) => this.handleTradeOffer(client, message));
+    this.handle(MessageType.TradeAccept, (client) => this.handleTradeAccept(client));
+    this.handle(MessageType.TradeCancel, (client) => this.cancelTrade(client.sessionId, "cancel"));
+    // Tipos sin handler (cliente modificado): se cuentan contra el límite y se descartan sin loguear.
+    this.onMessage(UNKNOWN_MESSAGE_TYPE, (client) => this.allowMessage(client, UNKNOWN_MESSAGE_TYPE));
     this.presence.subscribe(ANNOUNCEMENT_TOPIC, this.relayAnnouncement);
 
-    this.clock.setInterval(() => this.stepPlayers(), STEP_MS);
+    this.clock.setInterval(() => {
+      const started = performance.now();
+      this.stepPlayers();
+      tickMetrics.players.record(performance.now() - started, this.label);
+    }, STEP_MS);
     this.weevils = new WeevilManager(this.state.weevils, {
-      players: () => [...this.state.players].map(([id, player]) => [id, { x: player.x, y: player.y }] as [string, TilePoint]),
-      bite: (sessionId) => this.staminas.get(sessionId)?.drain(WEEVIL_BITE_STAMINA),
+      // Se reutiliza la misma lista (y los mismos objetos) en cada tick: no se crea basura 10 veces por segundo.
+      players: () => {
+        let i = 0;
+        for (const [id, player] of this.state.players) {
+          const target = (this.weevilTargets[i] ??= { id, tile: { x: 0, y: 0 } });
+          target.id = id;
+          target.tile.x = player.x;
+          target.tile.y = player.y;
+          i += 1;
+        }
+        this.weevilTargets.length = i;
+        return this.weevilTargets;
+      },
+      bite: (sessionId) => {
+        const needs = this.needs.get(sessionId);
+        needs?.drainEnergy(WEEVIL_BITE_ENERGY);
+        needs?.hurt(WEEVIL_BITE_HEALTH);
+      },
     });
-    this.clock.setInterval(() => this.weevils.tick(WEEVIL_TICK_MS, Date.now()), WEEVIL_TICK_MS);
+    this.clock.setInterval(() => {
+      // Sin picudos no hay nada que simular (ni que medir).
+      if (this.weevils.size === 0) return;
+      const started = performance.now();
+      this.weevils.tick(WEEVIL_TICK_MS, Date.now());
+      tickMetrics.weevils.record(performance.now() - started, this.label);
+    }, WEEVIL_TICK_MS);
     // Guardado periódico: si el proceso se corta, se pierde como mucho este intervalo.
     this.clock.setInterval(() => this.saveAllPlayers(), SAVE_INTERVAL_MS);
     // La hora del juego se copia al Schema una vez por segundo (avanza ~1 minuto del juego por segundo).
     // Si arranca con un partido en juego, no se anuncia (nadie estaba para oírlo).
-    this.currentMatch = this.map.city.vending ? (matchAt(gameClock.minuteOfDay())?.name ?? null) : null;
+    this.currentMatch = this.map.city.vending ? (gameClock.currentMatch()?.name ?? null) : null;
     this.syncClock();
     this.clock.setInterval(() => this.syncClock(), 1000);
   }
@@ -222,13 +331,37 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     player.y = spawn.y;
     // Con clave: se recupera lo guardado (y si la clave ya estaba en uso, se cierra esa sesión).
     const key = isPlayerKey(options.playerKey) ? options.playerKey : null;
-    // Fuera del barrio de spawn sólo se entra con boleto (se paga en la sala de origen).
-    if (this.map.city.id !== SPAWN_CITY_ID) {
-      const ticket = key ? travelTickets.get(key) : undefined;
-      if (!ticket || ticket.cityId !== this.map.city.id || ticket.expiresAt < Date.now()) {
-        throw new Error(`Para entrar a ${this.map.city.name} necesitás un boleto.`);
+    // Fuera del barrio de spawn sólo se entra con boleto (se paga en la sala de origen). Al de spawn
+    // también puede venir uno (de `/trace`): se consume igual, para aparecer al lado del jugador.
+    const issued = key ? travelTickets.get(key) : undefined;
+    const ticket = issued && issued.cityId === this.map.city.id && issued.expiresAt >= Date.now() ? issued : undefined;
+    // Preso (`/ban`): sólo puede entrar al COMCAR, y ahí entra sin boleto. El cliente, al ver este
+    // código, entra solo al COMCAR.
+    const jailedUntil = bans.until(key, player.name);
+    const inJail = this.map.city.id === JAIL_CITY_ID;
+    if (jailedUntil && !inJail) {
+      throw new ServerError(JAILED_JOIN_CODE, `Estás preso en el COMCAR: te quedan ${formatJailLeft((jailedUntil - Date.now()) / 1000)}.`);
+    }
+    if (this.map.city.id !== SPAWN_CITY_ID && !ticket && !(inJail && jailedUntil)) {
+      throw new Error(`Para entrar a ${this.map.city.name} necesitás un boleto.`);
+    }
+    if (jailedUntil) {
+      player.jailLeft = Math.ceil((jailedUntil - Date.now()) / 1000);
+      // Preso: aparece adentro, en el patio (las visitas aparecen afuera, del otro lado de la reja).
+      const cell = this.randomPrisonTile();
+      if (cell) {
+        player.x = cell.x;
+        player.y = cell.y;
       }
+    }
+    if (ticket) {
       travelTickets.delete(key!);
+      const at = ticket.at && this.map.isWalkable(ticket.at.x, ticket.at.y) ? ticket.at : undefined;
+      const near = ticket.near ? this.tileNear(ticket.near) : at;
+      if (near) {
+        player.x = near.x;
+        player.y = near.y;
+      }
     }
     if (key) {
       const previous = activeSessions.get(key);
@@ -240,6 +373,12 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
 
     if (saved) {
       player.donor = saved.donor === true;
+      const pet = saved.pet && getPet(saved.pet.id);
+      const petName = sanitizePetName(saved.pet?.name);
+      if (pet && petName) {
+        player.pet = pet.id;
+        player.petName = petName;
+      }
       for (const slot of ITEM_SLOTS) {
         const item = getClothing(saved.outfit?.[slot] ?? "");
         player[slot] = item && item.slot === slot ? item.id : "";
@@ -258,10 +397,19 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       this.inventories.set(client.sessionId, inventory);
       this.wallets.set(client.sessionId, new Wallet());
     }
-    this.staminas.set(client.sessionId, new Stamina());
+    // Necesidades guardadas (sin guardado, o uno viejo sin ellas: todo lleno).
+    const needs = Needs.restore(saved?.needs);
+    this.needs.set(client.sessionId, needs);
+    player.energy = needs.energy;
 
     this.state.players.set(client.sessionId, player);
-    playerDirectory.add({ sessionId: client.sessionId, name: player.name, cityName: this.map.city.name, mailbox: this });
+    playerDirectory.add({
+      sessionId: client.sessionId,
+      name: player.name,
+      cityId: this.map.city.id,
+      cityName: this.map.city.name,
+      mailbox: this,
+    });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
     console.log(`[CityRoom ${this.roomId} ${this.map.city.id}] join ${client.sessionId} (${player.name})`);
   }
@@ -280,10 +428,12 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.pendingSits.delete(client.sessionId);
     this.inventories.delete(client.sessionId);
     this.wallets.delete(client.sessionId);
-    this.staminas.delete(client.sessionId);
+    this.needs.delete(client.sessionId);
     this.pendingShops.delete(client.sessionId);
     this.pendingPalms.delete(client.sessionId);
     this.lastChatAt.delete(client.sessionId);
+    this.sentNeeds.delete(client.sessionId);
+    this.rateLimiter.forget(client.sessionId);
 
     if (player) this.broadcastSystem(`${player.name} se fue de ${this.map.city.name}`);
     console.log(`[CityRoom ${this.roomId}] leave ${client.sessionId}`);
@@ -302,6 +452,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       inventory: inventory.snapshot(),
       outfit: { hat: player.hat, top: player.top, bottom: player.bottom, shoes: player.shoes },
       donor: player.donor,
+      jailedUntil: bans.savedUntil(key),
+      pet: player.pet ? { id: player.pet, name: player.petName } : undefined,
+      needs: this.needs.get(sessionId)?.snapshot(),
     });
   }
 
@@ -325,15 +478,56 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   }
 
   onDispose() {
+    liveRooms.delete(this);
+    releaseCopyNumber(this.map.city.id, this.state.copy);
     this.presence.unsubscribe(ANNOUNCEMENT_TOPIC, this.relayAnnouncement);
     console.log(`[CityRoom ${this.roomId}] disposed`);
+  }
+
+  /**
+   * Registrar el handler de un mensaje del cliente pasando por el límite de frecuencia
+   * (`rateLimit.ts`): lo que se pasa se descarta antes de llegar al handler. Todo mensaje nuevo se
+   * registra con esto, no con `onMessage`.
+   */
+  private handle(type: MessageTypeName, handler: (client: Client, message: unknown) => void) {
+    this.onMessage(type, (client, message: unknown) => {
+      if (this.allowMessage(client, type)) handler(client, message);
+    });
+  }
+
+  /** ¿Se procesa? Si el cliente abusa de forma sostenida, se lo desconecta (`RATE_LIMIT_CODE`). */
+  private allowMessage(client: Client, type: string): boolean {
+    const decision = this.rateLimiter.check(client.sessionId, type, Date.now());
+    if (decision === "ok") return true;
+    if (decision === "kick") {
+      const name = this.state.players.get(client.sessionId)?.name ?? "?";
+      console.warn(
+        `[RateLimit] ${this.label}: se desconectó a ${client.sessionId} (${name}) por spam (${this.rateLimiter.droppedBy(client.sessionId)} mensajes descartados, el último "${type}")`,
+      );
+      this.rateLimiter.forget(client.sessionId);
+      client.leave(RATE_LIMIT_CODE);
+    }
+    return false;
+  }
+
+  /** Para `/health`. */
+  stats(): RoomStats {
+    return {
+      roomId: this.roomId,
+      cityId: this.map.city.id,
+      copy: this.state.copy,
+      players: this.state.players.size,
+      weevils: this.weevils.size,
+      rateLimited: this.rateLimiter.droppedTotal,
+      kicked: this.rateLimiter.kickedTotal,
+    };
   }
 
   private handleMove(client: Client, message: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !isMoveMessage(message)) return;
     if (!this.map.isWalkable(message.x, message.y)) return;
-    if (!this.staminas.get(client.sessionId)?.has(WALK_STAMINA_COST)) return this.notifyExhausted(client);
+    if (!this.needs.get(client.sessionId)?.hasEnergy(WALK_ENERGY_COST)) return this.notifyExhausted(client);
     // Cualquier otra acción recoge la línea (o deja de vender).
     this.stopActivities(client.sessionId);
 
@@ -416,42 +610,86 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     client.send(MessageType.ShopOpen, message);
   }
 
-  /** Comprar una unidad: hay que estar al lado, que la tienda la venda, alcanzar la plata y tener lugar. */
+  /**
+   * Comprar `quantity` unidades (1 si no viene): hay que estar al lado, que la tienda lo venda,
+   * alcanzar la plata y tener lugar. Compra las que alcancen y entren (las herramientas van de a
+   * una por casillero) y responde un solo resultado con lo que se compró de verdad.
+   */
   private handleShopBuy(client: Client, message: unknown) {
     const trade = this.validateTrade(client, message);
     if (!trade) return;
-    const { shop, item, wallet, inventory } = trade;
+    const { shop, item, wallet, inventory, quantity } = trade;
 
     if (!shop.stock.includes(item.id)) return this.shopResult(client, false, `${shop.name} no vende ${item.name}.`);
     const price = buyPrice(item);
     if (!wallet.canAfford(price)) return this.shopResult(client, false, `No te alcanza: ${item.name} cuesta ${formatMoney(price)}.`);
     if (!inventory.canAdd(item.id)) return this.shopResult(client, false, "No tenés lugar en la mochila.");
 
-    wallet.debit(price);
-    inventory.add(item.id);
+    let bought = 0;
+    let stop = "";
+    while (bought < quantity) {
+      if (!wallet.canAfford(price)) {
+        stop = "no te alcanzó la plata";
+        break;
+      }
+      if (!inventory.canAdd(item.id)) {
+        stop = "no había más lugar en la mochila";
+        break;
+      }
+      wallet.debit(price);
+      inventory.add(item.id);
+      bought += 1;
+    }
     this.sendWallet(client);
     this.sendInventory(client);
-    this.shopResult(client, true, `Compraste ${item.name} por ${formatMoney(price)}.`);
+    const total = formatMoney(price * bought);
+    const what = bought > 1 ? `${bought} × ${item.name}` : item.name;
+    const text = stop
+      ? `Compraste ${bought} de ${quantity} × ${item.name} por ${total}: ${stop}.`
+      : `Compraste ${what} por ${total}.`;
+    this.shopResult(client, true, text, { action: "buy", itemId: item.id, quantity: bought });
   }
 
-  /** Vender una unidad de la mochila (lo puesto no se vende: primero hay que sacárselo). */
+  /**
+   * Vender `quantity` unidades de la mochila (lo puesto no se vende: primero hay que sacárselo). Las
+   * herramientas gastadas valen menos: se venden de la más usada a la menos.
+   */
   private handleShopSell(client: Client, message: unknown) {
     const trade = this.validateTrade(client, message);
     if (!trade) return;
-    const { shop, item, wallet, inventory } = trade;
-    // Una herramienta gastada vale menos: se vende la más usada (la que sale primero).
-    const price = sellPrice(item, inventory.nextUses(item.id)[0]);
+    const { shop, item, wallet, inventory, quantity } = trade;
 
     if (!shop.buys.includes(item.category)) {
-      return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORY_LABELS[item.category]}.`);
+      return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORIES[item.category].label}.`);
     }
     if (inventory.count(item.id) === 0) return this.shopResult(client, false, `No tenés ${item.name} en la mochila.`);
-    if (!wallet.credit(price)) return this.shopResult(client, false, "No podés tener más plata.");
 
-    inventory.remove(item.id);
+    let sold = 0;
+    let earned = 0;
+    let stop = "";
+    while (sold < quantity) {
+      if (inventory.count(item.id) === 0) {
+        stop = "no tenías más";
+        break;
+      }
+      // Una herramienta gastada vale menos: se vende la más usada (la que sale primero).
+      const price = sellPrice(item, inventory.nextUses(item.id)[0]);
+      if (!wallet.credit(price)) {
+        stop = "no podés tener más plata";
+        break;
+      }
+      inventory.remove(item.id);
+      sold += 1;
+      earned += price;
+    }
+    if (sold === 0) return this.shopResult(client, false, "No podés tener más plata.");
     this.sendWallet(client);
     this.sendInventory(client);
-    this.shopResult(client, true, `Vendiste ${item.name} por ${formatMoney(price)}.`);
+    const what = sold > 1 ? `${sold} × ${item.name}` : item.name;
+    const text = stop
+      ? `Vendiste ${sold} de ${quantity} × ${item.name} por ${formatMoney(earned)}: ${stop}.`
+      : `Vendiste ${what} por ${formatMoney(earned)}.`;
+    this.shopResult(client, true, text, { action: "sell", itemId: item.id, quantity: sold });
   }
 
   /**
@@ -465,7 +703,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const base = sellPrice(item, inventory.nextUses(item.id)[0]);
 
     if (!shop.buys.includes(item.category)) {
-      return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORY_LABELS[item.category]}.`);
+      return this.shopResult(client, false, `En ${shop.name} no compran ${ITEM_CATEGORIES[item.category].label}.`);
     }
     if (inventory.count(item.id) === 0) return this.shopResult(client, false, `No tenés ${item.name} en la mochila.`);
     if (!isValidHagglePrice(base, message.price)) {
@@ -486,6 +724,56 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     }
   }
 
+  /**
+   * Comprar el carrito entero (todo o nada): hay que estar al lado, que la tienda venda todo, que
+   * alcance la plata para el total y que todo entre en la mochila (se prueba con una copia). Si
+   * algo falla no se compra nada y se dice por qué; si no, se cobra una vez y responde un solo resultado.
+   */
+  private handleShopCheckout(client: Client, message: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const wallet = this.wallets.get(client.sessionId);
+    const inventory = this.inventories.get(client.sessionId);
+    if (!player || !wallet || !inventory || !isShopCheckoutMessage(message)) return;
+    const shop = this.map.getShop(message.shopId);
+    if (!shop) return;
+    if (!this.map.isNearShop(shop, player.x, player.y)) return this.shopResult(client, false, `Acercate a ${shop.name} para comprar.`);
+
+    // Mismo ítem en dos líneas: se suman.
+    const lines = new Map<string, number>();
+    for (const { itemId, quantity } of message.items) lines.set(itemId, (lines.get(itemId) ?? 0) + quantity);
+    const cart: Array<{ item: ItemDefinition; quantity: number }> = [];
+    for (const [itemId, quantity] of lines) {
+      const item = getItem(itemId);
+      if (!item || !shop.stock.includes(item.id)) return this.shopResult(client, false, `${shop.name} no vende eso.`);
+      if (quantity > SHOP_MAX_QUANTITY) return this.shopResult(client, false, `Como mucho ${SHOP_MAX_QUANTITY} de cada cosa.`);
+      cart.push({ item, quantity });
+    }
+    if (cart.length === 0) return;
+
+    const total = cart.reduce((sum, { item, quantity }) => sum + buyPrice(item) * quantity, 0);
+    if (!wallet.canAfford(total)) {
+      return this.shopResult(client, false, `No te alcanza: el carrito sale ${formatMoney(total)} y tenés ${formatMoney(wallet.balance)}.`);
+    }
+    const trial = inventory.clone();
+    for (const { item, quantity } of cart) {
+      for (let i = 0; i < quantity; i++) {
+        if (!trial.add(item.id)) return this.shopResult(client, false, "No te entra todo en la mochila: sacá algo del carrito o hacé lugar.");
+      }
+    }
+
+    wallet.debit(total);
+    for (const { item, quantity } of cart) for (let i = 0; i < quantity; i++) inventory.add(item.id);
+    this.sendWallet(client);
+    this.sendInventory(client);
+    const list = cart.map(({ item, quantity }) => (quantity > 1 ? `${quantity} × ${item.name}` : item.name)).join(", ");
+    this.shopResult(client, true, `Compraste ${list} por ${formatMoney(total)}.`, {
+      action: "buy",
+      itemId: cart.length === 1 ? cart[0].item.id : undefined,
+      quantity: cart.length === 1 ? cart[0].quantity : undefined,
+      bought: cart.map(({ item, quantity }) => ({ itemId: item.id, quantity })),
+    });
+  }
+
   /** Lo común a comprar y vender: mensaje válido, tienda existente y el jugador al lado de ella. */
   private validateTrade(client: Client, message: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -500,11 +788,12 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       this.shopResult(client, false, `Acercate a ${shop.name} para comprar o vender.`);
       return null;
     }
-    return { shop, item, wallet, inventory };
+    return { shop, item, wallet, inventory, quantity: message.quantity ?? 1 };
   }
 
-  private shopResult(client: Client, ok: boolean, text: string) {
-    const message: ShopResultMessage = { ok, text };
+  /** `detail`: en compras y ventas, qué ítem y cuántas unidades (el panel resalta esa fila). */
+  private shopResult(client: Client, ok: boolean, text: string, detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought">) {
+    const message: ShopResultMessage = { ok, text, ...detail };
     client.send(MessageType.ShopResult, message);
   }
 
@@ -546,6 +835,15 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   }
 
   /** Mandar el saldo al dueño. Llamarlo después de cada cobro o pago. */
+  /** Las necesidades privadas (hambre) sólo al dueño, como la plata. */
+  private sendNeeds(client: Client) {
+    const needs = this.needs.get(client.sessionId);
+    if (!needs) return;
+    const message: NeedsMessage = { hunger: needs.hunger, health: needs.health };
+    this.sentNeeds.set(client.sessionId, message);
+    client.send(MessageType.Needs, message);
+  }
+
   private sendWallet(client: Client) {
     const wallet = this.wallets.get(client.sessionId);
     if (!wallet) return;
@@ -569,6 +867,109 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       sessionId: client.sessionId,
       name: player.name,
       text: `👋 ¡Hola, ${target.name}!`,
+      timestamp: now,
+    });
+  }
+
+  /**
+   * Reordenar la mochila. Con un intercambio abierto no (la oferta se arma con lo que hay; mover no
+   * la cambia, pero así la mochila no se mueve mientras el otro la mira).
+   */
+  private handleInventoryMove(client: Client, message: unknown) {
+    const inventory = this.inventories.get(client.sessionId);
+    if (!inventory || !isInventoryMoveMessage(message)) return;
+    if (this.trades.get(client.sessionId)) return this.sendInventory(client);
+    inventory.move(message.from, message.to);
+    // Siempre se reenvía: si no cambió nada, el cliente vuelve a dibujar lo que hay de verdad.
+    this.sendInventory(client);
+  }
+
+  /** La veterinaria donde está parado el jugador (pegado a ella), o null con el aviso de por qué no. */
+  private petShop(client: Client, shopId: unknown): { player: Player; shop: Shop } | null {
+    const player = this.state.players.get(client.sessionId);
+    const shop = typeof shopId === "string" ? this.map.city.shops.find((candidate) => candidate.id === shopId) : undefined;
+    if (!player || !shop?.pets) return null;
+    if (!this.map.isNearShop(shop, player.x, player.y)) {
+      this.shopResult(client, false, `Acercate a ${shop.name}.`);
+      return null;
+    }
+    return { player, shop };
+  }
+
+  /** Adoptar: una mascota por jugador, se paga y queda con el nombre elegido (la ven todos). */
+  private handlePetAdopt(client: Client, message: unknown) {
+    if (!isPetAdoptMessage(message)) return;
+    const context = this.petShop(client, message.shopId);
+    if (!context) return;
+    const { player, shop } = context;
+    const pet = shop.pets?.includes(message.petId) ? getPet(message.petId) : undefined;
+    const name = sanitizePetName(message.name);
+    if (!pet) return;
+    if (!name) return this.shopResult(client, false, "Ponele un nombre a tu mascota.");
+    if (player.pet) return this.shopResult(client, false, `Ya tenés a ${player.petName}: una mascota por persona.`);
+    if (!this.wallets.get(client.sessionId)?.debit(pet.price)) {
+      return this.shopResult(client, false, `No te alcanza: adoptar un ${pet.name.toLowerCase()} cuesta ${formatMoney(pet.price)}.`);
+    }
+    player.pet = pet.id;
+    player.petName = name;
+    this.sendWallet(client);
+    this.savePlayer(client.sessionId);
+    this.shopResult(client, true, `🐾 ¡Adoptaste a ${name}! Te va a seguir a todos lados.`);
+    this.broadcastSystem(`🐾 ${player.name} adoptó a ${name} (${pet.name.toLowerCase()})`);
+  }
+
+  private handlePetRename(client: Client, message: unknown) {
+    if (!isPetRenameMessage(message)) return;
+    const context = this.petShop(client, message.shopId);
+    if (!context) return;
+    const { player } = context;
+    const name = sanitizePetName(message.name);
+    if (!player.pet || !name) return;
+    const previous = player.petName;
+    player.petName = name;
+    this.savePlayer(client.sessionId);
+    this.shopResult(client, true, `${previous} ahora se llama ${name}.`);
+  }
+
+  /** Despedirse de la mascota: se queda en la veterinaria (no se devuelve la plata). */
+  private handlePetRelease(client: Client, message: unknown) {
+    const shopId = typeof message === "object" && message !== null ? (message as Record<string, unknown>).shopId : undefined;
+    const context = this.petShop(client, shopId);
+    if (!context?.player.pet) return;
+    const { player } = context;
+    const name = player.petName;
+    player.pet = "";
+    player.petName = "";
+    this.savePlayer(client.sessionId);
+    this.shopResult(client, true, `Te despediste de ${name}. En la veterinaria lo van a cuidar bien.`);
+  }
+
+  /**
+   * Burlarse de un preso (sólo las visitas del COMCAR, que están libres): sale en el chat como si lo
+   * hubiera escrito, con el mismo cooldown que el saludo.
+   */
+  private handleTaunt(client: Client, message: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const target = isTargetPlayerMessage(message) ? this.state.players.get(message.targetId) : undefined;
+    if (!player || !target || target === player || target.jailLeft === 0 || player.jailLeft > 0) return;
+
+    const now = Date.now();
+    if (now - (this.lastChatAt.get(client.sessionId) ?? 0) < CHAT_COOLDOWN_MS) return;
+    this.lastChatAt.set(client.sessionId, now);
+    const taunts = [
+      `😜 ¡Ey, ${target.name}! Yo me tomo el bondi cuando quiero, ¿y vos?`,
+      `🚌 ${target.name}, me voy a la rambla a tomar mate. Te mando una foto.`,
+      `🔒 ¿Qué tal la vista desde ahí adentro, ${target.name}?`,
+      `😂 ${target.name}, portate bien y capaz que te dejan salir al patio.`,
+      `🌭 ${target.name}, ¿querés un pancho? Ah, no, no podés salir.`,
+      `👋 Chau, ${target.name}, yo me voy. Vos quedate, ¿eh?`,
+    ];
+    this.broadcastChat({
+      id: this.nextMessageId(),
+      kind: "player",
+      sessionId: client.sessionId,
+      name: player.name,
+      text: taunts[Math.floor(Math.random() * taunts.length)],
       timestamp: now,
     });
   }
@@ -755,7 +1156,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       return this.fishResult(client, false, "Necesitás una caña para pescar. Comprá una en Pesca Sarandí, la tienda frente a la escollera.");
     }
 
-    if (!this.staminas.get(client.sessionId)?.has(FISH_STAMINA_COST)) {
+    if (!this.needs.get(client.sessionId)?.hasEnergy(FISH_ENERGY_COST)) {
       return this.fishResult(client, false, "Estás muy cansado para pescar. Descansá un rato: sentarte en un banco ayuda.");
     }
 
@@ -773,7 +1174,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       this.fishingTimers.delete(client.sessionId);
       player.fishing = false;
       player.rod = "";
-      const finished = this.finishAttempt(client, rod, FISH_STAMINA_COST, "En Pesca Sarandí, frente a la escollera, venden cañas nuevas.");
+      const finished = this.finishAttempt(client, rod, FISH_ENERGY_COST, FISH_HUNGER_COST, "En Pesca Sarandí, frente a la escollera, venden cañas nuevas.");
       if (finished) this.resolveCatch(client, player, fish);
       else this.fishResult(client, false, "Ya no tenés esa caña: la tirada no cuenta.");
     }, durationMs);
@@ -808,22 +1209,27 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     }
   }
 
-  /** Comerse un pescado de la mochila: recupera `fishStamina(dificultad)` de energía. */
-  private handleFishEat(client: Client, message: unknown) {
+  /** Comerse un pescado de la mochila: recupera `fishEnergy(dificultad)` de energía. */
+  private handleFoodEat(client: Client, message: unknown) {
     const player = this.state.players.get(client.sessionId);
     const inventory = this.inventories.get(client.sessionId);
-    const stamina = this.staminas.get(client.sessionId);
-    if (!player || !inventory || !stamina || !isFishEatMessage(message)) return;
-    const fish = getItem(message.itemId);
-    if (fish?.category !== "fish" || inventory.count(fish.id) === 0) return;
-    if (stamina.rounded >= MAX_STAMINA) return this.notice(client, "Ya tenés la energía llena: guardalo para después.");
+    const needs = this.needs.get(client.sessionId);
+    if (!player || !inventory || !needs || !isFoodEatMessage(message)) return;
+    const item = getItem(message.itemId);
+    const value = edibleValue(item);
+    if (!item || !value || inventory.count(item.id) === 0) return;
+    if (!needs.canEat(value)) {
+      return this.notice(client, item.category === "medicine" ? "Estás sano: guardalo para cuando lo necesites." : "Estás lleno: guardalo para después.");
+    }
 
-    const gain = fishStamina(fish.difficulty);
-    inventory.remove(fish.id);
-    stamina.recover(gain);
-    player.stamina = stamina.rounded;
+    inventory.remove(item.id);
+    needs.eat(value);
+    player.energy = needs.energy;
     this.sendInventory(client);
-    this.notice(client, `🍽️ Te comiste ${fishWithArticle(fish)}: +${gain} de energía.`);
+    this.sendNeeds(client);
+    if (item.category === "medicine") return this.notice(client, `💊 Te tomaste ${item.name}: ${edibleLabel(value)}.`);
+    const what = item.category === "fish" ? fishWithArticle(item) : item.name.toLowerCase();
+    this.notice(client, `🍽️ Te comiste ${what}: ${edibleLabel(value)}.`);
   }
 
   /** Recoger la línea (moverse, sentarse, ir a una tienda, salir o cancelar a mano). */
@@ -843,11 +1249,12 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
    * acá y no cuesta nada. Devuelve false si la herramienta ya no está (se intercambió mientras tanto):
    * entonces no cuenta y tampoco se cobra.
    */
-  private finishAttempt(client: Client, tool: ToolItem, staminaCost: number, whereToBuy: string): boolean {
+  private finishAttempt(client: Client, tool: ToolItem, energyCost: number, hungerCost: number, whereToBuy: string): boolean {
     const inventory = this.inventories.get(client.sessionId);
     const left = inventory?.wear(tool.id) ?? null;
     if (left === null) return false;
-    this.staminas.get(client.sessionId)?.drain(staminaCost);
+    this.needs.get(client.sessionId)?.drainEnergy(energyCost);
+    this.needs.get(client.sessionId)?.drainHunger(hungerCost);
     this.sendInventory(client);
     if (left === 0) this.notice(client, `💥 Se rompió tu ${tool.name.toLowerCase()}: era su último uso. ${whereToBuy}`);
     return true;
@@ -879,11 +1286,11 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     if (!cart) {
       return this.vendResult(client, false, "Necesitás un carrito para vender. Comprá uno en el Kiosco del Parque, al lado del estadio.");
     }
-    if (!this.staminas.get(client.sessionId)?.has(VEND_STAMINA_COST)) {
+    if (!this.needs.get(client.sessionId)?.hasEnergy(VEND_ENERGY_COST)) {
       return this.vendResult(client, false, "Estás muy cansado para vender. Descansá un rato: sentarte en un banco ayuda.");
     }
 
-    const match = matchAt(this.state.minuteOfDay);
+    const match = gameClock.currentMatch();
     const sale = rollSale(cart, Boolean(match));
     player.sitting = false;
     player.vending = true;
@@ -894,25 +1301,40 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const started: VendStartedMessage = { durationMs: sale.durationMs };
     client.send(MessageType.VendStarted, started);
 
+    // El hincha sale a caminar un rato antes del resultado, así llega justo para comprar (o no).
+    const customer = this.clock.setTimeout(() => {
+      this.customerTimers.delete(client.sessionId);
+      player.customer = CustomerState.Arriving;
+    }, Math.max(0, sale.durationMs - CUSTOMER_LEAD_MS));
+    this.customerTimers.set(client.sessionId, customer);
+
     const timer = this.clock.setTimeout(() => {
       this.vendingTimers.delete(client.sessionId);
       player.vending = false;
       player.cart = "";
-      const finished = this.finishAttempt(client, cart, VEND_STAMINA_COST, "En el Kiosco del Parque, al lado del estadio, venden carritos nuevos.");
-      if (finished) this.resolveSale(client, player, cart.product, sale.earned, sale.giftId, Boolean(match));
-      else this.vendResult(client, false, "Ya no tenés ese carrito: el intento no cuenta.");
+      const finished = this.finishAttempt(client, cart, VEND_ENERGY_COST, VEND_HUNGER_COST, "En el Kiosco del Parque, al lado del estadio, venden carritos nuevos.");
+      const sold = finished && this.resolveSale(client, player, cart.product, sale.earned, sale.giftId, Boolean(match));
+      if (!finished) this.vendResult(client, false, "Ya no tenés ese carrito: el intento no cuenta.");
+      player.customer = sold ? CustomerState.Bought : CustomerState.Passed;
     }, sale.durationMs);
     this.vendingTimers.set(client.sessionId, timer);
   }
 
-  /** Se cobra la venta y, si el hincha regaló algo y entra en la mochila, va ahí. */
-  private resolveSale(client: Client, player: Player, product: string, earned: number, giftId: string | undefined, match: boolean) {
+  /**
+   * Se cobra la venta y, si el hincha regaló algo y entra en la mochila, va ahí. Devuelve si el
+   * hincha compró (para que todos lo vean comprar o seguir de largo).
+   */
+  private resolveSale(client: Client, player: Player, product: string, earned: number, giftId: string | undefined, match: boolean): boolean {
     if (earned === 0) {
-      const misses = ["Nadie te compró esta vez.", "Un hincha miró, dudó y siguió de largo.", "Pasaron de largo: probá de nuevo."];
-      return this.vendResult(client, false, misses[Math.floor(Math.random() * misses.length)]);
+      const misses = ["Un hincha miró, dudó y siguió de largo.", "Le preguntaste a uno y te dijo que hoy no.", "Pasó de largo: probá de nuevo."];
+      this.vendResult(client, false, misses[Math.floor(Math.random() * misses.length)]);
+      return false;
     }
     const wallet = this.wallets.get(client.sessionId);
-    if (!wallet?.credit(earned)) return this.vendResult(client, false, "No podés tener más plata.");
+    if (!wallet?.credit(earned)) {
+      this.vendResult(client, false, "No podés tener más plata.");
+      return false;
+    }
     player.sales += 1;
     this.sendWallet(client);
 
@@ -927,16 +1349,21 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const bonus = match ? " (¡precio de partido!)" : "";
     this.vendResult(client, true, `Le vendiste ${product} a un hincha: +${formatMoney(earned)}${bonus}.${extra}`, earned, kept ? gift.id : undefined);
     if (kept) this.broadcastSystem(`🎁 Un hincha le regaló ${gift.name.toLowerCase()} a ${player.name} en el Centenario`);
+    return true;
   }
 
   /** Dejar de vender (moverse, sentarse, ir a una tienda, salir o cancelar a mano). */
   private stopVending(sessionId: string) {
     this.vendingTimers.get(sessionId)?.clear();
     this.vendingTimers.delete(sessionId);
+    this.customerTimers.get(sessionId)?.clear();
+    this.customerTimers.delete(sessionId);
     const player = this.state.players.get(sessionId);
     if (player) {
       player.vending = false;
       player.cart = "";
+      // Si el hincha estaba llegando, se va (si ya compró o pasó de largo, ya se está yendo).
+      if (player.customer === CustomerState.Arriving) player.customer = CustomerState.None;
     }
   }
 
@@ -953,14 +1380,86 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   private syncClock() {
     const minute = Math.floor(gameClock.minuteOfDay());
     if (this.state.minuteOfDay !== minute) this.state.minuteOfDay = minute;
-    this.announceMatch(minute);
+    const match = gameClock.currentMatch()?.name ?? "";
+    if (this.state.match !== match) this.state.match = match;
+    const mode = gameClock.getMatchMode();
+    if (this.state.matchMode !== mode) this.state.matchMode = mode;
+    this.announceMatch(match || null);
+    this.updateJail();
+  }
+
+  /**
+   * En el COMCAR, una vez por segundo: cuánto le queda a cada preso (`Player.jailLeft`, lo muestra
+   * el cliente) y, al que cumplió (o liberó el admin), lo manda a Ciudad Vieja.
+   */
+  private updateJail() {
+    if (this.map.city.id !== JAIL_CITY_ID) return;
+    const now = Date.now();
+    for (const [sessionId, player] of this.state.players) {
+      const until = bans.until(this.playerKeys.get(sessionId) ?? null, player.name, now);
+      const left = until ? Math.ceil((until - now) / 1000) : 0;
+      if (left === player.jailLeft) continue;
+      const wasJailed = player.jailLeft > 0;
+      player.jailLeft = left;
+      const client = this.clients.getById(sessionId);
+      if (!wasJailed || left > 0 || !client) continue;
+      this.notice(client, "🔓 ¡Quedaste libre! Te llevan a Ciudad Vieja. Portate bien, eh.");
+      this.broadcastSystem(`🔓 ${player.name} cumplió su condena y salió del COMCAR`);
+      const release: TravelMessage = { cityId: SPAWN_CITY_ID };
+      client.send(MessageType.TravelApproved, release);
+    }
+  }
+
+  private randomPrisonTile(): TilePoint | undefined {
+    return this.prisonTiles[Math.floor(Math.random() * this.prisonTiles.length)];
+  }
+
+  /** ¿Está del lado de adentro de la cárcel? (camino posible hasta el patio). */
+  private isInYard(player: Player): boolean {
+    const yard = this.prisonTiles[0];
+    if (!yard) return false;
+    return (player.x === yard.x && player.y === yard.y) || this.map.findPath({ x: player.x, y: player.y }, yard).length > 0;
+  }
+
+  /**
+   * Preso al COMCAR (`/ban`) hasta `until` (0 = liberarlo). Se anota por clave y por nombre. Si no
+   * está en el COMCAR, el cliente viaja solo (`travel:ok`); si no lo hace en `JAIL_TRAVEL_GRACE_MS`,
+   * se lo desconecta (al volver a entrar, el server lo manda al COMCAR). Liberarlo estando adentro
+   * lo resuelve `updateJail` en el próximo segundo.
+   */
+  jail(sessionId: string, until: number) {
+    const player = this.state.players.get(sessionId);
+    const client = this.clients.getById(sessionId);
+    if (!player || !client) return;
+    bans.set(this.playerKeys.get(sessionId) ?? null, player.name, until);
+    this.savePlayer(sessionId);
+    if (this.map.city.id === JAIL_CITY_ID) {
+      // Estaba de visita: lo meten adentro.
+      const cell = until ? this.randomPrisonTile() : undefined;
+      if (cell && !this.isInYard(player)) {
+        this.teleport(sessionId, cell);
+        this.broadcastSystem(`🚔 Se llevaron preso a ${player.name}: pasó de visita a estar adentro`);
+      }
+      this.updateJail();
+      if (until) this.notice(client, `🚔 Cambió tu condena: te quedan ${formatJailLeft((until - Date.now()) / 1000)}.`);
+      return;
+    }
+    if (!until) return;
+    this.stopActivities(sessionId);
+    this.cancelTrade(sessionId, "leave");
+    this.notice(client, `🚔 ¡Quedaste preso! Te llevan al COMCAR por ${formatJailLeft((until - Date.now()) / 1000)}.`);
+    this.broadcastSystem(`🚔 Se llevaron preso a ${player.name} al COMCAR`);
+    const approved: TravelMessage = { cityId: JAIL_CITY_ID };
+    client.send(MessageType.TravelApproved, approved);
+    this.clock.setTimeout(() => {
+      if (this.clients.getById(sessionId)) client.leave(JAILED_KICK_CODE);
+    }, JAIL_TRAVEL_GRACE_MS);
   }
 
   /** En el barrio con zona de venta se avisa por el chat cuando empieza y termina un partido. */
-  private announceMatch(minute: number) {
+  private announceMatch(match: string | null) {
     const zone = this.map.city.vending;
     if (!zone) return;
-    const match = matchAt(minute)?.name ?? null;
     if (match === this.currentMatch) return;
     if (match) {
       this.broadcastSystem(`⚽ ¡Arrancó ${match} en el Estadio Centenario! En la ${zone.name} se vende el doble.`);
@@ -1028,6 +1527,24 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     gameClock.set(message.minuteOfDay);
     this.syncClock();
     this.broadcastSystem(`🕒 ${player.name} movió el reloj a las ${formatClock(message.minuteOfDay)}`);
+  }
+
+  /**
+   * Forzar el partido (admin), para todos los barrios como el reloj. Cada sala lo copia al Schema en
+   * su `syncClock` (a más tardar en un segundo); ésta, en el acto.
+   */
+  private handleAdminMatch(client: Client, message: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player?.admin || !isAdminMatchMessage(message)) return;
+    if (!gameClock.forceMatch(message.mode, message.name)) return;
+    const text =
+      message.mode === "on"
+        ? `forzó el partido ${message.name}`
+        : message.mode === "off"
+          ? "suspendió los partidos"
+          : "dejó los partidos según el horario";
+    this.broadcastSystem(`⚽ ${player.name} ${text}`);
+    this.syncClock();
   }
 
   private isBenchTaken(bench: Bench, exceptSessionId: string) {
@@ -1107,6 +1624,37 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       this.sendWallet(client);
       return true;
     },
+    healFully: (client) => {
+      const needs = this.needs.get(client.sessionId);
+      const player = this.state.players.get(client.sessionId);
+      if (!needs || !player) return;
+      needs.fill();
+      player.energy = needs.energy;
+      this.sendNeeds(client);
+    },
+    jail: (target, name, until) => {
+      if (target) return target.mailbox.jail(target.sessionId, until);
+      bans.set(null, name, until);
+      for (const key of playerStore.keysByName(name)) {
+        bans.set(key, name, until);
+        playerStore.setJailedUntil(key, until);
+      }
+    },
+    traceTo: (client, to) => {
+      if (to.mailbox.roomId === this.roomId) {
+        const tile = this.tileNear(to.sessionId, client.sessionId);
+        if (!tile) return this.notice(client, `No hay lugar libre al lado de ${to.name}.`);
+        this.teleport(client.sessionId, tile);
+        return this.notice(client, `📍 Fuiste hasta ${to.name}.`);
+      }
+      const key = this.playerKeys.get(client.sessionId);
+      if (!key) return this.notice(client, "Para ir a otro barrio, tu navegador tiene que permitir guardar datos del sitio.");
+      this.savePlayer(client.sessionId);
+      issueTravelTicket(key, to.cityId, Date.now() + TRAVEL_TICKET_MS, Date.now(), { near: to.sessionId });
+      const approved: TravelMessage = { cityId: to.cityId, roomId: to.mailbox.roomId };
+      client.send(MessageType.TravelApproved, approved);
+      this.notice(client, `📍 Yendo hasta ${to.name} (${to.cityName}).`);
+    },
     // Anuncio para todos los barrios: se publica en presence y cada sala lo reenvía.
     announce: (name, text) => {
       const announcement: AnnouncementMessage = { id: `${Date.now()}-${this.nextMessageId()}`, name, text };
@@ -1116,23 +1664,29 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   };
 
   /**
-   * Comprar el boleto para viajar: el barrio existe y no es éste, alcanza la plata y hay clave (sin
-   * clave no se guarda la mochila y no se podría llevar al otro barrio). Se cobra, se guarda el
-   * progreso ya cobrado y se emite el boleto; el cliente sale y entra al destino.
+   * Viajar: el barrio existe y no es éste, hay clave (sin clave no se guarda la mochila y no se
+   * podría llevar al otro barrio) y un boleto STM en la mochila (`TICKET_ID`, se compra en la Agencia
+   * STM). Se gasta el boleto, se guarda el progreso y se emite el pase; el cliente sale y entra al
+   * destino.
    */
   private handleTravelRequest(client: Client, message: unknown) {
     const key = this.playerKeys.get(client.sessionId);
-    const wallet = this.wallets.get(client.sessionId);
-    if (!wallet || !isTravelMessage(message)) return;
+    const inventory = this.inventories.get(client.sessionId);
+    if (!inventory || !isTravelMessage(message)) return;
     const destination = getCity(message.cityId);
     if (!destination || destination.id === this.map.city.id) return;
-    if (!key) return this.notice(client, "Para viajar, tu navegador tiene que permitir guardar datos del sitio.");
-    if (!wallet.debit(TRAVEL_FARE)) {
-      return this.notice(client, `No te alcanza para el boleto: sale ${formatMoney(TRAVEL_FARE)}.`);
+    const player = this.state.players.get(client.sessionId);
+    const jailedUntil = player ? bans.until(key ?? null, player.name) : 0;
+    if (jailedUntil) {
+      return this.notice(client, `🚔 Estás preso: no podés ir a ningún lado. Te quedan ${formatJailLeft((jailedUntil - Date.now()) / 1000)}.`);
     }
-    this.sendWallet(client);
+    if (!key) return this.notice(client, "Para viajar, tu navegador tiene que permitir guardar datos del sitio.");
+    if (!inventory.remove(TICKET_ID)) {
+      return this.notice(client, `🚌 Necesitás un boleto STM para viajar. Se compran en ${whereToBuy(TICKET_ID)}.`);
+    }
+    this.sendInventory(client);
     this.savePlayer(client.sessionId);
-    travelTickets.set(key, { cityId: destination.id, expiresAt: Date.now() + TRAVEL_TICKET_MS });
+    issueTravelTicket(key, destination.id, Date.now() + TRAVEL_TICKET_MS);
     const approved: TravelMessage = { cityId: destination.id };
     client.send(MessageType.TravelApproved, approved);
   }
@@ -1203,6 +1757,36 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   }
 
   /** Mensaje privado (`/mensaje`) para un jugador de esta sala: sólo a él. */
+  tileOf(sessionId: string): TilePoint | undefined {
+    const player = this.state.players.get(sessionId);
+    return player ? { x: player.x, y: player.y } : undefined;
+  }
+
+  /**
+   * Tile caminable pegado al jugador `sessionId` (para `/trace`), el más cercano a `from` (otro
+   * jugador de la sala) si viene. Si no hay ninguno libre, su propio tile si es caminable.
+   */
+  private tileNear(sessionId: string, from?: string): TilePoint | undefined {
+    const target = this.tileOf(sessionId);
+    if (!target) return undefined;
+    const origin = (from ? this.tileOf(from) : undefined) ?? target;
+    return this.map.approachTile(target, origin) ?? (this.map.isWalkable(target.x, target.y) ? target : undefined);
+  }
+
+  /** Lleva al jugador a `tile` de golpe: corta lo que estaba haciendo (caminar, sentarse, pescar…). */
+  private teleport(sessionId: string, tile: TilePoint) {
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    this.stopActivities(sessionId);
+    this.paths.delete(sessionId);
+    this.pendingSits.delete(sessionId);
+    this.pendingShops.delete(sessionId);
+    this.pendingPalms.delete(sessionId);
+    player.sitting = false;
+    player.x = tile.x;
+    player.y = tile.y;
+  }
+
   deliverPrivate(sessionId: string, message: ChatBroadcastMessage) {
     this.clients.getById(sessionId)?.send(MessageType.Chat, message);
   }
@@ -1251,7 +1835,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
         continue;
       }
       // Cada paso gasta energía: agotado, se frena donde está (y no llega a banco ni tienda).
-      if (!this.staminas.get(sessionId)?.spend(WALK_STAMINA_COST)) {
+      const needs = this.needs.get(sessionId);
+      if (!needs?.spendEnergy(WALK_ENERGY_COST)) {
         this.paths.delete(sessionId);
         this.pendingSits.delete(sessionId);
         this.pendingShops.delete(sessionId);
@@ -1260,26 +1845,133 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
         if (client) this.notifyExhausted(client);
         continue;
       }
+      needs.drainHunger(WALK_HUNGER_COST);
       const next = path.shift()!;
       player.x = next.x;
       player.y = next.y;
       if (path.length === 0) this.paths.delete(sessionId);
     }
 
-    this.recoverStamina();
+    this.tickNeeds();
   }
 
-  /** Quieto se recupera energía; sentado en un banco, mucho más rápido. Pescando o vendiendo, no. */
-  private recoverStamina() {
+  /**
+   * Cada tick: baja el hambre (salvo preso) y, quieto (sin pescar ni vender), se recupera energía,
+   * más rápido sentado y más lento con hambre (ver `Needs.tick`). La energía va al Schema; el hambre
+   * al dueño si cambió, con un aviso al pasar a "tenés hambre" o "muerto de hambre".
+   */
+  private tickNeeds() {
     const seconds = STEP_MS / 1000;
     for (const [sessionId, player] of this.state.players) {
-      const stamina = this.staminas.get(sessionId);
-      if (!stamina) continue;
-      if (!this.paths.has(sessionId) && !player.fishing && !player.vending) {
-        stamina.recover((player.sitting ? SIT_STAMINA_REGEN : IDLE_STAMINA_REGEN) * seconds);
+      const needs = this.needs.get(sessionId);
+      if (!needs) continue;
+      needs.tick(seconds, {
+        resting: !this.paths.has(sessionId) && !player.fishing && !player.vending,
+        sitting: player.sitting,
+        jailed: player.jailLeft > 0,
+      });
+      if (player.energy !== needs.energy) player.energy = needs.energy;
+
+      const client = this.clients.getById(sessionId);
+      if (!client) continue;
+      if (needs.fainted) {
+        this.faint(client, player, needs);
+        continue;
       }
-      if (player.stamina !== stamina.rounded) player.stamina = stamina.rounded;
+      const sent = this.sentNeeds.get(sessionId);
+      if (sent?.hunger === needs.hunger && sent.health === needs.health) continue;
+      this.sendNeeds(client);
+      if (sent) this.noticeNeedsChange(client, sent, needs);
     }
+  }
+
+  /** Avisos al cruzar un umbral para abajo: hambre, muerto de hambre, sin comida (daña) y débil. */
+  private noticeNeedsChange(client: Client, before: NeedsMessage, needs: Needs) {
+    const hungerBefore = hungerLevel(before.hunger);
+    const hungerNow = hungerLevel(needs.hunger);
+    if (hungerNow !== hungerBefore && hungerNow !== "full" && hungerBefore !== "starving") {
+      this.notice(
+        client,
+        hungerNow === "hungry"
+          ? "🍖 Tenés hambre: comé algo. Con hambre, descansar rinde la mitad."
+          : "🍖 Estás muerto de hambre: descansar casi no rinde. ¡Comé algo ya!",
+      );
+    }
+    if (before.hunger > 0 && needs.hunger === 0 && this.state.players.get(client.sessionId)?.jailLeft === 0) {
+      this.notice(client, "❤ Sin nada en la panza, empezás a perder salud. ¡Comé algo!");
+    }
+    if (before.health >= LOW_HEALTH && needs.health < LOW_HEALTH) {
+      this.notice(
+        client,
+        `❤ Estás débil: la energía no te pasa de ${WEAK_ENERGY_CAP}. Comé bien y descansá, o andá a la guardia del Sanatorio Americano (Tres Cruces).`,
+      );
+    }
+  }
+
+  /**
+   * Desmayo (salud en 0): se corta todo, la ambulancia cobra (`faintFee`) y te despertás con poca
+   * salud (`Needs.revive`). Preso, en el patio del penal; en Tres Cruces, en la puerta del
+   * sanatorio; en otro barrio, la ambulancia te lleva gratis (pase de viaje a la puerta) y, sin
+   * clave (no se puede viajar), te despertás en la plaza del barrio. Nunca se pierden ítems.
+   */
+  private faint(client: Client, player: Player, needs: Needs) {
+    const sessionId = client.sessionId;
+    this.stopActivities(sessionId);
+    this.cancelTrade(sessionId, "leave");
+    needs.revive();
+    player.energy = needs.energy;
+    const wallet = this.wallets.get(sessionId);
+    const fee = wallet ? faintFee(wallet.balance) : 0;
+    if (fee > 0) wallet?.debit(fee);
+    this.sendWallet(client);
+    this.sendNeeds(client);
+    const paid = fee > 0 ? `La ambulancia te cobró ${formatMoney(fee)}.` : "La ambulancia no te cobró nada.";
+    this.broadcastSystem(`🚑 ${player.name} se desmayó y se lo llevó la ambulancia`, client);
+
+    const door = hospitalDoor();
+    const key = this.playerKeys.get(sessionId);
+    const jailed = player.jailLeft > 0 && this.map.city.id === JAIL_CITY_ID;
+    let wakeUp: TilePoint | undefined;
+    let text: string;
+    if (jailed) {
+      wakeUp = this.randomPrisonTile();
+      text = `Te desmayaste… Te despertaste en la enfermería del penal. ${paid}`;
+    } else if (this.map.city.id === HOSPITAL_CITY_ID && door) {
+      wakeUp = door;
+      text = `Te desmayaste… Te despertaste en la guardia del Sanatorio Americano. ${paid}`;
+    } else if (key && door) {
+      this.savePlayer(sessionId);
+      issueTravelTicket(key, HOSPITAL_CITY_ID, Date.now() + TRAVEL_TICKET_MS, Date.now(), { at: door });
+      const faintMessage: FaintMessage = { text: `Te desmayaste… La ambulancia te lleva al Sanatorio Americano. ${paid}` };
+      client.send(MessageType.Faint, faintMessage);
+      const ambulance: TravelMessage = { cityId: HOSPITAL_CITY_ID, ambulance: true };
+      client.send(MessageType.TravelApproved, ambulance);
+      return;
+    } else {
+      wakeUp = this.spawnTiles[Math.floor(Math.random() * this.spawnTiles.length)];
+      text = `Te desmayaste… Te despertaste en la plaza. ${paid}`;
+    }
+    if (wakeUp) this.teleport(sessionId, wakeUp);
+    const faintMessage: FaintMessage = { text };
+    client.send(MessageType.Faint, faintMessage);
+  }
+
+  /** Guardia del sanatorio: pagar la consulta (`hospitalPrice`) y quedar con la salud en 100. */
+  private handleHospitalHeal(client: Client, message: unknown) {
+    const shopId = typeof message === "object" && message !== null ? (message as Record<string, unknown>).shopId : undefined;
+    const player = this.state.players.get(client.sessionId);
+    const shop = typeof shopId === "string" ? this.map.city.shops.find((candidate) => candidate.id === shopId) : undefined;
+    const needs = this.needs.get(client.sessionId);
+    const wallet = this.wallets.get(client.sessionId);
+    if (!player || !shop?.hospital || !needs || !wallet) return;
+    if (!this.map.isNearShop(shop, player.x, player.y)) return this.shopResult(client, false, `Acercate a ${shop.name}.`);
+    if (needs.health >= MAX_HEALTH) return this.shopResult(client, false, "Estás sano: no hace falta la consulta.");
+    const price = hospitalPrice(needs.health);
+    if (!wallet.debit(price)) return this.shopResult(client, false, `La consulta sale ${formatMoney(price)} y no te alcanza.`);
+    needs.heal(MAX_HEALTH);
+    this.sendWallet(client);
+    this.sendNeeds(client);
+    this.shopResult(client, true, `❤ Te atendieron en la guardia: salud al 100 por ${formatMoney(price)}.`);
   }
 
   private notifyExhausted(client: Client) {
@@ -1339,7 +2031,16 @@ function isWeevilKickMessage(message: unknown): message is WeevilKickMessage {
   return typeof message === "object" && message !== null && typeof (message as Record<string, unknown>).id === "string";
 }
 
-function isFishEatMessage(message: unknown): message is FishEatMessage {
+/** Tile caminable pegado a la guardia del sanatorio, donde te deja la ambulancia (el mismo para todos). */
+function hospitalDoor(): TilePoint | undefined {
+  const map = getCityMap(HOSPITAL_CITY_ID);
+  const shop = map?.city.shops.find((candidate) => candidate.id === HOSPITAL_SHOP_ID);
+  if (!map || !shop) return undefined;
+  // Del lado de la calle (sur-este del edificio), que es por donde se ve la entrada.
+  return map.shopApproach(shop, { x: shop.area.x + shop.area.width, y: shop.area.y + shop.area.height + 1 });
+}
+
+function isFoodEatMessage(message: unknown): message is FoodEatMessage {
   return typeof message === "object" && message !== null && typeof (message as Record<string, unknown>).itemId === "string";
 }
 
@@ -1359,6 +2060,45 @@ function isAdminGiveMessage(message: unknown): message is AdminGiveMessage {
   );
 }
 
+function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { shopId, items } = message as Record<string, unknown>;
+  return (
+    typeof shopId === "string" &&
+    Array.isArray(items) &&
+    items.length <= 50 &&
+    items.every((line: unknown) => {
+      if (typeof line !== "object" || line === null) return false;
+      const { itemId, quantity } = line as Record<string, unknown>;
+      return typeof itemId === "string" && Number.isInteger(quantity) && (quantity as number) >= 1;
+    })
+  );
+}
+
+function isPetAdoptMessage(message: unknown): message is PetAdoptMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { shopId, petId, name } = message as Record<string, unknown>;
+  return typeof shopId === "string" && typeof petId === "string" && typeof name === "string";
+}
+
+function isPetRenameMessage(message: unknown): message is PetRenameMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { shopId, name } = message as Record<string, unknown>;
+  return typeof shopId === "string" && typeof name === "string";
+}
+
+function isInventoryMoveMessage(message: unknown): message is InventoryMoveMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { from, to } = message as Record<string, unknown>;
+  return Number.isInteger(from) && Number.isInteger(to);
+}
+
+function isAdminMatchMessage(message: unknown): message is AdminMatchMessage {
+  if (typeof message !== "object" || message === null) return false;
+  const { mode, name } = message as Record<string, unknown>;
+  return (MATCH_MODES as readonly unknown[]).includes(mode) && (name === undefined || typeof name === "string");
+}
+
 function isAdminSetTimeMessage(message: unknown): message is AdminSetTimeMessage {
   return typeof message === "object" && message !== null && isValidMinuteOfDay((message as Record<string, unknown>).minuteOfDay);
 }
@@ -1369,8 +2109,10 @@ function isShopHaggleMessage(message: unknown): message is ShopHaggleMessage {
 
 function isShopTradeMessage(message: unknown): message is ShopTradeMessage {
   if (typeof message !== "object" || message === null) return false;
-  const { shopId, itemId } = message as Record<string, unknown>;
-  return typeof shopId === "string" && typeof itemId === "string";
+  const { shopId, itemId, quantity } = message as Record<string, unknown>;
+  const validQuantity =
+    quantity === undefined || (Number.isInteger(quantity) && (quantity as number) >= 1 && (quantity as number) <= SHOP_MAX_QUANTITY);
+  return typeof shopId === "string" && typeof itemId === "string" && validQuantity;
 }
 
 function isEquipMessage(message: unknown): message is EquipMessage {

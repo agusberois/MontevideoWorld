@@ -30,12 +30,20 @@ teclado y qué panel se abre. Cada feature nueva toca 6 lugares del mismo archiv
 - Atajos como tabla: `{ KeyM: "cities", KeyH: "backpack", … }`.
 - Paneles como registro (`id → componente`) en vez de una cadena de `panel === "x" &&`.
 
+**Hecho (2026-10-02):** `lib/gameStore.ts` (store con `useSyncExternalStore`, sin dependencias nuevas;
+`reset` al salir y `resetCity` al viajar), `lib/gameActions.ts` (F, pesca, venta, barra rápida, viaje) y
+`components/panels.ts` (registro con la tecla de cada panel: la tabla de atajos sale de ahí). Los
+componentes leen con `useGame`; `App.tsx` pasó de 443 a ~180 líneas y de 18 `useState` a 2.
+
 ### 2. `lib/network.ts` repite lo mismo por cada mensaje
 
 Cada mensaje del server repite import + `onMessage` + variable de limpieza + llamada de limpieza.
 
 **Propuesta:** una tabla `MessageType → evento del bus` recorrida con un loop. Agregar un mensaje pasa
 a ser una sola línea.
+
+**Hecho (2026-10-02):** `SERVER_MESSAGES` en `lib/network.ts` (evento del bus → `MessageType`) y
+`bindRoomMessages` la recorre con un loop.
 
 ### 3. `game/scenes/CityScene.ts` decide clic y hover por tipo de objeto
 
@@ -45,6 +53,13 @@ puertas, carteles, NPCs, cajeros o viaje entre barrios esto crece en `if`s.
 **Propuesta:** que `CityMap` exponga `interactionAt(x, y)` y devuelva algo como
 `{ kind, hoverArea, hoverColor, message }`. La escena queda genérica y el server puede usar la misma función.
 
+**Hecho (2026-10-02):** `CityMap.interactionAt(x, y, { palmReach })` devuelve `{ kind, target, area }` y
+`interactionsAround` lo de los tiles pegados (tecla F). Los colores quedaron en el cliente
+(`HOVER_COLORS`, son presentación) y lo que hace cada `kind` en un único `switch` (`CityScene.describe`)
+que usan el clic y la F. Verificado tile por tile en los dos barrios: mismo resultado que antes. Antes,
+hover y clic revisaban en distinto orden (palmera antes que parada / tienda en el hover); ahora es uno
+solo. El server no lo usa todavía: recibe mensajes por tipo (`sit`, `shop:visit`…) y valida cada uno.
+
 ### 4. Lógica por categoría de ítem repartida en la UI
 
 `item.category === "fish"` aparece en `Backpack.tsx`, `ItemIcon.tsx` y `ShopPanel.tsx` (5 usos sólo en
@@ -52,6 +67,14 @@ puertas, carteles, NPCs, cajeros o viaje entre barrios esto crece en `if`s.
 
 **Propuesta:** describir cada categoría en un solo lugar en `shared` (si se puede poner, si se apila,
 cómo se vende, qué texto muestra la tienda) y un registro de íconos por categoría en el cliente.
+
+**Hecho (2026-10-02):** `ITEM_CATEGORIES` en `items.ts` (nombre, herramienta, recargo, cuánto paga la
+tienda, textos de la tienda); `buyPrice`, `sellPrice`, `isTool`, el maker y el server salen de ahí
+(precios verificados iguales para los 35 ítems y todo nivel de desgaste). En el cliente,
+`itemCategoryUi.ts` (estrellas y ventajas), `CATEGORY_ICONS` en `ItemIcon` y un `switch` exhaustivo
+(`cellView`) en la mochila en vez de 5 bloques de JSX. Todos son `Record<ItemCategory, …>` o switches
+exhaustivos: una categoría nueva no compila hasta tener todo. Quedan `category ===` sólo como type
+guards en shared (`isRod`, `isCart`…) y en `itemActions.ts` (que ya era un switch por categoría).
 
 ### 5. Dibujo de prendas en `Avatar.ts` (746 líneas) e `ItemIcon.tsx`
 
@@ -106,7 +129,7 @@ src/
 
 ## Plan sugerido
 
-- [ ] **Ahora** (baratos, y cada feature nueva los encarece): 1 (store, atajos y paneles),
+- [x] **Ahora** (baratos, y cada feature nueva los encarece): 1 (store, atajos y paneles),
       2 (tabla de mensajes), 3 (`interactionAt`) y 4 (descriptor de categorías). Se pasa de tocar ~6
       lugares por feature a 1 o 2, sin cambiar nada del juego.
 - [ ] **Al sumar estilos de ropa o un segundo barrio:** 5 y 6.

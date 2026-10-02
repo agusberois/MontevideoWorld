@@ -6,7 +6,9 @@
  * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
  */
 
-export type ItemCategory = "clothing" | "fish" | "rod" | "cart" | "box";
+import { TRAVEL_FARE } from "./money";
+
+export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
 
 export const ITEM_SLOTS = ["hat", "top", "bottom", "shoes"] as const;
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
@@ -135,7 +137,45 @@ export interface BoxItem extends ItemBase {
   loot: readonly LootEntry[];
 }
 
-export type ItemDefinition = ClothingItem | FishItem | RodItem | CartItem | BoxItem;
+/**
+ * Boleto de ómnibus (STM): cada viaje a otro barrio gasta uno. Se compra en la Agencia STM, se apila
+ * en la mochila y se puede intercambiar.
+ */
+export interface TicketItem extends ItemBase {
+  category: "ticket";
+}
+
+/** Forma del ícono de cada comida (`ItemIcon.tsx`). */
+export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate";
+
+/**
+ * Comida: se compra en kioscos y en el Mercado, y se come desde la mochila o la barra rápida. Llena
+ * la saciedad (`hunger`) y da algo de energía (`energy`). Ver `needs.ts` y `edibleValue`.
+ */
+export interface FoodItem extends ItemBase {
+  category: "food";
+  shape: FoodShape;
+  hunger: number;
+  energy: number;
+  /** Lo que cura (0 = nada). */
+  health: number;
+}
+
+/** Forma del ícono de cada remedio (`ItemIcon.tsx`). */
+export type MedicineShape = "pills" | "bandage" | "vitamins" | "kit";
+
+/**
+ * Remedio: se compra en la farmacia y se toma desde la mochila o la barra rápida (`food:eat`, como
+ * la comida). Cura salud (`health`) y algunos dan energía; no llenan la panza.
+ */
+export interface MedicineItem extends ItemBase {
+  category: "medicine";
+  shape: MedicineShape;
+  health: number;
+  energy: number;
+}
+
+export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
 
 type CatalogEntry<T> = Omit<T, "category">;
 
@@ -177,6 +217,35 @@ export const FISH: readonly FishItem[] = fish([
   { id: "brotola", name: "Brótola", gender: "f", difficulty: 3, shape: "fish", color: "#a0614a", price: 18, catchWeight: 8 },
   { id: "lenguado", name: "Lenguado", gender: "m", difficulty: 4, shape: "flat", color: "#8a7a5c", price: 35, catchWeight: 4 },
   { id: "corvina-negra", name: "Corvina negra", gender: "f", difficulty: 5, shape: "fish", color: "#3e3a38", price: 60, catchWeight: 2 },
+]);
+
+const food = (items: CatalogEntry<FoodItem>[]): FoodItem[] => items.map((item) => ({ ...item, category: "food" }));
+
+/**
+ * Comidas. Las baratas llenan poco (o dan sobre todo energía, como el mate); las caras llenan
+ * mucho. Ver el balance en `docs/finished/necesidades-del-personaje.md`.
+ */
+export const FOODS: readonly FoodItem[] = food([
+  { id: "torta-frita", name: "Torta frita", shape: "tortaFrita", color: "#d9a35b", price: 10, hunger: 15, energy: 5, health: 0 },
+  { id: "alfajor", name: "Alfajor", shape: "alfajor", color: "#6b3e1e", price: 15, hunger: 10, energy: 15, health: 0 },
+  { id: "mate", name: "Mate", shape: "mate", color: "#7a9a3a", price: 20, hunger: 5, energy: 30, health: 0 },
+  { id: "pancho", name: "Pancho", shape: "pancho", color: "#c0392b", price: 25, hunger: 30, energy: 5, health: 0 },
+  { id: "pescado-plancha", name: "Pescado a la plancha", shape: "fishPlate", color: "#d9cbb0", price: 45, hunger: 45, energy: 10, health: 10 },
+  { id: "chivito", name: "Chivito", shape: "chivito", color: "#e0a84a", price: 90, hunger: 70, energy: 10, health: 10 },
+]);
+
+const medicine = (items: CatalogEntry<MedicineItem>[]): MedicineItem[] =>
+  items.map((item) => ({ ...item, category: "medicine" }));
+
+/**
+ * Remedios de la farmacia. Curan salud en el momento y se llevan en la mochila; por punto salen
+ * algo más caros que la guardia del sanatorio ($1 por punto), que hay que ir hasta Tres Cruces.
+ */
+export const MEDICINES: readonly MedicineItem[] = medicine([
+  { id: "curitas", name: "Curitas", shape: "bandage", color: "#e8b48a", price: 10, health: 5, energy: 0 },
+  { id: "perifar", name: "Perifar", shape: "pills", color: "#d7263d", price: 25, health: 15, energy: 0 },
+  { id: "vitaminas", name: "Vitaminas", shape: "vitamins", color: "#f2a541", price: 40, health: 10, energy: 20 },
+  { id: "botiquin", name: "Botiquín", shape: "kit", color: "#2e9e5b", price: 120, health: 50, energy: 0 },
 ]);
 
 /** Caña con la que arranca todo jugador nuevo (en la mochila). */
@@ -228,15 +297,123 @@ export const BOXES: readonly BoxItem[] = [
   },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...RODS, ...CARTS, ...BOXES];
+/** El boleto de STM (`TicketItem`): lo que gasta viajar entre barrios. */
+export const TICKET_ID = "boleto-stm";
 
-export const ITEM_CATEGORY_LABELS: Record<ItemCategory, string> = {
-  clothing: "ropa",
-  fish: "pescado",
-  rod: "cañas",
-  cart: "carritos",
-  box: "cajas",
+export const TICKETS: readonly TicketItem[] = [
+  { id: TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: TRAVEL_FARE },
+];
+
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
+
+/** Una tienda paga por una prenda usada esta fracción de su precio. */
+export const SELL_RATIO = 0.5;
+
+/**
+ * Recargo de la pescadería al vender pescado: sale más caro que lo que paga por él, así comprar
+ * para revender nunca conviene y pescar sigue siendo la forma de ganar plata.
+ */
+export const FISH_BUY_MARKUP = 1.5;
+
+/** Cómo se comporta cada categoría de ítem en la mochila y en las tiendas (cliente y server). */
+export interface ItemCategoryInfo {
+  /** Para los textos ("En X no compran cañas") y la pestaña del maker. */
+  label: string;
+  /** Herramienta con desgaste: va de a una por casillero y vale según los usos que le quedan. */
+  tool: boolean;
+  /** Lo que cobra una tienda al venderla: `price` × esto (redondeado para arriba). */
+  buyMarkup: number;
+  /** Lo que paga una tienda al comprarla: `price` × esto (mínimo $1). */
+  sellRatio: number;
+  /** Pie de la pestaña Vender de una tienda que compra esta categoría. */
+  sellNote: string;
+  /** Pie de la pestaña Comprar de una tienda que vende alguno de esta categoría. */
+  buyNote?: string;
+  /** Pestaña Vender vacía: no tenés nada de esta categoría para venderle. */
+  nothingToSell: string;
+}
+
+/**
+ * Todas las categorías, en el orden en que se muestran (p. ej. en el maker). Para una nueva: sumarla
+ * a `ItemCategory` y acá; TypeScript pide después su ícono (`ItemIcon.tsx`), su vista en la mochila
+ * (`Backpack.tsx`) y qué hace en la barra rápida (`itemActions.ts`).
+ */
+export const ITEM_CATEGORIES: Record<ItemCategory, ItemCategoryInfo> = {
+  clothing: {
+    label: "ropa",
+    tool: false,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "Por la ropa usada te pagan la mitad.",
+    nothingToSell:
+      "No tenés ropa en la mochila para vender. Lo que tenés puesto no se vende: sacátelo primero desde la mochila.",
+  },
+  fish: {
+    label: "pescado",
+    tool: false,
+    buyMarkup: FISH_BUY_MARKUP,
+    sellRatio: 1,
+    sellNote: "El pescado se paga a precio completo.",
+    buyNote: `Comprar pescado sale ${Math.round((FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado.`,
+    nothingToSell: "No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.",
+  },
+  food: {
+    label: "comida",
+    tool: false,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "",
+    buyNote: "La comida llena el hambre y da energía: se come desde la mochila o la barra rápida (1–9).",
+    nothingToSell: "No tenés comida en la mochila.",
+  },
+  medicine: {
+    label: "remedios",
+    tool: false,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "",
+    buyNote: "Los remedios curan salud al momento: se toman desde la mochila o la barra rápida (1–9).",
+    nothingToSell: "No tenés remedios en la mochila.",
+  },
+  rod: {
+    label: "cañas",
+    tool: true,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "Por una caña te pagan la mitad de su precio, menos cuanto más gastada esté.",
+    buyNote: "Pescás siempre con la mejor caña que tengas en la mochila; cada tirada la gasta y al final se rompe.",
+    nothingToSell: "No tenés cañas en la mochila para vender.",
+  },
+  cart: {
+    label: "carritos",
+    tool: true,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "Por un carrito te pagan la mitad de su precio, menos cuanto más gastado esté.",
+    buyNote:
+      "Vendés siempre con el mejor carrito de la mochila, parado en la Explanada del Centenario; cada intento lo gasta y al final se rompe.",
+    nothingToSell: "No tenés carritos en la mochila para vender.",
+  },
+  ticket: {
+    label: "boletos",
+    tool: false,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "Por un boleto sin usar te pagan la mitad.",
+    buyNote: "Cada viaje en ómnibus a otro barrio usa un boleto. Se guardan en la mochila y se pueden intercambiar.",
+    nothingToSell: "No tenés boletos en la mochila para vender.",
+  },
+  box: {
+    label: "cajas",
+    tool: false,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "",
+    nothingToSell: "No tenés cajas en la mochila para vender.",
+  },
 };
+
+export const ITEM_CATEGORY_IDS = Object.keys(ITEM_CATEGORIES) as ItemCategory[];
 
 export function isRod(item: ItemDefinition | undefined): item is RodItem {
   return item?.category === "rod";
@@ -274,6 +451,47 @@ export function bestCart(itemIds: Iterable<string>): CartItem | undefined {
 /** "★★☆☆" para mostrar el nivel de un carrito. */
 export function cartStars(tier: CartTier): string {
   return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+
+export function isFood(item: ItemDefinition | undefined): item is FoodItem {
+  return item?.category === "food";
+}
+
+/** Lo que da comer algo: saciedad, energía y salud (negativa: hace mal). */
+export interface EdibleValue {
+  hunger: number;
+  energy: number;
+  health: number;
+  /** Pescado crudo: la salud que saca nunca la deja por debajo de `RAW_FISH_HEALTH_FLOOR` (`needs.ts`). */
+  raw?: boolean;
+}
+
+/** Salud que saca un pescado crudo (lo mismo que `RAW_FISH_HEALTH` en `needs.ts`). */
+const RAW_FISH_DAMAGE = 2;
+
+/**
+ * Qué da comerse (o tomarse, un remedio) este ítem, o undefined si no. La comida y los remedios, lo suyo; un pescado crudo llena
+ * según su dificultad (pejerrey +10 … corvina negra +30), da la mitad de eso en energía y saca un
+ * poco de salud.
+ */
+export function edibleValue(item: ItemDefinition | undefined): EdibleValue | undefined {
+  if (isFood(item)) return { hunger: item.hunger, energy: item.energy, health: item.health };
+  if (item?.category === "medicine") return { hunger: 0, energy: item.energy, health: item.health };
+  if (item?.category === "fish") {
+    const hunger = 5 + item.difficulty * 5;
+    return { hunger, energy: Math.round(hunger / 2), health: -RAW_FISH_DAMAGE, raw: true };
+  }
+  return undefined;
+}
+
+/** "🍖 +30 · ⚡ +5 · ❤ +10" (o "❤ −2, crudo"): lo que da comerlo, para la mochila, la tienda y la barra rápida. */
+export function edibleLabel(value: EdibleValue): string {
+  const health = value.health > 0 ? `❤ +${value.health}` : value.health < 0 ? `❤ −${-value.health}${value.raw ? ", crudo" : ""}` : "";
+  return [value.hunger > 0 && `🍖 +${value.hunger}`, value.energy > 0 && `⚡ +${value.energy}`, health].filter(Boolean).join(" · ");
+}
+
+export function isTicket(item: ItemDefinition | undefined): item is TicketItem {
+  return item?.category === "ticket";
 }
 
 export function isBox(item: ItemDefinition | undefined): item is BoxItem {
@@ -343,10 +561,16 @@ export interface InventoryStack {
   quantity: number;
   /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
   uses?: number;
+  /**
+   * Casillero de la mochila (0 … capacidad − 1) donde está la pila: el jugador los reordena
+   * (`inventory:move`) y puede haber huecos. Lo pone el server; una unidad suelta (lo que sale de
+   * `Inventory.remove`, una oferta) no lo lleva.
+   */
+  slot?: number;
 }
 
 export function isTool(item: ItemDefinition | undefined): item is ToolItem {
-  return item?.category === "rod" || item?.category === "cart";
+  return item !== undefined && ITEM_CATEGORIES[item.category].tool;
 }
 
 /** Cuántas unidades entran en un casillero: las herramientas van de a una (cada una con su desgaste). */
@@ -393,28 +617,17 @@ export function isItemSlot(value: unknown): value is ItemSlot {
   return typeof value === "string" && (ITEM_SLOTS as readonly string[]).includes(value);
 }
 
-/** Una tienda paga por una prenda usada esta fracción de su precio. */
-export const SELL_RATIO = 0.5;
-
-/**
- * Recargo de la pescadería al vender pescado: sale más caro que lo que paga por él, así comprar
- * para revender nunca conviene y pescar sigue siendo la forma de ganar plata.
- */
-export const FISH_BUY_MARKUP = 1.5;
-
-/** Lo que cuesta comprar un ítem en una tienda: la ropa a su precio, el pescado con recargo. */
+/** Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado sale más). */
 export function buyPrice(item: ItemDefinition): number {
-  if (item.category === "fish") return Math.ceil(item.price * FISH_BUY_MARKUP);
-  return item.price;
+  return Math.ceil(item.price * ITEM_CATEGORIES[item.category].buyMarkup);
 }
 
 /**
- * Lo que paga una tienda: la mitad por ropa usada (mínimo $1), el precio completo por pescado. Una
- * herramienta gastada vale en proporción a los `uses` que le quedan.
+ * Lo que paga una tienda: el precio por el `sellRatio` de su categoría (la mitad por ropa usada, el
+ * completo por pescado; mínimo $1). Una herramienta gastada vale en proporción a los `uses` que le quedan.
  */
 export function sellPrice(item: ItemDefinition, uses?: number): number {
-  if (item.category === "fish") return item.price;
-  const half = item.price * SELL_RATIO;
+  const base = item.price * ITEM_CATEGORIES[item.category].sellRatio;
   const wear = isTool(item) && uses !== undefined ? Math.min(1, Math.max(0, uses / item.maxUses)) : 1;
-  return Math.max(1, Math.floor(half * wear));
+  return Math.max(1, Math.floor(base * wear));
 }

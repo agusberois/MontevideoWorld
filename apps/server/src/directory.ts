@@ -1,21 +1,26 @@
-import type { ChatBroadcastMessage } from "@montevideo-world/shared";
+import type { ChatBroadcastMessage, TilePoint } from "@montevideo-world/shared";
 
-/** Sala que puede entregarle un mensaje privado a uno de sus jugadores. */
+/** Sala que puede entregarle un mensaje privado a uno de sus jugadores y decir dónde está (`/trace`). */
 export interface PrivateMailbox {
+  readonly roomId: string;
   deliverPrivate(sessionId: string, message: ChatBroadcastMessage): void;
+  tileOf(sessionId: string): TilePoint | undefined;
+  /** Preso al COMCAR hasta `until` (ms; 0 = liberarlo): lo anota y lo lleva (o lo suelta). */
+  jail(sessionId: string, until: number): void;
 }
 
 /** Un jugador conectado, en cualquier barrio. */
 export interface OnlinePlayer {
   sessionId: string;
   name: string;
+  cityId: string;
   cityName: string;
   mailbox: PrivateMailbox;
 }
 
 /**
  * Quién está conectado ahora en todos los barrios (cada sala anota a los suyos al entrar y los saca
- * al salir), para los mensajes privados entre barrios (`/mensaje`). Vive en memoria del proceso,
+ * al salir), para los mensajes privados entre barrios (`/mensaje`) y para `/trace`. Vive en memoria del proceso,
  * como `activeSessions`: alcanza con una sola instancia del server; para escalar habría que pasarlo
  * a presence.
  */

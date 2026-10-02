@@ -23,8 +23,9 @@ export declare const WEEVIL_AGGRO_RANGE = 6;
 export declare const WEEVIL_BITE_RANGE = 0.55;
 /** Tiempo mínimo entre dos picaduras del mismo picudo. */
 export declare const WEEVIL_BITE_MS = 1500;
-/** Energía que saca cada picadura. */
-export declare const WEEVIL_BITE_STAMINA = 2;
+/** Energía y salud que saca cada picadura. */
+export declare const WEEVIL_BITE_ENERGY = 2;
+export declare const WEEVIL_BITE_HEALTH = 2;
 /** Pasado este tiempo se vuelven a la palmera aunque tengan a quién picar. */
 export declare const WEEVIL_LIFETIME_MS = 30000;
 /** Distancia máxima (desde el tile del jugador) para patear un picudo. */
@@ -32,5 +33,24 @@ export declare const WEEVIL_KICK_RANGE = 1.6;
 /** Plata por cada picudo aplastado. */
 export declare const WEEVIL_REWARD = 1;
 /** Qué está haciendo: saliendo de la palmera, persiguiendo, volviendo a la palmera o muerto. */
-export type WeevilMode = "emerge" | "chase" | "leave" | "dead";
+export declare const WEEVIL_MODES: readonly ["emerge", "chase", "leave", "dead"];
+export type WeevilMode = (typeof WEEVIL_MODES)[number];
+/**
+ * Cómo viajan en el Schema, para que pesen poco (son lo que más se actualiza del barrio): el modo
+ * como número (su índice en `WEEVIL_MODES`) y la posición en centésimas de tile como entero de
+ * 2 bytes (un cuarto de píxel de precisión; los mapas no pasan de 255 tiles).
+ */
+export declare const WEEVIL_POSITION_SCALE = 100;
+export declare function weevilModeCode(mode: WeevilMode): number;
+export declare function weevilModeOf(code: number): WeevilMode;
+/** Posición en tiles (con decimales) de un picudo del Schema. */
+export declare function weevilTile(weevil: {
+    x: number;
+    y: number;
+}): {
+    x: number;
+    y: number;
+};
+/** Tiles con decimales → lo que va al Schema. */
+export declare function encodeWeevilCoord(tile: number): number;
 //# sourceMappingURL=weevils.d.ts.map

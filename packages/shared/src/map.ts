@@ -1,5 +1,16 @@
 import { Bench, BusStop, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS, getCity } from "./cities";
 
+export type FishingFacing = "south" | "east" | "west" | "north";
+
+/** Hacia dónde mira quien pesca y a cuántos tiles cae la boya (ver `CityMap.fishingSpot`). */
+export interface FishingSpot {
+  facing: FishingFacing;
+  distance: number;
+}
+
+/** Hasta cuántos tiles se busca el agua para tirar la línea (la plataforma de la escollera mide 7 de ancho). */
+const FISHING_REACH = 6;
+
 const DIRECTIONS: readonly TilePoint[] = [
   { x: 1, y: 0 },
   { x: -1, y: 0 },
@@ -10,6 +21,33 @@ const DIRECTIONS: readonly TilePoint[] = [
   { x: -1, y: 1 },
   { x: -1, y: -1 },
 ];
+
+/**
+ * Con qué cosa fija del mapa se interactúa en un tile (clic, hover o la tecla F). `target` es el tile
+ * al que apunta la acción y `area`, lo que se marca al pasar el mouse (toda la tienda, o un tile).
+ * Para algo nuevo del mapa (puertas, carteles, cajeros…): sumar su `kind` acá y en `interactionAt`.
+ */
+export type MapInteraction =
+  | { kind: "busStop"; target: TilePoint; area: TileRect; busStop: BusStop }
+  | { kind: "shop"; target: TilePoint; area: TileRect; shop: Shop }
+  | { kind: "palm"; target: TilePoint; area: TileRect }
+  | { kind: "bench"; target: TilePoint; area: TileRect; bench: Bench }
+  /** Piso caminable: ir hasta ahí. */
+  | { kind: "floor"; target: TilePoint; area: TileRect };
+
+export type MapInteractionKind = MapInteraction["kind"];
+
+export interface InteractionOptions {
+  /**
+   * Hasta cuántos tiles en diagonal hacia atrás (+1, +1) se busca una palmera: las hojas se dibujan
+   * encima de los tiles de adelante y el clic ahí también la sacude. 0 = sólo el tile.
+   */
+  palmReach?: number;
+}
+
+function tileRect(x: number, y: number): TileRect {
+  return { x, y, width: 1, height: 1 };
+}
 
 /**
  * Grilla de un barrio lista para consultar: qué hay en cada tile, qué se puede caminar
@@ -72,17 +110,35 @@ export class CityMap {
   }
 
   /**
-   * Hacia dónde está el agua desde (x, y): para orientar al que pesca. Se prueban primero sur y
-   * este (de frente a la cámara) y después oeste y norte.
+   * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
+   * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera
+   * el agua no está pegada) y a cuántos tiles cae la boya: uno adentro del agua si se puede, así no
+   * queda en la orilla. A igual distancia se prefieren sur y este (de frente a la cámara).
+   * undefined si no hay agua al alcance.
    */
-  waterDirection(x: number, y: number): "south" | "east" | "west" | "north" | undefined {
+  fishingSpot(x: number, y: number): FishingSpot | undefined {
     const options = [
       ["south", 0, 1],
       ["east", 1, 0],
       ["west", -1, 0],
       ["north", 0, -1],
     ] as const;
-    return options.find(([, dx, dy]) => this.tileAt(x + dx, y + dy) === TileChar.Water)?.[0];
+    let best: { facing: FishingFacing; water: number } | undefined;
+    for (const [facing, dx, dy] of options) {
+      for (let d = 1; d <= FISHING_REACH; d++) {
+        const char = this.tileAt(x + dx * d, y + dy * d);
+        if (char === TileChar.Water) {
+          if (!best || d < best.water) best = { facing, water: d };
+          break;
+        }
+        // Sólo se tira por encima de la escollera (no por arriba de la rambla ni de edificios).
+        if (char !== TileChar.Jetty) break;
+      }
+    }
+    if (!best) return undefined;
+    const [, dx, dy] = options.find(([facing]) => facing === best.facing)!;
+    const further = this.tileAt(x + dx * (best.water + 1), y + dy * (best.water + 1)) === TileChar.Water;
+    return { facing: best.facing, distance: further ? best.water + 1 : best.water };
   }
 
   /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
@@ -160,6 +216,40 @@ export class CityMap {
     return this.city.busStops.find((stop) => stop.x === x && stop.y === y);
   }
 
+  /**
+   * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+   * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
+   * se mueven y los resuelve quien llama.
+   */
+  interactionAt(x: number, y: number, { palmReach = 0 }: InteractionOptions = {}): MapInteraction | undefined {
+    const busStop = this.busStopAt(x, y);
+    if (busStop) return { kind: "busStop", target: { x, y }, area: tileRect(x, y), busStop };
+    const shop = this.shopAt(x, y);
+    if (shop) return { kind: "shop", target: { x, y }, area: shop.area, shop };
+    for (let k = 0; k <= palmReach; k++) {
+      if (this.isPalm(x + k, y + k)) return { kind: "palm", target: { x: x + k, y: y + k }, area: tileRect(x + k, y + k) };
+    }
+    const bench = this.benchAt(x, y);
+    if (bench) return { kind: "bench", target: { x, y }, area: tileRect(x, y), bench };
+    if (this.isWalkable(x, y)) return { kind: "floor", target: { x, y }, area: tileRect(x, y) };
+    return undefined;
+  }
+
+  /**
+   * Lo que hay en los 8 tiles pegados a (x, y), sin el piso: con qué se puede interactuar sin
+   * caminar (tecla F). Una tienda aparece una vez aunque toque varios tiles.
+   */
+  interactionsAround(x: number, y: number): MapInteraction[] {
+    const found: MapInteraction[] = [];
+    for (const dir of DIRECTIONS) {
+      const hit = this.interactionAt(x + dir.x, y + dir.y);
+      if (!hit || hit.kind === "floor") continue;
+      if (hit.kind === "shop" && found.some((other) => other.kind === "shop" && other.shop === hit.shop)) continue;
+      found.push(hit);
+    }
+    return found;
+  }
+
   inBounds(x: number, y: number): boolean {
     return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.width && y < this.height;
   }
@@ -222,6 +312,11 @@ export class CityMap {
 
   spawnTiles(): TilePoint[] {
     return this.walkableTilesIn(this.city.spawnArea);
+  }
+
+  /** Cárcel: dónde aparecen los presos (el patio, del lado de adentro de la reja). Vacío si no es cárcel. */
+  prisonTiles(): TilePoint[] {
+    return this.city.prison ? this.walkableTilesIn(this.city.prison.yard) : [];
   }
 
   /**

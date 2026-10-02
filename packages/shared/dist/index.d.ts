@@ -9,10 +9,13 @@ export * from "./map";
 export * from "./messages";
 export * from "./money";
 export * from "./sanitize";
-export * from "./stamina";
+export * from "./needs";
 export * from "./time";
 export * from "./tools";
 export * from "./trade";
 export * from "./vending";
+export * from "./jail";
+export * from "./pets";
+export * from "./needsBalance";
 export * from "./weevils";
 //# sourceMappingURL=index.d.ts.map

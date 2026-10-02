@@ -6,6 +6,8 @@ export const TRAVEL_MS = 5000;
 interface TravelOverlayProps {
   from: string;
   to: string;
+  /** Te lleva la ambulancia (desmayo), no el ómnibus: blanca con la cruz roja y otro texto. */
+  ambulance?: boolean;
 }
 
 /**
@@ -13,9 +15,11 @@ interface TravelOverlayProps {
  * carrocería que se mece, edificios y líneas de la calle pasando) y una barra de progreso.
  * Todo es SVG + CSS: no depende de Phaser, que en ese momento está cambiando de barrio.
  */
-export function TravelOverlay({ from, to }: TravelOverlayProps) {
+export function TravelOverlay({ from, to, ambulance = false }: TravelOverlayProps) {
+  const stripe = ambulance ? "#d7263d" : "#1d4fa0";
+  const label = ambulance ? "SAMU" : "STM";
   return (
-    <div className="travel-overlay" role="status" aria-live="polite">
+    <div className={`travel-overlay${ambulance ? " ambulance" : ""}`} role="status" aria-live="polite">
       <div className="travel-card">
         <p className="travel-route">
           <span>{from}</span>
@@ -43,23 +47,32 @@ export function TravelOverlay({ from, to }: TravelOverlayProps) {
             <svg viewBox="0 0 220 96" width="220" height="96">
               {/* Carrocería */}
               <rect x="4" y="8" width="208" height="70" rx="12" fill="#f4f5f2" stroke="#1d2433" strokeWidth="3" />
-              <rect x="4" y="54" width="208" height="10" fill="#1d4fa0" />
-              <rect x="4" y="64" width="208" height="4" fill="#e63946" />
-              {/* Ventanas */}
-              {[18, 54, 90, 126].map((x) => (
-                <rect key={x} x={x} y="18" width="30" height="26" rx="3" fill="#9fc9d9" stroke="#1d2433" strokeWidth="2" />
-              ))}
+              <rect x="4" y="54" width="208" height="10" fill={stripe} />
+              <rect x="4" y="64" width="208" height="4" fill={ambulance ? "#f2b705" : "#e63946"} />
+              {/* Ventanas (la ambulancia: una sola atrás y la cruz roja al costado) */}
+              {ambulance ? (
+                <>
+                  <rect x="18" y="18" width="30" height="26" rx="3" fill="#9fc9d9" stroke="#1d2433" strokeWidth="2" />
+                  <rect x="86" y="16" width="12" height="34" fill="#d7263d" />
+                  <rect x="75" y="27" width="34" height="12" fill="#d7263d" />
+                  <rect x="70" y="2" width="22" height="7" rx="2" fill="#d7263d" className="travel-siren" />
+                </>
+              ) : (
+                [18, 54, 90, 126].map((x) => (
+                  <rect key={x} x={x} y="18" width="30" height="26" rx="3" fill="#9fc9d9" stroke="#1d2433" strokeWidth="2" />
+                ))
+              )}
               {/* Parabrisas y cartel de destino */}
               <path d="M166 18 h34 a6 6 0 0 1 6 6 v24 h-40 z" fill="#9fc9d9" stroke="#1d2433" strokeWidth="2" />
               <rect x="150" y="10" width="56" height="7" rx="2" fill="#1d2433" />
               <text x="178" y="16" textAnchor="middle" fontSize="6" fontWeight="800" fill="#ffd166">
-                STM
+                {label}
               </text>
               {/* Puerta y faro */}
               <rect x="166" y="48" width="18" height="26" fill="#9fc9d9" stroke="#1d2433" strokeWidth="2" />
               <circle cx="206" cy="66" r="4" fill="#ffd166" />
               <text x="80" y="62" textAnchor="middle" fontSize="8" fontWeight="800" fill="#ffffff">
-                STM
+                {label}
               </text>
               {/* Ruedas: el rayo gira */}
               {[46, 166].map((cx) => (
@@ -81,7 +94,7 @@ export function TravelOverlay({ from, to }: TravelOverlayProps) {
         <span className="travel-progress" aria-hidden="true">
           <span style={{ animationDuration: `${TRAVEL_MS}ms` }} />
         </span>
-        <p className="travel-hint">🚌 Viajando en ómnibus…</p>
+        <p className="travel-hint">{ambulance ? "🚑 La ambulancia te lleva al Sanatorio Americano…" : "🚌 Viajando en ómnibus…"}</p>
       </div>
     </div>
   );

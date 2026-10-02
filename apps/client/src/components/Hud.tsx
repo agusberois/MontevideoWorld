@@ -2,32 +2,25 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { eventBus } from "@/lib/eventBus";
-import { LOW_STAMINA, MAX_STAMINA, darknessAt, formatClock, formatMoney } from "@montevideo-world/shared";
+import { openPanel, useGame } from "@/lib/gameStore";
+import { LOW_ENERGY, LOW_HEALTH, MAX_ENERGY, MAX_HEALTH, MAX_HUNGER, STARVING, darknessAt, formatClock, formatMoney } from "@montevideo-world/shared";
 import { UiIcon, UiIconName } from "./UiIcon";
 
 interface HudProps {
   cityName: string;
-  /** Saldo propio según el server; null hasta que llega. */
-  money: number | null;
-  /** Hora del juego (minuto del día); null hasta que se sincroniza. */
-  clock: number | null;
-  /** Energía del avatar propio; null hasta que se sincroniza. */
-  stamina: number | null;
-  /** Jugadores conectados en el barrio. */
-  playerCount: number;
-  onOpenPlayers: () => void;
-  onOpenMap: () => void;
-  onOpenBackpack: () => void;
-  onOpenCommands: () => void;
-  /** Sólo para el admin: abre sus controles. */
-  onOpenAdmin?: () => void;
-  /** Sólo para el admin: abre el maker de ítems. */
-  onOpenMaker?: () => void;
   onExit: () => void;
 }
 
-export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayers, onOpenMap, onOpenBackpack, onOpenCommands, onOpenAdmin, onOpenMaker, onExit }: HudProps) {
+export function Hud({ cityName, onExit }: HudProps) {
   const [self, setSelf] = useState<{ name: string; color: string } | null>(null);
+  const money = useGame((state) => state.money);
+  const clock = useGame((state) => state.clock);
+  const energy = useGame((state) => state.energy);
+  const hunger = useGame((state) => state.hunger);
+  const health = useGame((state) => state.health);
+  const playerCount = useGame((state) => state.players.length);
+  const isAdmin = useGame((state) => state.isAdmin);
+  const cityCopy = useGame((state) => state.cityCopy);
 
   useEffect(() => {
     return eventBus.on("player:self", setSelf);
@@ -41,9 +34,15 @@ export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayer
           <UiIcon name="user" />
           {self?.name ?? "…"}
         </strong>
-        <span className="hud-item hud-city" title="Barrio actual">
+        <span
+          className="hud-item hud-city"
+          title={cityCopy > 1 ? `Barrio actual. Estaba lleno: estás en la copia ${cityCopy} (no ves a los de las otras)` : "Barrio actual"}
+        >
           <UiIcon name="pin" />
-          <span className="hud-city-name">{cityName}</span>
+          <span className="hud-city-name">
+            {cityName}
+            {cityCopy > 1 && ` · ${cityCopy}`}
+          </span>
         </span>
         <span className="hud-item hud-clock" title="Hora del juego">
           <UiIcon name={clock !== null && darknessAt(clock) > 0.5 ? "moon" : "sun"} />
@@ -53,20 +52,46 @@ export function Hud({ cityName, money, clock, stamina, playerCount, onOpenPlayer
           <UiIcon name="moneyBag" className="hud-money-icon" />
           {money === null ? "$…" : formatMoney(money)}
         </span>
-        <StaminaMeter stamina={stamina} />
+        <NeedMeter
+          kind="energy"
+          label="Energía"
+          icon="zap"
+          title="Energía: caminar, pescar y vender la gastan; quedarte quieto o sentarte en un banco la recupera (con hambre, más lento)"
+          value={energy}
+          max={MAX_ENERGY}
+          low={LOW_ENERGY}
+        />
+        <NeedMeter
+          kind="hunger"
+          label="Hambre"
+          icon="food"
+          title="Hambre: baja con el tiempo y el esfuerzo. Comé algo (kioscos, Mercado del Puerto o un pescado) para llenarla"
+          value={hunger}
+          max={MAX_HUNGER}
+          low={STARVING}
+        />
+        <NeedMeter
+          kind="health"
+          label="Salud"
+          icon="heart"
+          title="Salud: la bajan los picudos, pasar hambre y el pescado crudo. Vuelve comiendo bien y descansando, o en la guardia del Sanatorio Americano. En 0 te desmayás"
+          value={health}
+          max={MAX_HEALTH}
+          low={LOW_HEALTH}
+        />
       </div>
       <div className="hud-actions">
-        <HudButton icon="users" label="online" onClick={onOpenPlayers} title="Jugadores en el barrio" shortcut="Tab">
+        <HudButton icon="users" label="online" onClick={() => openPanel("players")} title="Jugadores en el barrio" shortcut="Tab">
           <span className="hud-count">{playerCount}</span>
         </HudButton>
-        <HudButton icon="map" label="Barrios" onClick={onOpenMap} title="Lista de barrios" shortcut="M" />
-        <HudButton icon="backpack" label="Mochila" onClick={onOpenBackpack} title="Mochila" shortcut="H" />
-        <HudButton icon="terminal" label="Comandos" onClick={onOpenCommands} title="Comandos de chat" shortcut="C" />
-        {onOpenAdmin && (
-          <HudButton icon="shield" label="Admin" onClick={onOpenAdmin} title="Controles de admin" shortcut="P" admin />
+        <HudButton icon="map" label="Barrios" onClick={() => openPanel("cities")} title="Lista de barrios" shortcut="M" />
+        <HudButton icon="backpack" label="Mochila" onClick={() => openPanel("backpack")} title="Mochila" shortcut="H" />
+        <HudButton icon="terminal" label="Comandos" onClick={() => openPanel("commands")} title="Comandos de chat" shortcut="C" />
+        {isAdmin && (
+          <HudButton icon="shield" label="Admin" onClick={() => openPanel("admin")} title="Controles de admin" shortcut="P" admin />
         )}
-        {onOpenMaker && (
-          <HudButton icon="wand" label="Maker" onClick={onOpenMaker} title="Maker: crear ítems (admin)" shortcut="I" admin />
+        {isAdmin && (
+          <HudButton icon="wand" label="Maker" onClick={() => openPanel("maker")} title="Maker: crear ítems (admin)" shortcut="I" admin />
         )}
         <HudButton icon="exit" label="Salir" onClick={onExit} title="Salir del juego" />
       </div>
@@ -97,25 +122,37 @@ function HudButton({ icon, label, title, shortcut, admin, onClick, children }: H
   );
 }
 
-/** Barra de energía: verde, amarilla por debajo de la mitad y roja cuando queda poca. */
-function StaminaMeter({ stamina }: { stamina: number | null }) {
-  const value = stamina ?? MAX_STAMINA;
-  const level = value <= LOW_STAMINA ? "low" : value <= MAX_STAMINA / 2 ? "mid" : "high";
+interface NeedMeterProps {
+  /** Clase (colores): `hud-energy`, `hud-hunger`, `hud-health`. */
+  kind: "energy" | "hunger" | "health";
+  label: string;
+  icon: UiIconName;
+  title: string;
+  value: number | null;
+  max: number;
+  /** Por debajo, en rojo (y el ícono titila); por debajo de la mitad, amarillo. */
+  low: number;
+}
+
+/** Barra de una necesidad (energía, hambre): llena = bien, amarilla por la mitad, roja cuando queda poca. */
+function NeedMeter({ kind, label, icon, title, value, max, low }: NeedMeterProps) {
+  const shown = value ?? max;
+  const level = shown <= low ? "low" : shown <= max / 2 ? "mid" : "high";
   return (
     <span
-      className={`hud-item hud-stamina ${level}`}
-      title="Energía: caminar, pescar y vender la gastan; quedarte quieto o sentarte en un banco la recupera"
+      className={`hud-item hud-need hud-${kind} ${level}`}
+      title={title}
       role="meter"
-      aria-label="Energía"
+      aria-label={label}
       aria-valuemin={0}
-      aria-valuemax={MAX_STAMINA}
-      aria-valuenow={value}
+      aria-valuemax={max}
+      aria-valuenow={shown}
     >
-      <UiIcon name="zap" />
-      <span className="hud-stamina-bar">
-        <span style={{ width: `${(value / MAX_STAMINA) * 100}%` }} />
+      <UiIcon name={icon} />
+      <span className="hud-need-bar">
+        <span style={{ width: `${(shown / max) * 100}%` }} />
       </span>
-      <span className="hud-stamina-value">{stamina === null ? "…" : value}</span>
+      <span className="hud-need-value">{value === null ? "…" : shown}</span>
     </span>
   );
 }

@@ -20,6 +20,15 @@ export const MATCHES: readonly Match[] = [
   { name: "Uruguay – Argentina", start: 21 * 60, end: 23 * 60 },
 ];
 
+/**
+ * El hincha que se acerca al carrito mientras se espera la venta (`Player.customer`, lo ven todos):
+ * sale a caminar `CUSTOMER_LEAD_MS` antes del resultado y, al saberse, compra o sigue de largo.
+ * Cancelar la venta (moverse, etc.) lo vuelve a `None` y se va sin decir nada.
+ */
+export const CustomerState = { None: 0, Arriving: 1, Bought: 2, Passed: 3 } as const;
+export type CustomerState = (typeof CustomerState)[keyof typeof CustomerState];
+export const CUSTOMER_LEAD_MS = 2200;
+
 /** Con partido, cada venta paga esto más… */
 export const MATCH_SALE_MULTIPLIER = 2;
 /** …los hinchas llegan antes (multiplica la espera)… */
@@ -30,6 +39,17 @@ export const MATCH_GIFT_MULTIPLIER = 2;
 /** El partido que se está jugando a esta hora del juego, si hay. */
 export function matchAt(minuteOfDay: number): Match | undefined {
   return MATCHES.find((match) => minuteOfDay >= match.start && minuteOfDay < match.end);
+}
+
+/**
+ * Partido forzado por el admin (`GameState.matchMode`): "auto" sigue el horario de `MATCHES`, "on"
+ * juega el partido elegido hasta que se vuelva a "auto" y "off" no deja que haya ninguno.
+ */
+export const MATCH_MODES = ["auto", "on", "off"] as const;
+export type MatchMode = (typeof MATCH_MODES)[number];
+
+export function getMatch(name: string): Match | undefined {
+  return MATCHES.find((match) => match.name === name);
 }
 
 /**

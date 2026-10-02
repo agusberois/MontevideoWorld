@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CityMap = void 0;
 exports.getCityMap = getCityMap;
 const cities_1 = require("./cities");
+/** Hasta cuántos tiles se busca el agua para tirar la línea (la plataforma de la escollera mide 7 de ancho). */
+const FISHING_REACH = 6;
 const DIRECTIONS = [
     { x: 1, y: 0 },
     { x: -1, y: 0 },
@@ -13,6 +15,9 @@ const DIRECTIONS = [
     { x: -1, y: 1 },
     { x: -1, y: -1 },
 ];
+function tileRect(x, y) {
+    return { x, y, width: 1, height: 1 };
+}
 /**
  * Grilla de un barrio lista para consultar: qué hay en cada tile, qué se puede caminar
  * (layout menos los edificios emblemáticos) y pathfinding. Cliente y servidor la usan igual.
@@ -69,17 +74,38 @@ class CityMap {
         return Boolean(zone && this.isWalkable(x, y) && zone.areas.some((area) => inRect(area, x, y)));
     }
     /**
-     * Hacia dónde está el agua desde (x, y): para orientar al que pesca. Se prueban primero sur y
-     * este (de frente a la cámara) y después oeste y norte.
+     * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
+     * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera
+     * el agua no está pegada) y a cuántos tiles cae la boya: uno adentro del agua si se puede, así no
+     * queda en la orilla. A igual distancia se prefieren sur y este (de frente a la cámara).
+     * undefined si no hay agua al alcance.
      */
-    waterDirection(x, y) {
+    fishingSpot(x, y) {
         const options = [
             ["south", 0, 1],
             ["east", 1, 0],
             ["west", -1, 0],
             ["north", 0, -1],
         ];
-        return options.find(([, dx, dy]) => this.tileAt(x + dx, y + dy) === cities_1.TileChar.Water)?.[0];
+        let best;
+        for (const [facing, dx, dy] of options) {
+            for (let d = 1; d <= FISHING_REACH; d++) {
+                const char = this.tileAt(x + dx * d, y + dy * d);
+                if (char === cities_1.TileChar.Water) {
+                    if (!best || d < best.water)
+                        best = { facing, water: d };
+                    break;
+                }
+                // Sólo se tira por encima de la escollera (no por arriba de la rambla ni de edificios).
+                if (char !== cities_1.TileChar.Jetty)
+                    break;
+            }
+        }
+        if (!best)
+            return undefined;
+        const [, dx, dy] = options.find(([facing]) => facing === best.facing);
+        const further = this.tileAt(x + dx * (best.water + 1), y + dy * (best.water + 1)) === cities_1.TileChar.Water;
+        return { facing: best.facing, distance: further ? best.water + 1 : best.water };
     }
     /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
     isPalm(x, y) {
@@ -148,6 +174,45 @@ class CityMap {
     busStopAt(x, y) {
         return this.city.busStops.find((stop) => stop.x === x && stop.y === y);
     }
+    /**
+     * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+     * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
+     * se mueven y los resuelve quien llama.
+     */
+    interactionAt(x, y, { palmReach = 0 } = {}) {
+        const busStop = this.busStopAt(x, y);
+        if (busStop)
+            return { kind: "busStop", target: { x, y }, area: tileRect(x, y), busStop };
+        const shop = this.shopAt(x, y);
+        if (shop)
+            return { kind: "shop", target: { x, y }, area: shop.area, shop };
+        for (let k = 0; k <= palmReach; k++) {
+            if (this.isPalm(x + k, y + k))
+                return { kind: "palm", target: { x: x + k, y: y + k }, area: tileRect(x + k, y + k) };
+        }
+        const bench = this.benchAt(x, y);
+        if (bench)
+            return { kind: "bench", target: { x, y }, area: tileRect(x, y), bench };
+        if (this.isWalkable(x, y))
+            return { kind: "floor", target: { x, y }, area: tileRect(x, y) };
+        return undefined;
+    }
+    /**
+     * Lo que hay en los 8 tiles pegados a (x, y), sin el piso: con qué se puede interactuar sin
+     * caminar (tecla F). Una tienda aparece una vez aunque toque varios tiles.
+     */
+    interactionsAround(x, y) {
+        const found = [];
+        for (const dir of DIRECTIONS) {
+            const hit = this.interactionAt(x + dir.x, y + dir.y);
+            if (!hit || hit.kind === "floor")
+                continue;
+            if (hit.kind === "shop" && found.some((other) => other.kind === "shop" && other.shop === hit.shop))
+                continue;
+            found.push(hit);
+        }
+        return found;
+    }
     inBounds(x, y) {
         return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.width && y < this.height;
     }
@@ -209,6 +274,10 @@ class CityMap {
     }
     spawnTiles() {
         return this.walkableTilesIn(this.city.spawnArea);
+    }
+    /** Cárcel: dónde aparecen los presos (el patio, del lado de adentro de la reja). Vacío si no es cárcel. */
+    prisonTiles() {
+        return this.city.prison ? this.walkableTilesIn(this.city.prison.yard) : [];
     }
     /**
      * BFS en 8 direcciones sin cortar esquinas.

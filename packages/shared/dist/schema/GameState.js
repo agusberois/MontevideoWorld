@@ -17,6 +17,15 @@ class GameState extends schema_1.Schema {
         this.players = new schema_1.MapSchema();
         /** Hora del juego, minuto del día 0–1439 (reloj global del server, ver `time.ts`). */
         this.minuteOfDay = 0;
+        /**
+         * Qué copia del barrio es esta sala (1 = la primera). Con una sala llena se abre otra copia del
+         * mismo barrio; el HUD lo muestra para que no parezca que no hay nadie.
+         */
+        this.copy = 1;
+        /** Partido que se juega ahora en el Centenario ("" = ninguno): lo ve todo el barrio (hinchas en el estadio). */
+        this.match = "";
+        /** Si el admin forzó el partido (`MatchMode`): para su panel. */
+        this.matchMode = "auto";
         /** Picudos rojos sueltos en el barrio. Clave = id del picudo. */
         this.weevils = new schema_1.MapSchema();
     }
@@ -28,6 +37,15 @@ __decorate([
 __decorate([
     (0, schema_1.type)("uint16")
 ], GameState.prototype, "minuteOfDay", void 0);
+__decorate([
+    (0, schema_1.type)("uint8")
+], GameState.prototype, "copy", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], GameState.prototype, "match", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], GameState.prototype, "matchMode", void 0);
 __decorate([
     (0, schema_1.type)({ map: Weevil_1.Weevil })
 ], GameState.prototype, "weevils", void 0);
