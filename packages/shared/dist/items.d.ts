@@ -3,7 +3,7 @@
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
- * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
+ * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
@@ -11,7 +11,7 @@ export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
 /**
  * Estilos de prenda de cada lugar del cuerpo. El cliente dibuja cada uno en el avatar
- * (`game/objects/clothing/<lugar>.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
+ * (`apps/client/src/lib/avatar/clothing.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
  * hasta tener los dos dibujos.
  */
 export declare const ITEM_STYLES: {

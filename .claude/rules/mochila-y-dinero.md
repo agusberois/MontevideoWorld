@@ -13,7 +13,7 @@ paths:
   - "apps/client/src/features/inventory/itemCategoryUi.ts"
   - "apps/client/src/features/inventory/hotbarStorage.ts"
   - "apps/client/src/features/inventory/itemActions.ts"
-  - "apps/client/src/game/objects/clothing/**"
+  - "apps/client/src/lib/avatar/**"
   - "apps/client/src/game/objects/avatarLook.ts"
 ---
 
@@ -61,7 +61,8 @@ en la mochila ni puesto) se saca solo de la barra y el casillero queda libre; se
 llegan por separado.
 Los estilos de prenda van por lugar del cuerpo en `ITEM_STYLES` (shared; `ClothingItem` ata
 `slot` y `style`, así una gorra con estilo de remera no compila). Cada estilo se dibuja en el
-avatar (`game/objects/clothing/<lugar>.ts`, un `Record<SlotStyle<lugar>, …>`) y en el ícono SVG
+avatar (`lib/avatar/clothing.ts`, un `Record<SlotStyle<lugar>, …>` por lugar; lo usan igual el juego
+y la vista previa en SVG) y en el ícono SVG
 (`ItemIcon.tsx`, `switch` exhaustivo, pintado con `item.color`): un estilo nuevo no compila hasta
 tener los dos dibujos.
 

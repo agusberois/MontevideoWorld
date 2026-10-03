@@ -4,7 +4,7 @@
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
- * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
+ * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
@@ -44,7 +44,7 @@ exports.ITEM_SLOT_LABELS = {
 };
 /**
  * Estilos de prenda de cada lugar del cuerpo. El cliente dibuja cada uno en el avatar
- * (`game/objects/clothing/<lugar>.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
+ * (`apps/client/src/lib/avatar/clothing.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
  * hasta tener los dos dibujos.
  */
 exports.ITEM_STYLES = {

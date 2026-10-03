@@ -6,8 +6,7 @@ import type {
   TravelMessage,
   ChatBroadcastMessage,
   FishResultMessage,
-  Gender,
-  HairStyle,
+  Appearance,
   FishStartedMessage,
   VendResultMessage,
   VendStartedMessage,
@@ -139,7 +138,7 @@ export interface PlayerSummary {
   /** Entró con el nombre de admin (★ en el nombre). */
   isAdmin: boolean;
   /** Aspecto elegido al entrar, para dibujarlo en sus detalles. */
-  look: { gender: Gender; skin: number; hairColor: number; hairStyle: HairStyle };
+  look: Pick<Appearance, "gender" | "skin" | "hairColor" | "hairStyle" | "eyeColor" | "facialHair" | "glasses">;
   /** Prendas puestas (id de `ITEMS` o "" por lugar). */
   outfit: OutfitIds;
   /** Mascota que lo sigue (id de `PETS` y nombre), o null. */

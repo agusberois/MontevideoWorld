@@ -4,11 +4,17 @@ export class Player extends Schema {
   @type("string") sessionId = "";
   @type("string") name = "";
   @type("string") color = "#ffffff";
-  /** Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado. */
+  /**
+   * Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado,
+   * índice del color de ojos, barba y lentes.
+   */
   @type("string") gender = "m";
   @type("uint8") skin = 0;
   @type("uint8") hairColor = 0;
   @type("string") hairStyle = "short";
+  @type("uint8") eyeColor = 0;
+  @type("string") facialHair = "none";
+  @type("string") glasses = "none";
   /** Tile actual (coordenadas de grilla, no píxeles). */
   @type("uint8") x = 0;
   @type("uint8") y = 0;

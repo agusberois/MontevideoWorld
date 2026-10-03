@@ -14,11 +14,17 @@ class Player extends schema_1.Schema {
         this.sessionId = "";
         this.name = "";
         this.color = "#ffffff";
-        /** Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado. */
+        /**
+         * Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado,
+         * índice del color de ojos, barba y lentes.
+         */
         this.gender = "m";
         this.skin = 0;
         this.hairColor = 0;
         this.hairStyle = "short";
+        this.eyeColor = 0;
+        this.facialHair = "none";
+        this.glasses = "none";
         /** Tile actual (coordenadas de grilla, no píxeles). */
         this.x = 0;
         this.y = 0;
@@ -78,6 +84,15 @@ __decorate([
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "hairStyle", void 0);
+__decorate([
+    (0, schema_1.type)("uint8")
+], Player.prototype, "eyeColor", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "facialHair", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "glasses", void 0);
 __decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "x", void 0);

@@ -3,6 +3,11 @@
 import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Appearance,
+  EYE_COLORS,
+  FACIAL_HAIR,
+  FACIAL_HAIR_LABELS,
+  GLASSES,
+  GLASSES_LABELS,
   GENDERS,
   GENDER_LABELS,
   HAIR_COLORS,
@@ -29,7 +34,16 @@ const APPEARANCE_STORAGE_KEY = "mw:appearance";
 const NAME_STORAGE_KEY = "mw:name";
 
 /** Aspecto fijo para el primer render (SSR); al montar se reemplaza por el guardado o uno al azar. */
-const INITIAL_APPEARANCE: Appearance = { gender: "m", skin: 1, hairColor: 1, hairStyle: "short", color: PLAYER_COLORS[3] };
+const INITIAL_APPEARANCE: Appearance = {
+  gender: "m",
+  skin: 1,
+  hairColor: 1,
+  hairStyle: "short",
+  eyeColor: 0,
+  facialHair: "none",
+  glasses: "none",
+  color: PLAYER_COLORS[3],
+};
 
 function loadAppearance(): Appearance {
   try {
@@ -176,6 +190,30 @@ export function JoinScreen({ onJoined, notice }: JoinScreenProps) {
                   label="Color de pelo"
                   onSelect={(hairColor) => update({ hairColor })}
                 />
+              </fieldset>
+
+              <fieldset>
+                <legend>Cara</legend>
+                <Swatches colors={EYE_COLORS} selected={appearance.eyeColor} label="Color de ojos" onSelect={(eyeColor) => update({ eyeColor })} />
+                <div className={cx("join-chips")} role="group" aria-label="Barba">
+                  {FACIAL_HAIR.map((facialHair) => (
+                    <button
+                      key={facialHair}
+                      type="button"
+                      aria-pressed={appearance.facialHair === facialHair}
+                      onClick={() => update({ facialHair })}
+                    >
+                      {FACIAL_HAIR_LABELS[facialHair]}
+                    </button>
+                  ))}
+                </div>
+                <div className={cx("join-chips")} role="group" aria-label="Lentes">
+                  {GLASSES.map((glasses) => (
+                    <button key={glasses} type="button" aria-pressed={appearance.glasses === glasses} onClick={() => update({ glasses })}>
+                      {GLASSES_LABELS[glasses]}
+                    </button>
+                  ))}
+                </div>
               </fieldset>
 
               <fieldset>

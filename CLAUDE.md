@@ -151,6 +151,7 @@ Reglas:
   spawn del destino. Quien queda en otro barrio sin boleto STM (sólo se venden en Ciudad Vieja) puede
   salir y volver a entrar.
 - Avatares dibujados con primitivas (4 orientaciones por espejado: frente/espalda × izq/der; de espaldas
-  sólo mientras camina, al llegar queda de frente). El aspecto se elige al entrar y no se puede cambiar
-  después sin reconectar. Próximo paso: spritesheets de 8 direcciones.
+  sólo mientras camina, al llegar queda de frente). Se dibujan una sola vez, como listas de formas
+  (`lib/avatar/`), que pintan igual el juego (Phaser) y la vista previa (SVG). El aspecto se elige al entrar y no se puede cambiar después sin reconectar. Próximo
+  paso: spritesheets de 8 direcciones.
 - Sin reconexión automática (`room.reconnectionToken` + `allowReconnection` en el server).

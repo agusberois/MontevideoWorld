@@ -5,8 +5,8 @@ import styles from "./inventory.module.css";
 
 const cx = moduleClasses(styles);
 
-/** Aclara (amount > 0) u oscurece (amount < 0) un "#rrggbb" mezclándolo con blanco o negro (también lo usa `AvatarPreview`). */
-export function mix(hex: string, amount: number): string {
+/** Aclara (amount > 0) u oscurece (amount < 0) un "#rrggbb" mezclándolo con blanco o negro. */
+function mix(hex: string, amount: number): string {
   const value = parseInt(hex.slice(1), 16);
   const target = amount > 0 ? 255 : 0;
   const t = Math.abs(amount);

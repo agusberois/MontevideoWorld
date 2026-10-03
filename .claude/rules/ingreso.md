@@ -27,10 +27,19 @@ por `LoginScreen` (botón de Google sin efecto por ahora) y después por `JoinSc
 juego se vuelve a `JoinScreen`. Si agregás `proxy.ts` con `next dev` corriendo, reinicialo.
 
 `JoinScreen` → `joinCity(name, appearance)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID, appearance })`.
-El aspecto (sexo, piel, pelo, color) se arma en la pantalla de ingreso (🎲 = `randomAppearance`) y
-se recuerda en `localStorage` (`mw:appearance`). El server lo valida con `sanitizeAppearance`
-(si no es válido sortea uno) y lo copia al Schema (`gender`, `skin`, `hairColor`, `hairStyle`,
-`color`): todos ven igual a cada jugador. El nombre sobre la cabeza va en `Player.color`.
+El aspecto (sexo, piel, 9 peinados y color de pelo, color de ojos, barba, lentes y color) se arma en
+la pantalla de ingreso (🎲 = `randomAppearance`) y se recuerda en `localStorage` (`mw:appearance`).
+El server lo valida con `sanitizeAppearance` (si no es válido sortea uno; ojos, barba y lentes, si
+faltan —aspectos guardados antes de que existieran, clientes viejos—, van por defecto) y lo copia al
+Schema (`gender`, `skin`, `hairColor`, `hairStyle`, `eyeColor`, `facialHair`, `glasses`, `color`):
+todos ven igual a cada jugador. **Cómo se dibuja la cabeza**: `lib/avatar/head.ts` la arma como listas
+de formas (`lib/avatar/shapes.ts`, sin Phaser) que pintan igual `Avatar.ts` (`paintShapes`) y la
+vista previa en SVG (`AvatarPreview`, `SvgShapes`); lo mismo el cuerpo y la ropa (`lib/avatar/
+clothing.ts`: `leg`, `arm`, `torso`, `hat`, `wornOutfit`). Un peinado, barba, lentes o prenda
+nuevos se dibujan una sola vez ahí (el `switch` / `Record` no compila si falta uno). Capas: `headFront` → `faceFeatures` → `eyes`
+(parpadean) → `glasses` → `frontHair` → gorro; de espaldas `headBack`. El avatar pone **cara de
+contento** al patear un picudo y **de dolor** cuando le pica uno (`Avatar.flinch`, desde los `bites`
+del picudo en `CityScene`), y **respira** parado sin hacer nada. El nombre sobre la cabeza va en `Player.color`.
 Siempre se entra a **Ciudad Vieja**. Las salas se separan por `cityId` (`filterBy`); un `cityId`
 desconocido hace fallar `onCreate`.
 

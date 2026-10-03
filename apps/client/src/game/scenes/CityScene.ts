@@ -24,6 +24,10 @@ import {
   isCart,
   HAIR_STYLES,
   HairStyle,
+  FACIAL_HAIR,
+  FacialHair,
+  GLASSES,
+  Glasses,
 } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { PlayerActivity, PlayerSummary, eventBus } from "@/lib/eventBus";
@@ -622,7 +626,10 @@ export class CityScene extends Phaser.Scene {
             if (previous === undefined || bites <= previous) return;
             weevil.bite();
             const victim = this.avatars.get(state.targetId);
-            if (victim) this.floatText(victim.x, victim.y - 70, `-${WEEVIL_BITE_ENERGY}`, "#ff6b6b");
+            if (victim) {
+              this.floatText(victim.x, victim.y - 70, `-${WEEVIL_BITE_ENERGY}`, "#ff6b6b");
+              victim.flinch();
+            }
           }),
         );
       }),
@@ -996,6 +1003,9 @@ function summarize(sessionId: string, player: Player, isSelf: boolean): PlayerSu
       skin: player.skin,
       hairColor: player.hairColor,
       hairStyle: (HAIR_STYLES as readonly string[]).includes(player.hairStyle) ? (player.hairStyle as HairStyle) : "short",
+      eyeColor: player.eyeColor,
+      facialHair: (FACIAL_HAIR as readonly string[]).includes(player.facialHair) ? (player.facialHair as FacialHair) : "none",
+      glasses: (GLASSES as readonly string[]).includes(player.glasses) ? (player.glasses as Glasses) : "none",
     },
     outfit: outfitIds(player),
     pet: player.pet ? { id: player.pet, name: player.petName } : null,

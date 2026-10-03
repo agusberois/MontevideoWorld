@@ -2,12 +2,10 @@ import * as Phaser from "phaser";
 import { CHAT_BUBBLE_MS, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
-import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
-import { HEAD_R, HEAD_Y, HIP_Y, OUTLINE, OUTLINE_ALPHA, SHOULDER_Y, hairCap } from "./clothing/body";
-import { drawBelt, drawBottomLeg, drawHips } from "./clothing/bottom";
-import { drawHat } from "./clothing/hat";
-import { drawShoes } from "./clothing/shoes";
-import { drawTop, drawTopSleeve } from "./clothing/top";
+import type { AvatarLook } from "./avatarLook";
+import { ARM_X, HIP_Y, LEG_X, arm, hat, leg, torso, wornOutfit } from "@/lib/avatar/clothing";
+import { EYE_Y, Expression, OUTLINE, OUTLINE_ALPHA, SHOULDER_Y, eyes, faceFeatures, frontHair, glasses, headBack, headFront } from "@/lib/avatar/head";
+import { paintShapes } from "./paintShapes";
 
 /** Nombre sobre la cabeza (por encima del pelo más alto y de los gorros). */
 const NAME_Y = -92;
@@ -38,6 +36,11 @@ const WALK_PHASE_PER_MS = 1 / 70;
 const LEG_SWING = 0.45;
 const ARM_SWING = 0.4;
 const BLINK_MS = 120;
+/** Quieto y parado: respira (el cuerpo se estira apenas desde los pies). */
+const BREATH_MS = 1600;
+const BREATH_SCALE = 0.012;
+/** Cuánto dura una cara (contento al patear un picudo, dolorido cuando pica uno). */
+const EXPRESSION_MS = 900;
 /**
  * Tiempo quieto en el tile antes de considerar que llegó al destino y girar de frente. Entre un
  * tile y el siguiente del mismo camino hay pausas mínimas (jitter de red) que no deben contar.
@@ -59,10 +62,6 @@ const SIT_DEPTH_BIAS = 2;
 const HIT_HALF_WIDTH = 17;
 const HIT_TOP = -86;
 const HIT_BOTTOM = 6;
-
-const EYE_COLOR = 0x2b1d14;
-const MOUTH_COLOR = 0x7a3b2e;
-const LIPS_COLOR = 0xc0475a;
 
 export type SitFacing = "south" | "east";
 /** Hacia dónde mira el que pesca (hacia el agua). */
@@ -118,6 +117,11 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly headFront: Phaser.GameObjects.Container;
   private readonly headBack: Phaser.GameObjects.Container;
   private readonly eyes: Phaser.GameObjects.Graphics;
+  /** Barba, boca, bigote y cejas: se redibujan al cambiar la expresión (como los ojos). */
+  private readonly features: Phaser.GameObjects.Graphics;
+  private expression: Expression = "neutral";
+  /** Lo que le queda a la expresión del momento (ms); al llegar a 0 vuelve a la normal. */
+  private expressionLeft = 0;
   /** Caña (fija) y tanza con boya (se redibuja para que se mezca). */
   private readonly rod: Phaser.GameObjects.Graphics;
   private readonly fishingLine: Phaser.GameObjects.Graphics;
@@ -167,41 +171,32 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.legGraphics = [scene.add.graphics(), scene.add.graphics()];
     this.armGraphics = [scene.add.graphics(), scene.add.graphics()];
     this.legs = [
-      scene.add.container(-4.5, HIP_Y, [this.legGraphics[0]]),
-      scene.add.container(4.5, HIP_Y, [this.legGraphics[1]]),
+      scene.add.container(-LEG_X, HIP_Y, [this.legGraphics[0]]),
+      scene.add.container(LEG_X, HIP_Y, [this.legGraphics[1]]),
     ];
     this.arms = [
-      scene.add.container(-12, SHOULDER_Y, [this.armGraphics[0]]),
-      scene.add.container(12, SHOULDER_Y, [this.armGraphics[1]]),
+      scene.add.container(-ARM_X, SHOULDER_Y, [this.armGraphics[0]]),
+      scene.add.container(ARM_X, SHOULDER_Y, [this.armGraphics[1]]),
     ];
     this.torso = scene.add.graphics();
 
+    // Cabeza: las formas salen de `lib/avatar/head.ts` (las mismas que dibuja la vista previa en SVG).
     const back = scene.add.graphics();
-    this.drawHeadBack(back, this.look);
+    paintShapes(back, headBack(this.look));
     this.hatBack = scene.add.graphics();
     this.headBack = scene.add.container(0, 0, [back, this.hatBack]).setVisible(false);
 
-    this.eyes = scene.add.graphics({ x: 0, y: HEAD_Y - 0.5 });
-    this.eyes.fillStyle(0xffffff, 1);
-    this.eyes.fillEllipse(-2, 0, 4.2, 4.6);
-    this.eyes.fillEllipse(6, 0, 4.2, 4.6);
-    this.eyes.fillStyle(EYE_COLOR, 1);
-    this.eyes.fillCircle(-1.3, 0.3, 1.5);
-    this.eyes.fillCircle(6.7, 0.3, 1.5);
-    if (this.look.gender === "f") {
-      // Pestañas: dos trazos hacia afuera en cada ojo (se cierran con el parpadeo).
-      this.eyes.lineStyle(1.2, EYE_COLOR, 1);
-      this.eyes.lineBetween(-4, -1.6, -5.6, -3);
-      this.eyes.lineBetween(-3.2, -2.3, -4.2, -3.9);
-      this.eyes.lineBetween(8, -1.6, 9.6, -3);
-      this.eyes.lineBetween(7.2, -2.3, 8.2, -3.9);
-    }
     const face = scene.add.graphics();
-    this.drawHeadFront(face, this.look);
-    const frontHair = scene.add.graphics();
-    this.drawFrontHair(frontHair, this.look);
+    paintShapes(face, headFront(this.look));
+    this.features = scene.add.graphics();
+    this.eyes = scene.add.graphics({ x: 0, y: EYE_Y });
+    this.drawFace();
+    const lenses = scene.add.graphics();
+    paintShapes(lenses, glasses(this.look));
+    const hairFront = scene.add.graphics();
+    paintShapes(hairFront, frontHair(this.look));
     this.hatFront = scene.add.graphics();
-    this.headFront = scene.add.container(0, 0, [face, this.eyes, frontHair, this.hatFront]);
+    this.headFront = scene.add.container(0, 0, [face, this.features, this.eyes, lenses, hairFront, this.hatFront]);
 
     this.rod = scene.add.graphics().setVisible(false);
     this.drawRod(ROD_COLOR);
@@ -364,12 +359,14 @@ export class Avatar extends Phaser.GameObjects.Container {
     if (key === this.outfitKey) return;
     this.outfitKey = key;
 
-    const outfit = outfitFromIds(ids);
-    this.legGraphics.forEach((g) => this.drawLeg(g.clear(), outfit));
-    this.armGraphics.forEach((g) => this.drawArm(g.clear(), outfit));
-    this.drawTorso(this.torso.clear(), outfit);
-    drawHat(this.hatFront.clear(), outfit.hat, false);
-    drawHat(this.hatBack.clear(), outfit.hat, true);
+    // Cuerpo y ropa: las formas salen de `lib/avatar/clothing.ts` (las mismas que la vista previa en SVG).
+    const outfit = wornOutfit(ids);
+    const { skin, gender } = this.look;
+    this.legGraphics.forEach((g) => paintShapes(g.clear(), leg(skin, outfit)));
+    this.armGraphics.forEach((g) => paintShapes(g.clear(), arm(skin, outfit)));
+    paintShapes(this.torso.clear(), torso(skin, gender, outfit));
+    paintShapes(this.hatFront.clear(), hat(outfit.hat, false));
+    paintShapes(this.hatBack.clear(), hat(outfit.hat, true));
   }
 
   /** Sentado en un banco (`facing` = hacia dónde mira) o parado. */
@@ -534,7 +531,11 @@ export class Avatar extends Phaser.GameObjects.Container {
         if (this.idleTime >= ARRIVE_GRACE_MS) this.setBackView(false);
         this.poseLimbs(delta, 0, 1, 0);
       }
+      // Respira sólo parado sin hacer nada (sentado, pescando o vendiendo ya se mueve otra cosa).
+      const idle = !this.sitting && !this.fishing && !this.vending;
+      this.body_.scaleY = idle ? 1 + Math.sin((this.idleTime / BREATH_MS) * Math.PI * 2) * BREATH_SCALE : 1;
     } else {
+      this.body_.scaleY = 1;
       this.walkTime += delta;
       this.idleTime = 0;
       this.animateWalk();
@@ -542,12 +543,40 @@ export class Avatar extends Phaser.GameObjects.Container {
 
     this.poseKick(delta);
     this.updateBlink(delta);
+    this.updateExpression(delta);
     this.syncDepth();
+  }
+
+  /** Le picó un picudo: cara de dolor un ratito. */
+  flinch() {
+    this.showExpression("ouch");
+  }
+
+  /** Cambia la cara (boca, cejas y ojos) por `EXPRESSION_MS`; después vuelve a la normal. */
+  private showExpression(expression: Expression) {
+    this.expressionLeft = EXPRESSION_MS;
+    if (expression === this.expression) return;
+    this.expression = expression;
+    this.drawFace();
+  }
+
+  private drawFace() {
+    paintShapes(this.features.clear(), faceFeatures(this.look, this.expression));
+    paintShapes(this.eyes.clear(), eyes(this.look, this.expression));
+  }
+
+  private updateExpression(delta: number) {
+    if (this.expressionLeft <= 0) return;
+    this.expressionLeft -= delta;
+    if (this.expressionLeft > 0) return;
+    this.expression = "neutral";
+    this.drawFace();
   }
 
   /** Patada (a un picudo): la pierna cercana va para adelante y vuelve. `dirX` = hacia dónde (+ derecha). */
   kick(dirX: number) {
     if (this.sitting) return;
+    this.showExpression("happy");
     if (Math.abs(dirX) > 0.01) this.body_.scaleX = dirX >= 0 ? 1 : -1;
     this.setBackView(false);
     this.kickLeft = KICK_MS;
@@ -667,151 +696,6 @@ export class Avatar extends Phaser.GameObjects.Container {
     if (this.blinkIn <= -BLINK_MS) {
       this.eyes.scaleY = 1;
       this.blinkIn = Phaser.Math.Between(2500, 5500);
-    }
-  }
-
-  // --- Ropa (cada prenda se dibuja en clothing/<lugar>.ts) -----------------------------------------
-
-  /** Pierna desde la cadera: piel, prenda de abajo (o ropa interior) y calzado (la punta mira a +x). */
-  private drawLeg(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
-    g.fillStyle(shade(this.look.skin, -6), 1);
-    g.fillRoundedRect(-3, -2, 6, 28, 3);
-    drawBottomLeg(g, outfit.bottom);
-    drawShoes(g, outfit.shoes, this.look.skin);
-  }
-
-  /** Brazo desde el hombro: piel, mano y la manga de la prenda de arriba. */
-  private drawArm(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
-    const skin = this.look.skin;
-    g.fillStyle(shade(skin, -6), 1);
-    g.fillRoundedRect(-2.5, -1, 5, 21, 2.5);
-    g.fillStyle(skin, 1);
-    g.fillCircle(0, 21, 3.3);
-    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-    g.strokeCircle(0, 21, 3.3);
-    drawTopSleeve(g, outfit.top);
-  }
-
-  /** Cuello, cadera, prenda de arriba (o torso desnudo) y cinturón. */
-  private drawTorso(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
-    g.fillStyle(shade(this.look.skin, -12), 1);
-    g.fillRect(-3, HEAD_Y + 8, 6, 7);
-    drawHips(g, outfit.bottom);
-    drawTop(g, outfit.top, this.look.skin, this.look.gender);
-    drawBelt(g, outfit.bottom);
-  }
-
-  // --- Cabeza ----------------------------------------------------------------------------------
-
-  /** Cabeza de frente (3/4 hacia +x): pelo de atrás, cara, oreja, nariz, boca y cejas. */
-  private drawHeadFront(g: Phaser.GameObjects.Graphics, look: AvatarLook) {
-    // Pelo que queda detrás de la cabeza.
-    g.fillStyle(look.hair, 1);
-    if (look.hairStyle === "long") g.fillRoundedRect(-HEAD_R - 2, HEAD_Y - 4, HEAD_R * 2 + 3, 25, 5);
-    if (look.hairStyle === "afro") g.fillCircle(-1, HEAD_Y - 3, HEAD_R + 6);
-    if (look.hairStyle === "ponytail") {
-      g.fillEllipse(-HEAD_R - 3, HEAD_Y + 4, 7, 16);
-    }
-
-    // Escote en V de la remera.
-    g.fillStyle(look.skin, 1);
-    g.fillTriangle(-3.5, SHOULDER_Y - 3, 3.5, SHOULDER_Y - 3, 0, SHOULDER_Y + 2);
-
-    g.fillStyle(look.skin, 1);
-    g.fillEllipse(0, HEAD_Y, HEAD_R * 2, HEAD_R * 2 + 2);
-    g.fillEllipse(-HEAD_R + 0.5, HEAD_Y + 1, 5, 7);
-    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-    g.strokeEllipse(0, HEAD_Y, HEAD_R * 2, HEAD_R * 2 + 2);
-
-    g.fillStyle(shade(look.skin, -15), 1);
-    g.fillEllipse(-HEAD_R + 0.5, HEAD_Y + 1, 2, 4);
-    g.fillEllipse(4.5, HEAD_Y + 3.5, 3, 2.5);
-
-    const female = look.gender === "f";
-    g.lineStyle(female ? 2 : 1.5, female ? LIPS_COLOR : MOUTH_COLOR, 1);
-    g.beginPath();
-    g.arc(3, HEAD_Y + 5, female ? 2.6 : 3, Math.PI * 0.2, Math.PI * 0.8, false);
-    g.strokePath();
-
-    // Cejas: más finas y arqueadas en el avatar de mujer.
-    g.lineStyle(female ? 1.2 : 1.8, shade(look.hair, -10), 1);
-    g.lineBetween(-4, HEAD_Y - 4, 0, HEAD_Y - 4.6);
-    g.lineBetween(4, HEAD_Y - 4.6, 8, HEAD_Y - 4);
-  }
-
-  /** Pelo que va por delante de la cara (flequillo / casco). */
-  private drawFrontHair(g: Phaser.GameObjects.Graphics, look: AvatarLook) {
-    const R = HEAD_R;
-    g.fillStyle(look.hair, 1);
-
-    switch (look.hairStyle) {
-      case "buzz":
-        hairCap(g, R + 0.5);
-        g.lineTo(R + 0.5, HEAD_Y - 2);
-        g.lineTo(-R - 0.5, HEAD_Y + 1);
-        g.closePath();
-        g.fillPath();
-        return;
-      case "afro":
-        for (let a = Math.PI * 0.9; a <= Math.PI * 2.1; a += Math.PI / 6) {
-          g.fillCircle(Math.cos(a) * (R + 1), HEAD_Y - 2 + Math.sin(a) * (R + 1), 5.5);
-        }
-        hairCap(g, R + 1);
-        g.lineTo(R + 1, HEAD_Y - 3);
-        g.lineTo(-R - 1, HEAD_Y + 2);
-        g.closePath();
-        g.fillPath();
-        return;
-      default:
-        // short, long y ponytail comparten casco con flequillo.
-        hairCap(g, R + 1.5);
-        g.lineTo(R + 1.5, HEAD_Y + 1);
-        g.lineTo(7, HEAD_Y - 5);
-        g.lineTo(2, HEAD_Y - 6);
-        g.lineTo(-4, HEAD_Y - 4.5);
-        g.lineTo(-R + 2, HEAD_Y - 2);
-        g.lineTo(-R - 1.5, HEAD_Y + (look.hairStyle === "long" ? 12 : 4));
-        g.closePath();
-        g.fillPath();
-        g.fillStyle(shade(look.hair, 18), 1);
-        g.fillEllipse(3, HEAD_Y - 8.5, 7, 2.5);
-    }
-  }
-
-  /** Cabeza de espaldas: sólo nuca, orejas y pelo. */
-  private drawHeadBack(g: Phaser.GameObjects.Graphics, look: AvatarLook) {
-    const R = HEAD_R;
-    g.fillStyle(look.skin, 1);
-    g.fillEllipse(0, HEAD_Y, R * 2, R * 2 + 2);
-    g.fillEllipse(-R, HEAD_Y + 1, 5, 7);
-    g.fillEllipse(R, HEAD_Y + 1, 5, 7);
-    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-    g.strokeEllipse(0, HEAD_Y, R * 2, R * 2 + 2);
-
-    g.fillStyle(look.hair, 1);
-    switch (look.hairStyle) {
-      case "afro":
-        g.fillCircle(0, HEAD_Y - 3, R + 6);
-        return;
-      case "long":
-        g.fillRoundedRect(-R - 2, HEAD_Y - 4, R * 2 + 4, 25, 5);
-        hairCap(g, R + 2);
-        g.closePath();
-        g.fillPath();
-        return;
-      default: {
-        const radius = look.hairStyle === "buzz" ? R + 0.5 : R + 1.5;
-        hairCap(g, radius);
-        g.lineTo(R - 1, HEAD_Y + 6);
-        g.lineTo(-R + 1, HEAD_Y + 6);
-        g.closePath();
-        g.fillPath();
-        if (look.hairStyle === "ponytail") {
-          g.fillEllipse(0, HEAD_Y + 11, 7, 16);
-          g.fillStyle(0xe63946, 1);
-          g.fillRect(-3, HEAD_Y + 4, 6, 2.5);
-        }
-      }
     }
   }
 

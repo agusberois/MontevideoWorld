@@ -285,6 +285,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     player.skin = look.skin;
     player.hairColor = look.hairColor;
     player.hairStyle = look.hairStyle;
+    player.eyeColor = look.eyeColor;
+    player.facialHair = look.facialHair;
+    player.glasses = look.glasses;
     player.admin = isAdminName(player.name);
     player.x = spawn.x;
     player.y = spawn.y;

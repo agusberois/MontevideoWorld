@@ -26,9 +26,8 @@ cierran; si el jugador se va del barrio, se cierra solo). Los datos salen de `pl
 donador, mascota, condena, qué hace con qué caña/carrito, energía); la escena lo arma en
 `summarize` y vuelve a mandar `players:list` sólo si algo de eso cambió (caminar no). Lo privado
 (plata, hambre, salud) se muestra únicamente en tus detalles, desde el store; nunca de otro. El
-avatar se dibuja en SVG con `AvatarPreview` (el mismo de `JoinScreen`, con `outfit`): copia la
-geometría de `Avatar.ts` y los dibujos de `game/objects/clothing/` (un estilo de prenda nuevo
-hay que dibujarlo también ahí). La fila **Barra** dice "Sin barra" hasta que existan las barras
+avatar se dibuja en SVG con `AvatarPreview` (el mismo de `JoinScreen`, con `outfit`): las mismas
+formas que el juego (`lib/avatar/head.ts` y `clothing.ts`), sin dibujo propio. La fila **Barra** dice "Sin barra" hasta que existan las barras
 (campo `barra?` de `PlayerDetailsData`, ver `docs/pending/funcionalidades-primera-version.md` §2.2).
 De otro jugador tiene los botones Saludar, Intercambiar y Bloquear / Desbloquear.
 

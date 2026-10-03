@@ -3,11 +3,17 @@ export declare class Player extends Schema {
     sessionId: string;
     name: string;
     color: string;
-    /** Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado. */
+    /**
+     * Aspecto elegido al entrar (ver `appearance.ts`): sexo, índices de piel y color de pelo, peinado,
+     * índice del color de ojos, barba y lentes.
+     */
     gender: string;
     skin: number;
     hairColor: number;
     hairStyle: string;
+    eyeColor: number;
+    facialHair: string;
+    glasses: string;
     /** Tile actual (coordenadas de grilla, no píxeles). */
     x: number;
     y: number;
