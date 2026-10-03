@@ -114,7 +114,7 @@ export function jail(room: CityRoom, session: PlayerSession, until: number) {
   room.broadcastSystem(`🚔 Se llevaron preso a ${player.name} al COMCAR`);
   room.sendTo(session, MessageType.TravelApproved, { cityId: JAIL_CITY_ID });
   room.clock.setTimeout(() => {
-    if (room.sessions.get(session.client.sessionId) === session) session.client.leave(JAILED_KICK_CODE);
+    if (room.sessions.get(session.client.sessionId) === session) room.closeSession(session, JAILED_KICK_CODE);
   }, JAIL_TRAVEL_GRACE_MS);
 }
 

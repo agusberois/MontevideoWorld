@@ -21,7 +21,7 @@ flexible: queda como opción si las mediciones lo justifican.
 | Pieza | Dónde corre | Qué necesita |
 | --- | --- | --- |
 | Cliente Next.js 16 (landing + juego, `proxy.ts` por subdominio) | **Vercel** (CDN + funciones) | Nada propio: el plan gratis alcanza para empezar |
-| Server Colyseus 0.16 (`apps/server`, Node ≥ 20.9) | **VPS** con PM2 (`deploy/ecosystem.config.cjs`) | CPU de un solo hilo rápida, poca RAM, disco chico |
+| Server Colyseus 0.16 (`apps/server`, Node ≥ 22) | **VPS** con PM2 (`deploy/ecosystem.config.cjs`) | CPU de un solo hilo rápida, poca RAM, disco chico |
 | TLS / WSS | **Caddy** en la misma VPS (`deploy/Caddyfile`) | Puertos 80/443 abiertos, un registro A |
 | Progreso (`players.json`, escritura atómica) | Disco de la VPS | SSD/NVMe y backup fuera de la VPS |
 

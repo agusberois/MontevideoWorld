@@ -32,8 +32,13 @@ npm run build:server
 pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup   # seguir la instrucción que imprime
 
 # TLS/WSS: editar el dominio en deploy/Caddyfile
-sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
+
+- El `Caddyfile` además limita el body a 16 KB, pisa `X-Real-IP` con la IP real (sin eso los
+  límites por IP se esquivan), agrega HSTS y `nosniff`, saca el header `Server` y responde 404 a
+  `/health/full`. Verificar los headers: `curl -I https://game.tudominio.com/health`.
 
 - DNS: registro A `game.tudominio.com` → IP del VPS. Abrir puertos 80/443 (no hace falta exponer 2567).
 - Verificar: `curl https://game.tudominio.com/health`. Además de salas y jugadores devuelve métricas

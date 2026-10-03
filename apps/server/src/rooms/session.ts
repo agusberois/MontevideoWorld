@@ -40,6 +40,14 @@ export interface PlayerSession {
   /** Cambió la mochila / la plata y falta mandársela (se manda una vez, ver `CityRoom.flushPrivate`). */
   inventoryDirty: boolean;
   walletDirty: boolean;
+  /**
+   * Se la está cerrando (duplicada, spam, cárcel, error): ya no se procesa nada suyo ni se la puede
+   * elegir para intercambiar. El socket tarda en cerrarse (hasta 30 s si el cliente no contesta):
+   * sin esto, en ese rato podría seguir mandando mensajes (ver `CityRoom.closeSession`).
+   */
+  closed: boolean;
+  /** IP desde la que entró (para el tope de conexiones por IP, `connectionLimits.ts`). */
+  ip: string;
 }
 
 export function createSession(client: Client, player: Player, inventory: Inventory, wallet: Wallet, needs: Needs, key: string | null): PlayerSession {
@@ -59,6 +67,8 @@ export function createSession(client: Client, player: Player, inventory: Invento
     sentNeeds: null,
     inventoryDirty: false,
     walletDirty: false,
+    closed: false,
+    ip: "?",
   };
 }
 

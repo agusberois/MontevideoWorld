@@ -8,19 +8,23 @@ export interface CatchRoll {
   durationMs: number;
 }
 
+/** Espera de una tirada antes de `waitFactor`: entre `MIN` y `MIN + SPREAD` ms (promedio 5,5 s, el que usa `needsBalance.ts`). */
+const WAIT_MIN_MS = 3500;
+const WAIT_SPREAD_MS = 4000;
+
 /**
  * Sortea qué pica con esta caña: nada (`rod.nothingChance`) o un pez según su peso con la caña
  * (`catchWeight`: las mejores favorecen a los difíciles). Si picó, con `rod.doubleChance` sale un
- * segundo pez. La espera crece con la dificultad del más difícil y se achica con `rod.waitFactor`.
+ * segundo pez. La espera se sortea **aparte** del resultado y sólo la achica `rod.waitFactor`: el
+ * cliente la recibe (`fish:started`) y cortar la pesca no cuesta nada, así que si dependiera de lo
+ * que picó, se podría tirar y cortar hasta ver una espera "de pez difícil".
  */
 export function rollCatch(rod: RodItem, random: () => number = Math.random): CatchRoll {
-  if (random() < rod.nothingChance) {
-    return { fish: [], durationMs: Math.round((4000 + random() * 3000) * rod.waitFactor) };
-  }
+  const durationMs = Math.round((WAIT_MIN_MS + random() * WAIT_SPREAD_MS) * rod.waitFactor);
+  if (random() < rod.nothingChance) return { fish: [], durationMs };
   const fish = [pickFish(rod, random)];
   if (random() < rod.doubleChance) fish.push(pickFish(rod, random));
-  const hardest = Math.max(...fish.map((f) => f.difficulty));
-  return { fish, durationMs: Math.round((2500 + hardest * 800 + random() * 2500) * rod.waitFactor) };
+  return { fish, durationMs };
 }
 
 function pickFish(rod: RodItem, random: () => number): FishItem {

@@ -94,6 +94,15 @@ corré `npm run build:shared`.
   bucket por cliente y tipo; la tabla de límites está en un solo lugar, `MESSAGE_RATE_LIMITS`). Lo que
   se pasa se descarta en silencio; un spam sostenido desconecta con código **4002** (`[RateLimit]` en
   el log). El chat y el saludo tienen además su cooldown (`CHAT_COOLDOWN_MS`).
+- **Límites por IP** (`connectionLimits.ts`, desde el `onAuth` estático de `CityRoom`, que corre en el
+  pedido HTTP antes de reservar el asiento): hasta 8 conexiones abiertas y un balde de 8 pedidos de
+  entrada (uno cada 4 s). Sólo se exponen `joinOrCreate` y `joinById`, y cada barrio tiene hasta 10
+  copias. La IP sale de `X-Real-IP`: en producción Caddy la pisa con la real (`deploy/Caddyfile`).
+- **Sacar a un jugador** siempre con `room.closeSession(session, código)`, nunca con
+  `client.leave` suelto: marca la sesión `closed` (sus mensajes se ignoran y nadie puede intercambiar
+  con ella), corta lo que hacía y corta el socket si en 2 s no contesta (si no, `ws` lo deja abierto
+  hasta 30 s y se podían duplicar ítems). Un mensaje que tira una excepción saca sólo a ese jugador
+  (código 4500); si algo se escapa igual, el proceso guarda a todos y sale para que PM2 lo levante.
 - Plata y mochila: `wallet.debit` / `credit` devuelven false sin tocar nada si no se puede; después
   de cada cambio llamar `room.markWallet(session)` / `markInventory(session)`, que se mandan una sola
   vez antes del próximo envío privado (`room.sendTo`) o al terminar el handler (`flushPrivate`). Así

@@ -23,7 +23,7 @@ paths:
 | --- | --- | --- |
 | `PORT` | `2567` | Puerto HTTP/WS |
 | `HOST` | `0.0.0.0` | Interfaz. Detrás de un reverse proxy usar `127.0.0.1` |
-| `CORS_ORIGIN` | `*` | `*` o lista separada por comas (`https://montevideo-world.vercel.app,http://localhost:3000`). Aplica a Express **y** a `/matchmake/*` de Colyseus |
+| `CORS_ORIGIN` | `*` | `*` o lista separada por comas (`https://montevideo-world.vercel.app,http://localhost:3000`). Aplica a Express, a `/matchmake/*` de Colyseus **y** a la entrada (`CityRoom.onAuth` rechaza con 403 una página de otro origen; sin `Origin`, como `curl`, pasa). En producción, **sólo** los dominios del juego: el server avisa `[Seguridad]` si queda en `*`. Va en el `.env` del VPS, no en `deploy/ecosystem.config.cjs` (lo de PM2 pisa al `.env`). `Allow-Credentials: true` queda porque colyseus.js pide el matchmaking con `withCredentials` (no hay cookies) |
 | `NODE_ENV` | — | `production` en el VPS (lo setea `npm start`) |
 | `ADMIN_NAME` | — | Nombre con el que se entra como **admin** (sin distinguir mayúsculas). Local: `AGOSHO`. Vacío = sin admin |
 | `DAY_LENGTH_MINUTES` | `24` | Minutos reales que dura un día del juego (24 → 1 hora del juego por minuto real) |

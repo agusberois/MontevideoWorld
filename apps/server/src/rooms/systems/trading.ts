@@ -14,7 +14,8 @@ export function tradeRoutes(room: CityRoom) {
     [MessageType.TradeRequest]: (session, message) => {
       const target = room.sessions.get(message.targetId);
       const id = session.client.sessionId;
-      if (!target || target === session) return;
+      // Con una sesión que se está cerrando no se intercambia (ver `CityRoom.closeSession`).
+      if (!target || target === session || target.closed) return;
       if (room.trades.get(id)) return room.notice(session, "Ya estás en un intercambio.");
       if (room.trades.get(message.targetId)) return room.notice(session, `${target.player.name} está en otro intercambio.`);
 
@@ -29,7 +30,7 @@ export function tradeRoutes(room: CityRoom) {
     [MessageType.TradeRespond]: (session, message) => {
       const inviter = room.sessions.get(message.fromId);
       const id = session.client.sessionId;
-      if (!room.trades.takeInvite(message.fromId, id, Date.now()) || !inviter) {
+      if (!room.trades.takeInvite(message.fromId, id, Date.now()) || !inviter || inviter.closed) {
         return room.notice(session, "Esa invitación ya venció.");
       }
       if (!message.accept) return room.notice(inviter, `${session.player.name} no quiso intercambiar.`);
@@ -63,7 +64,7 @@ export function tradeRoutes(room: CityRoom) {
 
       const a = room.sessions.get(trade.a);
       const b = room.sessions.get(trade.b);
-      const problem = a && b ? executeTrade(tradeParty(room, a, trade), tradeParty(room, b, trade)) : "El intercambio ya no es válido.";
+      const problem = a && b && !a.closed && !b.closed ? executeTrade(tradeParty(room, a, trade), tradeParty(room, b, trade)) : "El intercambio ya no es válido.";
       if (problem || !a || !b) {
         trade.accepted.clear();
         sendTradeState(room, trade);
@@ -78,6 +79,9 @@ export function tradeRoutes(room: CityRoom) {
       ]) {
         room.markInventory(side);
         room.markWallet(side);
+        // Se guardan los dos en el acto: si el server se cayera antes del guardado periódico, no
+        // puede quedar uno guardado con lo recibido y el otro sin lo que dio.
+        room.savePlayer(side);
         room.sendTo(side, MessageType.TradeClosed, { ok: true, text: `¡Listo! Intercambiaste con ${partner.player.name}.` });
       }
     },

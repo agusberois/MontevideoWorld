@@ -395,16 +395,54 @@ con la CSP (no usa `eval`, pero hay que confirmar que no cargue nada de otro ori
    duración del día: nada que rotar más allá de lo que resuelve C1).
 2. [ ] **C1**: admin por `ADMIN_KEY_HASHES`; nombres reservados. Probar que entrar como "AGOSHO" desde
    otro navegador **no** da admin.
-3. [ ] **A2 + B3 + M2**: `session.closed`, `closeSession` con `terminate()`, `try/catch` en `route`,
-   `process.on("uncaughtException")` → `flush()` y salir (PM2 lo levanta).
-4. [ ] **A3**: espera de la pesca independiente del resultado; revisar `[Balance]` al arrancar.
-5. [ ] **A4**: `exposedMethods`, tope de copias por barrio, `onAuth` con límite por IP y `Origin`.
+3. [x] **A2 + B3 + M2**: `session.closed`, `closeSession` con `terminate()`, `try/catch` en `route`,
+   `process.on("uncaughtException")` → `flush()` y salir (PM2 lo levanta). **Hecho (2026-10-03):**
+   `PlayerSession.closed`; `CityRoom.closeSession(session, código)` (corta actividades e intercambio,
+   `client.leave` y, si a los 2 s sigue, `terminate()` del socket) para duplicada, spam y cárcel;
+   `route` y el handler `"*"` ignoran sesiones cerradas antes del límite; el límite se olvida recién
+   en `onLeave` (B3); no se puede invitar, responder ni cerrar un intercambio con una sesión cerrada;
+   `try/catch` por mensaje (log + `closeSession` con 4500); `uncaughtException` /
+   `unhandledRejection` → `saveEveryone()` + `playerStore.flush()` (tope 5 s) y `exit(1)`; al cerrar
+   un intercambio se guardan los dos en el acto. Probado contra el server con un cliente que no
+   contesta el cierre (lectura del socket pausada): después de entrar la misma clave en otra pestaña,
+   0 de 10 chats y 0 de 10 invitaciones llegaron y el socket se cortó a los 2,3 s; expulsado por spam,
+   0 de 10 chats y corte a los 2,4 s.
+4. [x] **A3**: espera de la pesca independiente del resultado; revisar `[Balance]` al arrancar.
+   **Hecho (2026-10-03):** `rollCatch` sortea la espera aparte (3,5–7,5 s × `waitFactor`, promedio
+   5,5 s, el mismo que asume `needsBalance.ts`). Medido con 200.000 tiradas por caña: la espera media
+   es igual para cada resultado y P(dificultad ≥ 4 | espera larga) = P(dificultad ≥ 4); esperas
+   medias casi iguales a antes (básica 5,3 → 5,5 s, profesional 4,0 → 3,85 s). Sin avisos
+   `[Balance]`. Se pierde que los peces difíciles tarden más (era justamente la filtración).
+5. [x] **A4**: `exposedMethods`, tope de copias por barrio, `onAuth` con límite por IP y `Origin`.
+   **Hecho (2026-10-03):** `exposedMethods =
+   ["joinOrCreate", "joinById"]`; `MAX_COPIES_PER_CITY = 10` en `onCreate`; `CityRoom.onAuth`
+   estático (corre en el pedido HTTP, antes de reservar asiento) con `connectionLimits.ts`: hasta 8
+   conexiones abiertas por IP y un balde de 8 pedidos de entrada que se recarga uno cada 4 s;
+   `app.disable("x-powered-by")` (B6). Probado contra el server: `create` y `join` → `invalid
+   method`; desde una IP entran 8 y la 9.ª se rechaza; tras cerrar 3, enseguida se rechaza por
+   pedidos seguidos y a los 8,5 s vuelve a entrar. El tope de copias no se probó (harían falta 800
+   jugadores). El chequeo de `Origin` se hizo junto con M5 (punto 6).
 6. [ ] **M5**: sacar `CORS_ORIGIN: "*"` de `deploy/ecosystem.config.cjs`; en el `.env` del VPS,
    `CORS_ORIGIN=https://tudominio.com,https://app.tudominio.com`; `credentials: false`.
+   **Código hecho (2026-10-03), falta el `.env` del VPS:** el ecosystem ya no pone `CORS_ORIGIN`;
+   la lista vive en `env.ts` (`isOriginAllowed`) y la usan Express, `/matchmake/*` y
+   `CityRoom.onAuth`, que rechaza con 403 una página de otro origen antes de reservar el asiento
+   (sin `Origin`, como `curl`, pasa: esto frena páginas ajenas, no scripts). En producción con `*`
+   el server avisa `[Seguridad]` al arrancar. **`credentials: false` no se puede:** colyseus.js
+   pide el matchmaking siempre con `withCredentials` y el navegador lo bloquearía; como no hay
+   cookies, alcanza con no reflejar orígenes fuera de la lista. Probado contra el server con
+   `CORS_ORIGIN=http://localhost:3000`: ese origen entra, `https://evil.example` → 403 sin
+   `Allow-Origin` (también en el preflight), sin `Origin` entra.
 7. [ ] **Caddy**: `request_body max_size`, `header_up X-Real-IP {remote_host}`, HSTS (sección 3.5).
+   **Archivo hecho (2026-10-03), falta el VPS:** `deploy/Caddyfile` tiene `request_body max_size
+   16KB`, `header_up X-Real-IP {remote_host}` (sin esto los límites por IP de A4 se esquivan), HSTS
+   (1 año), `nosniff`, `-Server` y 404 a `/health/full` (listo para M7). Falta en el VPS: poner el
+   dominio real, `caddy validate` (Caddy no está instalado en la máquina de desarrollo: no se validó)
+   y mirar los headers con `curl -I` (pasos en la skill `despliegue`).
 8. [ ] **VPS**: usuario sin privilegios para el proceso; `ufw default deny incoming`, permitir sólo
    22/80/443; SSH sólo con llave (`PasswordAuthentication no`); actualizaciones automáticas
-   (`unattended-upgrades`); `HOST=127.0.0.1`; Node 22 (B8).
+   (`unattended-upgrades`); `HOST=127.0.0.1`; Node 22 (B8). **En el repo (2026-10-03):**
+   `engines.node >= 22.0.0` en el `package.json` raíz; el resto es configurar la máquina.
 9. [ ] **Cliente**: `NEXT_PUBLIC_SERVER_URL=wss://game.tudominio.com` en Production **y** Preview;
    comprobar en el navegador que el socket es `wss://` y el matchmaking `https://`.
 

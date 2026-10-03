@@ -1,5 +1,26 @@
 # Caddy obtiene el certificado TLS automáticamente y hace proxy de WebSocket sin config extra.
 # Reemplazá el dominio por el tuyo (registro A apuntando a la IP del VPS).
+# Antes de recargar: `caddy validate --config /etc/caddy/Caddyfile`.
 game.example.com {
-	reverse_proxy 127.0.0.1:2567
+	# Los pedidos de matchmaking son JSON chicos: sin tope, Colyseus junta el cuerpo entero en memoria.
+	request_body {
+		max_size 16KB
+	}
+	header {
+		# Una vez que el navegador entró por https, no vuelve a intentar http con este dominio (1 año).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Que el navegador no adivine el tipo de las respuestas (son JSON).
+		X-Content-Type-Options "nosniff"
+		# No anunciar qué servidor hay atrás.
+		-Server
+	}
+	# El detalle de salud (salas, ticks, memoria) es sólo para mirar desde la máquina, nunca desde
+	# afuera. `/health` (público) queda: lo usa el chequeo externo de que el server está vivo.
+	@healthFull path /health/full /health/full/*
+	respond @healthFull 404
+	reverse_proxy 127.0.0.1:2567 {
+		# El server toma la IP de X-Real-IP (límites por IP, `connectionLimits.ts`): se pisa con la
+		# real, si no, cualquiera manda la que quiera.
+		header_up X-Real-IP {remote_host}
+	}
 }

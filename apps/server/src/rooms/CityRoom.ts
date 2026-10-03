@@ -1,4 +1,4 @@
-import { Client, Room, ServerError } from "@colyseus/core";
+import { AuthContext, Client, Room, ServerError } from "@colyseus/core";
 import {
   AnnouncementMessage,
   ChatBroadcastMessage,
@@ -33,8 +33,9 @@ import {
 import { getCityMap } from "@montevideo-world/shared/cities";
 import { GameState, Player } from "@montevideo-world/shared/schema";
 import { bans } from "../bans";
+import { admitJoin, clientIp, connectionClosed, connectionOpened } from "../connectionLimits";
 import { PrivateMailbox, playerDirectory } from "../directory";
-import { isAdminName } from "../env";
+import { isAdminName, isOriginAllowed } from "../env";
 import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
 import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
@@ -63,6 +64,38 @@ const SAVE_INTERVAL_MS = 15_000;
 const DUPLICATE_SESSION_CODE = 4001;
 /** Código de cierre para un cliente que spamea mensajes de forma sostenida (ver `rateLimit.ts`). */
 const RATE_LIMIT_CODE = 4002;
+/** Código de cierre cuando un mensaje suyo hizo fallar al server (se lo saca a él, no a todos). */
+const SERVER_ERROR_CODE = 4500;
+/**
+ * Al cerrar una sesión, cuánto se espera que el cliente conteste el cierre antes de cortar el socket
+ * (`ws` esperaría hasta 30 s, y mientras tanto el cliente podría seguir mandando mensajes).
+ */
+const CLOSE_GRACE_MS = 2000;
+
+/**
+ * Copias como mucho de cada barrio (cada una hasta `MAX_PLAYERS_PER_ROOM`): con 10 × 80 sobra, y
+ * pone un techo a cuántas salas (con sus intervalos) puede haber vivas aunque alguien abuse.
+ */
+const MAX_COPIES_PER_CITY = 10;
+/** Código de error al rechazar una entrada por los límites por IP (`connectionLimits.ts`). */
+const TOO_MANY_JOINS_CODE = 429;
+/** Código de error al rechazar una entrada desde una página que no es la del juego (`CORS_ORIGIN`). */
+const FOREIGN_ORIGIN_CODE = 403;
+/** Código de error cuando un barrio ya tiene todas sus copias llenas. */
+const CITY_FULL_CODE = 503;
+
+/** Lo que `CityRoom.onAuth` le pasa a `onJoin` (en `client.auth`). */
+interface JoinAuth {
+  ip: string;
+}
+
+/** Salas abiertas en este proceso: para guardar a todos si el proceso se va a caer (`saveEveryone`). */
+const openRooms = new Set<CityRoom>();
+
+/** Guarda a todos los jugadores conectados en todas las salas (antes de un cierre de emergencia). */
+export function saveEveryone() {
+  for (const room of openRooms) room.saveConnectedPlayers();
+}
 
 /**
  * Copias abiertas de cada barrio (cityId → números en uso). Cada sala nueva toma el número libre más
@@ -118,9 +151,28 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   /** "barrio#copia (roomId)", para los avisos del log. */
   private label = "";
 
+  /**
+   * Corre en el pedido HTTP de matchmaking (`joinOrCreate` / `joinById`), antes de reservar el
+   * asiento: aplica los límites por IP (`connectionLimits.ts`). Lo que devuelve llega a `onJoin`.
+   */
+  static async onAuth(_token: string, _options: unknown, context: AuthContext): Promise<JoinAuth> {
+    // CORS sólo frena que el navegador lea la respuesta: el pedido igual llega. Acá se corta antes de
+    // reservar el asiento, así otra página no puede meter a sus visitantes al juego.
+    if (!isOriginAllowed(context.headers.origin)) {
+      throw new ServerError(FOREIGN_ORIGIN_CODE, "Origen no permitido.");
+    }
+    const ip = clientIp(context.ip);
+    const refused = admitJoin(ip);
+    if (refused) throw new ServerError(TOO_MANY_JOINS_CODE, refused);
+    return { ip };
+  }
+
   onCreate(options: Partial<JoinOptions> = {}) {
     const map = typeof options.cityId === "string" ? getCityMap(options.cityId) : undefined;
     if (!map) throw new Error(`Barrio desconocido: ${String(options.cityId)}`);
+    if ((openCopies.get(map.city.id)?.size ?? 0) >= MAX_COPIES_PER_CITY) {
+      throw new ServerError(CITY_FULL_CODE, `${map.city.name} está lleno: probá en un rato.`);
+    }
     this.map = map;
     this.spawnTiles = map.spawnTiles();
     this.prisonTiles = map.prisonTiles();
@@ -129,6 +181,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.state.copy = takeCopyNumber(map.city.id);
     this.label = `${map.city.id}#${this.state.copy} (${this.roomId})`;
     liveRooms.add(this);
+    openRooms.add(this);
     if (this.state.copy > 1) console.log(`[CityRoom ${this.roomId}] ${map.city.id} lleno: se abrió la copia ${this.state.copy}`);
 
     // Todos los mensajes del cliente, cada uno con su sistema. No compila si falta alguno.
@@ -144,7 +197,10 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     };
     for (const type of Object.keys(routes) as Array<keyof MessageRoutes>) this.route(type, routes[type]);
     // Tipos sin handler (cliente modificado): se cuentan contra el límite y se descartan sin loguear.
-    this.onMessage(UNKNOWN_MESSAGE_TYPE, (client) => this.allowMessage(client, UNKNOWN_MESSAGE_TYPE));
+    this.onMessage(UNKNOWN_MESSAGE_TYPE, (client) => {
+      const session = this.sessions.get(client.sessionId);
+      if (session && !session.closed) this.allowMessage(session, UNKNOWN_MESSAGE_TYPE);
+    });
     this.presence.subscribe(ANNOUNCEMENT_TOPIC, this.relayAnnouncement);
 
     this.clock.setInterval(() => {
@@ -189,7 +245,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.clock.setInterval(() => this.syncClock(), 1000);
   }
 
-  onJoin(client: Client, options: Partial<JoinOptions> = {}) {
+  onJoin(client: Client, options: Partial<JoinOptions> = {}, auth?: JoinAuth) {
     const spawn = this.randomSpawnTile();
 
     const player = new Player();
@@ -277,7 +333,10 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const needs = Needs.restore(saved?.needs);
     player.energy = needs.energy;
 
-    this.sessions.set(client.sessionId, createSession(client, player, inventory, wallet, needs, key));
+    const session = createSession(client, player, inventory, wallet, needs, key);
+    session.ip = auth?.ip ?? "?";
+    this.sessions.set(client.sessionId, session);
+    connectionOpened(session.ip);
     this.state.players.set(client.sessionId, player);
     playerDirectory.add({
       sessionId: client.sessionId,
@@ -300,6 +359,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.savePlayer(session);
     if (session.key && activeSessions.get(session.key)?.sessionId === client.sessionId) activeSessions.delete(session.key);
     this.sessions.delete(client.sessionId);
+    connectionClosed(session.ip);
     this.unsent.delete(session);
     this.state.players.delete(client.sessionId);
     this.broadcastSystem(`${session.player.name} se fue de ${this.map.city.name}`);
@@ -308,6 +368,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
 
   onDispose() {
     liveRooms.delete(this);
+    openRooms.delete(this);
     releaseCopyNumber(this.map.city.id, this.state.copy);
     this.presence.unsubscribe(ANNOUNCEMENT_TOPIC, this.relayAnnouncement);
     console.log(`[CityRoom ${this.roomId}] disposed`);
@@ -333,6 +394,11 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     for (const session of this.sessions.values()) this.savePlayer(session);
   }
 
+  /** Para `saveEveryone` (cierre de emergencia del proceso). */
+  saveConnectedPlayers() {
+    this.saveAllPlayers();
+  }
+
   /**
    * La misma clave entró de nuevo (otra pestaña): se guarda esta sesión y se cierra. Se le saca la
    * clave antes de cerrarla para que su `onLeave` no pise después lo que haga la sesión nueva.
@@ -345,7 +411,25 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.savePlayer(session);
     session.key = null;
     this.notice(session, "Entraste desde otra pestaña o dispositivo: esta sesión se cerró.");
-    session.client.leave(DUPLICATE_SESSION_CODE);
+    this.closeSession(session, DUPLICATE_SESSION_CODE);
+  }
+
+  /**
+   * Cierra la sesión ya: desde este momento no se procesa nada suyo (`closed`), se corta lo que
+   * estaba haciendo y se cierra el socket. `client.leave` sólo **pide** el cierre: si el cliente no lo
+   * contesta, `ws` esperaría hasta 30 s y Colyseus seguiría entregando sus mensajes; por eso, pasado
+   * `CLOSE_GRACE_MS`, se corta el socket. El guardado y la limpieza siguen siendo los de `onLeave`.
+   */
+  closeSession(session: PlayerSession, code: number) {
+    if (session.closed) return;
+    session.closed = true;
+    stopActivities(session);
+    cancelTrade(this, session, "leave");
+    session.client.leave(code);
+    this.clock.setTimeout(() => {
+      if (this.sessions.get(session.client.sessionId) !== session) return; // ya salió
+      (session.client as unknown as { ref?: { terminate?: () => void } }).ref?.terminate?.();
+    }, CLOSE_GRACE_MS);
   }
 
   /**
@@ -356,23 +440,33 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const guard = MESSAGE_GUARDS[type] as (message: unknown) => boolean;
     const run = handler as (session: PlayerSession, message: unknown) => void;
     this.onMessage(type, (client, message: unknown) => {
-      if (!this.allowMessage(client, type)) return;
       const session = this.sessions.get(client.sessionId);
-      if (session && guard(message)) run(session, message);
+      // Una sesión que se está cerrando ya no hace nada (ni cuenta contra el límite).
+      if (!session || session.closed) return;
+      if (!this.allowMessage(session, type) || !guard(message)) return;
+      try {
+        run(session, message);
+      } catch (error) {
+        // Un mensaje que hace fallar al server saca a ese jugador, no al proceso entero (Colyseus no
+        // protege los handlers). Lo que el handler llegó a cambiar queda en memoria y se guarda al salir.
+        console.error(`[CityRoom ${this.label}] error procesando "${type}" de ${client.sessionId} (${session.player.name})`, error);
+        this.closeSession(session, SERVER_ERROR_CODE);
+      }
     });
   }
 
   /** ¿Se procesa? Si el cliente abusa de forma sostenida, se lo desconecta (`RATE_LIMIT_CODE`). */
-  private allowMessage(client: Client, type: MessageTypeName | typeof UNKNOWN_MESSAGE_TYPE): boolean {
-    const decision = this.rateLimiter.check(client.sessionId, type, Date.now());
+  private allowMessage(session: PlayerSession, type: MessageTypeName | typeof UNKNOWN_MESSAGE_TYPE): boolean {
+    const { sessionId } = session.client;
+    const decision = this.rateLimiter.check(sessionId, type, Date.now());
     if (decision === "ok") return true;
     if (decision === "kick") {
-      const name = this.state.players.get(client.sessionId)?.name ?? "?";
       console.warn(
-        `[RateLimit] ${this.label}: se desconectó a ${client.sessionId} (${name}) por spam (${this.rateLimiter.droppedBy(client.sessionId)} mensajes descartados, el último "${type}")`,
+        `[RateLimit] ${this.label}: se desconectó a ${sessionId} (${session.player.name}) por spam (${this.rateLimiter.droppedBy(sessionId)} mensajes descartados, el último "${type}")`,
       );
-      this.rateLimiter.forget(client.sessionId);
-      client.leave(RATE_LIMIT_CODE);
+      // El estado del límite se olvida recién en `onLeave`: si se olvidara ahora, sus mensajes
+      // volverían a entrar con los baldes llenos hasta que se cierre el socket.
+      this.closeSession(session, RATE_LIMIT_CODE);
     }
     return false;
   }

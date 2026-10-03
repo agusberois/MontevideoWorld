@@ -11,7 +11,8 @@ module.exports = {
         NODE_ENV: "production",
         PORT: 2567,
         HOST: "127.0.0.1",
-        CORS_ORIGIN: "*",
+        // CORS_ORIGIN va en apps/server/.env del VPS (los dominios del juego): lo que se ponga acá
+        // pisa al .env.
       },
     },
   ],

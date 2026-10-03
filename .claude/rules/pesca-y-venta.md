@@ -26,7 +26,8 @@ cuando pica) y `waitFactor`. Las probabilidades se calculan en shared (`fishChan
 tienda y la mochila muestran lo mismo que sortea el server. `fish:cast` → el server valida (en la
 escollera, sin camino pendiente, sin estar pescando, con caña), sortea con `rollCatch(rod)` y pone
 `player.fishing = true` y `player.rod` (Schema: los demás ven la caña de su color). Manda
-`fish:started { durationMs }` (más largo cuanto más difícil el pez) y al vencer el timer
+`fish:started { durationMs }` (3,5–7,5 s × `waitFactor`, sorteada **aparte** del resultado: si
+dependiera del pez, tirar y cortar hasta ver una espera larga sería gratis) y al vencer el timer
 (`this.clock.setTimeout`) cobra la tirada (`finishAttempt`: un uso de la caña y `FISH_ENERGY_COST`;
 al empezar sólo se chequea que alcance la energía), agrega los peces a la mochila y manda
 `fish:result { itemIds }`. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan

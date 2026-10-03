@@ -1,5 +1,5 @@
 // Primero: carga apps/server/.env antes de que otros módulos lean process.env.
-import { adminName, dayLengthMinutes } from "./env";
+import { adminName, allowAnyOrigin, allowedOrigins, dayLengthMinutes, isOriginAllowed } from "./env";
 import http from "node:http";
 import cors, { CorsOptions } from "cors";
 import express from "express";
@@ -19,7 +19,7 @@ import {
 } from "@montevideo-world/shared";
 import { liveRooms, tickMetrics } from "./metrics";
 import { playerStore, travelTickets } from "./playerStore";
-import { CityRoom } from "./rooms/CityRoom";
+import { CityRoom, saveEveryone } from "./rooms/CityRoom";
 
 // Cañas y carritos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
 // precios, usos o probabilidades y uno deja de ser rentable, se avisa al arrancar.
@@ -38,23 +38,23 @@ for (const { tool, share } of foodTooExpensiveFor()) {
 
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
 const HOST = process.env.HOST ?? "0.0.0.0";
-const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "*";
 
-const allowedOrigins = CORS_ORIGIN.split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const allowAll = allowedOrigins.length === 0 || allowedOrigins.includes("*");
-
-function isOriginAllowed(origin: string | undefined) {
-  return allowAll || !origin || allowedOrigins.includes(origin);
+if (process.env.NODE_ENV === "production" && allowAnyOrigin) {
+  console.warn(
+    "[Seguridad] CORS_ORIGIN no está fijado (o es *): cualquier página puede usar el server. Poné los dominios del juego en el .env.",
+  );
 }
 
+// `credentials: true` no es por cookies (no hay): colyseus.js pide el matchmaking siempre con
+// `withCredentials`, y sin este header el navegador lo bloquea. Por eso el origen se refleja sólo si
+// está en la lista (nunca `*`).
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => callback(null, isOriginAllowed(origin)),
   credentials: true,
 };
 
 const app = express();
+app.disable("x-powered-by");
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -84,7 +84,7 @@ app.get("/health", async (_req, res) => {
 matchMaker.controller.getCorsHeaders = (req) => {
   const origin = req.headers.origin;
   return {
-    "Access-Control-Allow-Origin": origin && isOriginAllowed(origin) ? origin : allowAll ? "*" : "",
+    "Access-Control-Allow-Origin": origin && isOriginAllowed(origin) ? origin : allowAnyOrigin ? "*" : "",
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -92,6 +92,10 @@ matchMaker.controller.getCorsHeaders = (req) => {
     Vary: "Origin",
   };
 };
+
+// El cliente sólo usa `joinOrCreate` y `joinById` (`lib/network.ts`): `create`, `join` y `reconnect`
+// no se exponen (con `create` cualquiera abría una sala nueva por pedido).
+matchMaker.controller.exposedMethods = ["joinOrCreate", "joinById"];
 
 const httpServer = http.createServer(app);
 const gameServer = new Server({
@@ -103,8 +107,34 @@ gameServer.define(ROOM_NAME, CityRoom).filterBy(["cityId"]);
 // y después se escribe el archivo de jugadores.
 gameServer.onShutdown(() => playerStore.flush());
 
+/** Tope para guardar antes de salir en un cierre de emergencia (si el disco no responde, se sale igual). */
+const CRASH_FLUSH_TIMEOUT_MS = 5000;
+let crashing = false;
+
+/**
+ * Último recurso si algo se escapa (los mensajes ya están protegidos en `CityRoom.route`, pero no
+ * los timers): se guarda a todos los conectados, se escribe el archivo y se sale con error para que
+ * PM2 levante el server limpio. Seguir corriendo después de un error así dejaría el estado a medias.
+ */
+function crash(kind: string, error: unknown) {
+  console.error(`[Montevideo World] ${kind}: se guarda todo y se reinicia`, error);
+  if (crashing) return;
+  crashing = true;
+  try {
+    saveEveryone();
+  } catch (saveError) {
+    console.error("[Montevideo World] no se pudo guardar a los conectados", saveError);
+  }
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, CRASH_FLUSH_TIMEOUT_MS).unref());
+  void Promise.race([playerStore.flush(), timeout])
+    .catch((flushError) => console.error("[Montevideo World] no se pudo escribir el archivo de jugadores", flushError))
+    .finally(() => process.exit(1));
+}
+process.on("uncaughtException", (error) => crash("error sin atrapar", error));
+process.on("unhandledRejection", (reason) => crash("promesa rechazada sin atrapar", reason));
+
 gameServer.listen(PORT, HOST).then(() => {
-  console.log(`[Montevideo World] escuchando en ws://${HOST}:${PORT} (CORS: ${allowAll ? "*" : allowedOrigins.join(", ")})`);
+  console.log(`[Montevideo World] escuchando en ws://${HOST}:${PORT} (CORS: ${allowAnyOrigin ? "*" : allowedOrigins.join(", ")})`);
   console.log(`[Montevideo World] admin: ${adminName() ?? "(ninguno; definí ADMIN_NAME en apps/server/.env)"}`);
   console.log(`[Montevideo World] un día del juego dura ${dayLengthMinutes()} minutos reales`);
 });
