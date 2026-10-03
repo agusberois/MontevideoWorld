@@ -14,10 +14,8 @@ game.example.com {
 		# No anunciar qué servidor hay atrás.
 		-Server
 	}
-	# El detalle de salud (salas, ticks, memoria) es sólo para mirar desde la máquina, nunca desde
-	# afuera. `/health` (público) queda: lo usa el chequeo externo de que el server está vivo.
-	@healthFull path /health/full /health/full/*
-	respond @healthFull 404
+	# `/health` (público) sólo dice si está vivo. El detalle (`/health/full`) lo protege el server:
+	# lo que pasa por acá necesita `Authorization: Bearer <HEALTH_TOKEN>`; si no, 404.
 	reverse_proxy 127.0.0.1:2567 {
 		# El server toma la IP de X-Real-IP (límites por IP, `connectionLimits.ts`): se pisa con la
 		# real, si no, cualquiera manda la que quiera.

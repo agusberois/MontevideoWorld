@@ -48,6 +48,8 @@ export interface CommandHost {
    * no, queda anotado por nombre y por las claves guardadas con ese nombre, para cuando entre.
    */
   jail(target: OnlinePlayer | null, name: string, until: number): void;
+  /** Deja en el log `[Admin]` un comando de admin (o el intento de usarlo sin serlo). */
+  audit(client: Client, text: string, allowed: boolean): void;
 }
 
 export type CommandHandler = (context: CommandContext, host: CommandHost) => void;

@@ -2,6 +2,7 @@
 paths:
   - "apps/server/src/gameClock.ts"
   - "apps/server/src/rooms/systems/admin.ts"
+  - "apps/server/src/audit.ts"
   - "packages/shared/src/time.ts"
   - "apps/client/src/game/city/DayNight.ts"
   - "apps/client/src/game/AdminCoords.ts"
@@ -31,7 +32,15 @@ o todas juntas; al buscar se abren las que tienen resultados), con buscador y ca
 `MAKER_RANGE` tiles o menos; la lista la pide el panel con `admin:nearby:get` → `admin:nearby`
 (botón ↻ para refrescar). `admin:give { itemId, quantity, targetId? }` → el server valida admin,
 ítem, cantidad y **vuelve a medir la distancia**, crea lo que entre en la mochila (herramientas
-nuevas), avisa a los dos con `notice` y deja `[Maker] …` en el log.
+nuevas), avisa a los dos con `notice` y deja `[Admin] … admin:give …` en el log.
 Comando de chat **`/post <mensaje>`** (sólo admin): se publica en presence (`ANNOUNCEMENT_TOPIC`)
 y **cada sala de todos los barrios** lo reenvía como `announcement` → `Announcement.tsx` lo
 muestra en el medio de la pantalla ("AGOSHO: hola que tal").
+
+**Auditoría** (`audit.ts`): toda acción de admin queda en el log como `[Admin] "nombre" (sessionId,
+IP, clave <8 hex del SHA-256>) en barrio#copia (roomId): …`: cada comando de rol admin (desde
+`runCommand`, vía `CommandHost.audit`, con el texto completo) y los mensajes `admin:time`,
+`admin:match` y `admin:give`. Si alguien sin admin manda uno (cliente modificado o comando de admin),
+sale como `[Admin] DENEGADO …` (`console.warn`). Cada entrada al juego deja `[Join] …` con IP, hash
+de la clave (`nueva` = sin progreso guardado, `conocida`) y `★admin`. El texto del cliente pasa por
+`logText` (comillas, recorte e invisibles escapados). Una acción de admin nueva → llamar `auditAdmin`.

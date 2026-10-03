@@ -86,7 +86,7 @@ qué ítems existen (el catálogo vive en código, `ITEMS`).
 - **Limpieza**: `prune` (al arrancar y cada 24 h) borra claves sin cambios hace 90 días
   (`INACTIVE_KEY_MS`) que cumplen `isUntouched` (plata ≤ inicial, sólo ítems del kit, sin mascota,
   no donador, no preso) y que no estén en `activeSessions`.
-- `/health` muestra `store: { players, lastFlush, travelTickets }`.
+- `/health/full` muestra `store: { players, lastFlush, travelTickets }`.
 
 Ojo: compras, ventas, intercambios, pesca, venta en el Centenario, picudos, cajas y comandos de
 admin (`/plata`, `admin:give`, `/box`) **no** guardan en el acto: tocan `Wallet` / `Inventory` en
@@ -660,7 +660,7 @@ export interface PlayerRepository {
   logAdmin(action: AdminAction): void;
   /** Al apagar: escribe todo lo pendiente (con reintentos acotados). */
   flush(): Promise<void>;
-  stats(): StoreStats;   // para /health (reemplaza store.players / lastFlush)
+  stats(): StoreStats;   // para /health/full (reemplaza store.players / lastFlush)
 }
 ```
 
@@ -722,7 +722,7 @@ esperar a la base:
 
 - **La base no responde al guardar**: el lote vuelve a la cola (lo más nuevo de cada jugador pisa lo
   viejo), reintento con backoff exponencial (1 s, 2 s, 4 s… tope 30 s). El juego sigue andando:
-  todo está en memoria. `/health` muestra `store.pending`, `store.lastFlush.ok` y el error.
+  todo está en memoria. `/health/full` muestra `store.pending`, `store.lastFlush.ok` y el error.
 - **Un lote falla por un dato** (un `check` de la base): se parte en mitades hasta aislar al
   jugador culpable, se loguea con su record y se guardan los demás.
 - **Archivo de emergencia**: si la cola pasa N minutos sin poder escribir, o al apagar sin base, se
@@ -827,7 +827,7 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
   (el WSS sigue igual). El VPS necesita salida HTTPS a Supabase.
 - La skill `despliegue` y `.claude/rules/entorno.md` / `ingreso.md` se actualizan en la fase que
   corresponda (y `CLAUDE.md`: "Limitaciones conocidas", "Sin cuentas").
-- `/health`: `store` pasa a mostrar `{ kind, pending, lastFlush, errors, players? }`.
+- `/health/full`: `store` pasa a mostrar `{ kind, pending, lastFlush, errors, players? }`.
 
 ## 7. Fases
 

@@ -1,4 +1,5 @@
 import { AdminNearbyMessage, MAKER_RANGE, MessageType, formatClock, getItem } from "@montevideo-world/shared";
+import { auditAdmin, logText } from "../../audit";
 import { gameClock } from "../../gameClock";
 import type { CityRoom } from "../CityRoom";
 import type { PlayerSession } from "../session";
@@ -9,6 +10,7 @@ export function adminRoutes(room: CityRoom) {
   return {
     /** Mover el reloj del juego; desde ahí sigue solo y lo ven todos (Schema). */
     [MessageType.AdminSetTime]: (session, message) => {
+      auditAdmin(session, room.label, `admin:time ${formatClock(message.minuteOfDay)}`, session.player.admin);
       if (!session.player.admin) return;
       gameClock.set(message.minuteOfDay);
       room.syncClock();
@@ -20,6 +22,7 @@ export function adminRoutes(room: CityRoom) {
      * `syncClock` (a más tardar en un segundo); ésta, en el acto.
      */
     [MessageType.AdminMatch]: (session, message) => {
+      auditAdmin(session, room.label, `admin:match ${message.mode} ${logText(message.name ?? "")}`, session.player.admin);
       if (!session.player.admin || !gameClock.forceMatch(message.mode, message.name)) return;
       const text =
         message.mode === "on"
@@ -31,7 +34,10 @@ export function adminRoutes(room: CityRoom) {
       room.syncClock();
     },
 
-    [MessageType.AdminNearbyRequest]: (session) => sendNearby(room, session),
+    [MessageType.AdminNearbyRequest]: (session) => {
+      if (!session.player.admin) return auditAdmin(session, room.label, "admin:nearby", false);
+      sendNearby(room, session);
+    },
 
     /**
      * Maker: crea ítems del catálogo en la mochila propia o en la de un jugador cercano (se vuelve a
@@ -41,7 +47,11 @@ export function adminRoutes(room: CityRoom) {
     [MessageType.AdminGive]: (session, message) => {
       const admin = session.player;
       const item = getItem(message.itemId);
-      if (!admin.admin || !item) return;
+      if (!admin.admin) {
+        auditAdmin(session, room.label, `admin:give ${logText(message.itemId, 40)} × ${message.quantity}`, false);
+        return;
+      }
+      if (!item) return;
 
       const target = message.targetId ? room.sessions.get(message.targetId) : session;
       if (!target) return room.notice(session, "Ese jugador ya no está en el barrio.");
@@ -55,7 +65,7 @@ export function adminRoutes(room: CityRoom) {
       while (made < message.quantity && target.inventory.add(item.id)) made += 1;
       if (made === 0) return room.notice(session, self ? "No tenés lugar en la mochila." : `${target.player.name} no tiene lugar en la mochila.`);
       room.markInventory(target);
-      console.log(`[Maker] ${admin.name} creó ${made} × ${item.id} para ${target.player.name}`);
+      auditAdmin(session, room.label, `admin:give ${made} × ${item.id} para ${self ? "sí mismo" : `${logText(target.player.name)} (${target.client.sessionId})`}`);
 
       const what = `${made} × ${item.name}`;
       const full = made < message.quantity ? ` (${message.quantity - made} no entraron: mochila llena)` : "";

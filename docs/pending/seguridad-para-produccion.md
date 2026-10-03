@@ -387,6 +387,23 @@ con la CSP (no usa `eval`, pero hay que confirmar que no cargue nada de otro ori
 
 ### Fase 0 – Bloqueantes (antes de compartir el link)
 
+> **Finalizada (2026-10-03).** Lo que se resuelve en el repo está hecho y en `main` (commit
+> `315734a`). Queda pendiente, a propósito:
+>
+> - **C1 (punto 2)**: en pausa por decisión. Sigue siendo el único bloqueante grave: mientras el
+>   admin salga del nombre, **no compartir el link público** (alcanza para probar en local o con
+>   conocidos). El arreglo está en la sección 3.1.
+> - **M5 (punto 6)**: en el `.env` del VPS, `CORS_ORIGIN` con los dominios reales (si no, queda `*`
+>   y el server avisa `[Seguridad]` al arrancar).
+> - **Caddy (punto 7)**: en el VPS, dominio real en `deploy/Caddyfile`, `caddy validate` y
+>   `curl -I` para ver los headers.
+> - **VPS (punto 8)**: usuario sin privilegios, `ufw` con sólo 22/80/443, SSH sólo con llave,
+>   `unattended-upgrades`, Node 22.
+> - **Cliente (punto 9)**: `NEXT_PUBLIC_SERVER_URL=wss://…` en Production y Preview de Vercel,
+>   redeploy y comprobar `wss://` en el navegador.
+>
+> Los puntos 6–9 se hacen al desplegar (skill `despliegue`).
+
 1. [x] **A1**: `.gitignore` con `.env*`, `git rm --cached` de los dos `.env`. Nada de secretos en
    `NEXT_PUBLIC_*` (hoy sólo hay URLs: bien). **Hecho (2026-10-03):** además el `.gitignore` tenía
    dos reglas pegadas en una línea (`apps/server/data/.env.local`), así que tampoco ignoraba
@@ -436,7 +453,7 @@ con la CSP (no usa `eval`, pero hay que confirmar que no cargue nada de otro ori
 7. [ ] **Caddy**: `request_body max_size`, `header_up X-Real-IP {remote_host}`, HSTS (sección 3.5).
    **Archivo hecho (2026-10-03), falta el VPS:** `deploy/Caddyfile` tiene `request_body max_size
    16KB`, `header_up X-Real-IP {remote_host}` (sin esto los límites por IP de A4 se esquivan), HSTS
-   (1 año), `nosniff`, `-Server` y 404 a `/health/full` (listo para M7). Falta en el VPS: poner el
+   (1 año), `nosniff` y `-Server` (`/health/full` lo protege el server, ver M7). Falta en el VPS: poner el
    dominio real, `caddy validate` (Caddy no está instalado en la máquina de desarrollo: no se validó)
    y mirar los headers con `curl -I` (pasos en la skill `despliegue`).
 8. [ ] **VPS**: usuario sin privilegios para el proceso; `ufw default deny incoming`, permitir sólo
@@ -448,15 +465,47 @@ con la CSP (no usa `eval`, pero hay que confirmar que no cargue nada de otro ori
 
 ### Fase 1 – Primera semana
 
-10. [ ] **M7**: `/health` mínimo público; detalle con token o sólo local.
+10. [x] **M7**: `/health` mínimo público; detalle con token o sólo local.
+    **Hecho (2026-10-03):** `/health` → `{ ok: true }`; el detalle pasó a `/health/full`, que se ve
+    desde la misma máquina sin proxy (si llega con `X-Real-IP`/`X-Forwarded-For`, como todo lo que
+    pasa por Caddy, no cuenta como local) o con `Authorization: Bearer <HEALTH_TOKEN>` (comparado
+    por hash con `timingSafeEqual`); si no, 404 (no anuncia que existe). El `Caddyfile` ya no
+    bloquea `/health/full` (si no, el token no serviría desde afuera). Probado: público
+    `{"ok":true}`; detalle local 200; con `X-Real-IP` 404; con token bueno 200, malo 404.
 11. [ ] **M8 / backups**: `PLAYER_DATA_FILE=/var/lib/montevideo-world/players.json` (dir 0700, archivo
     0600, dueño el usuario del servicio); `writeFile(..., { mode: 0o600 })`. Backup **cada hora**
     copiando el archivo (la escritura atómica garantiza que la copia es consistente) a otro lugar
     (`restic`/`rclone` a un bucket con cifrado), retención 48 horarios + 30 diarios. **Probar una
     restauración** antes de necesitarla.
+    **Permisos hechos en el código (2026-10-03), falta el VPS:** `playerStore.flush` crea la carpeta
+    con 0700 y escribe el archivo con 0600 (`writeFile` con `mode` + `chmod` del `.tmp`, por si quedó
+    uno viejo; el `rename` le pasa esos permisos al final). Probado: carpeta nueva → 700/600; `.tmp`
+    viejo con 0644 → el archivo queda 600. Una carpeta que ya existe conserva los suyos: en el VPS,
+    `PLAYER_DATA_FILE` fuera del repo y `chmod 700` a mano (skill `despliegue`). Falta el backup
+    horario y probar una restauración.
 12. [ ] **M6**: headers en `next.config.ts` con CSP en `Report-Only`; a la semana, CSP definitiva.
-13. [ ] **M10**: log `[Admin]` de cada comando y acción de admin, y del `join` (IP, clave nueva o
+    **Headers hechos (2026-10-03), falta pasar la CSP a definitiva:** `next.config.ts` manda en
+    todas las rutas `Content-Security-Policy-Report-Only` (la de la guía de Next 16 sin nonces:
+    `'unsafe-inline'`, `'unsafe-eval'` sólo en desarrollo, `img-src data: blob:` por Phaser,
+    `connect-src` = `NEXT_PUBLIC_SERVER_URL` y su versión http(s), o `ws: http:` si no está),
+    `X-Frame-Options: DENY` (éste ya bloquea los iframes), `nosniff`, `Referrer-Policy`,
+    `Permissions-Policy` y `poweredByHeader: false`. No hay recursos de otros dominios (fuentes,
+    scripts, imágenes). Verificado con `curl -I` en `next dev` y la CSP calculada para producción con
+    `wss://`. **Falta:** jugar un rato (entrar, caminar, viajar, abrir paneles) con la consola del
+    navegador abierta; si no aparece ningún `[Report Only] Refused to …`, cambiar la clave a
+    `Content-Security-Policy` en `next.config.ts`.
+13. [x] **M10**: log `[Admin]` de cada comando y acción de admin, y del `join` (IP, clave nueva o
     conocida, hash corto).
+    **Hecho (2026-10-03):** `apps/server/src/audit.ts`. `[Join] "nombre" (sessionId, IP, clave
+    <hash8> nueva|conocida) → barrio#copia (roomId) ★admin` reemplaza al `join` de antes. `[Admin]`
+    con nombre, sessionId, IP, hash de la clave y sala para cada comando de rol admin (texto completo,
+    vía `CommandHost.audit`) y para `admin:time`, `admin:match` y `admin:give` (reemplaza `[Maker]`;
+    `[Anuncio]` se sacó porque `/post` ya queda con su texto). Los intentos sin ser admin salen como
+    `[Admin] DENEGADO` (warn): señal de cliente modificado. Lo que viene del cliente se loguea con
+    `logText` (JSON, recortado, `\p{Cf}` escapado: cubre B5 para estas líneas). Probado con dos
+    clientes: admin con `/plata`, `admin:time` y `admin:give` → 3 líneas; un nombre con U+202E que
+    prueba `/ban`, `admin:give` y `admin:nearby` → 3 `DENEGADO`, con la marca bidi escapada; `/help`
+    no deja nada.
 14. [ ] **Logs y monitoreo**: `pm2 install pm2-logrotate` (tamaño y retención); chequeo externo de
     `/health` cada minuto (UptimeRobot, Healthchecks.io o similar) con aviso por mail/Telegram;
     alertas por `grep` (o Loki/Grafana más adelante) de `[RateLimit]`, `[Métricas]`,

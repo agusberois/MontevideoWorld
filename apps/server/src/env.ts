@@ -47,6 +47,15 @@ export function isAdminName(name: string): boolean {
   return admin !== null && name.toLocaleLowerCase("es") === admin.toLocaleLowerCase("es");
 }
 
+/**
+ * Token para ver `/health/full` desde afuera de la máquina (`HEALTH_TOKEN`, header
+ * `Authorization: Bearer …`), o null si no hay: entonces sólo se ve desde la misma máquina.
+ */
+export function healthToken(): string | null {
+  const token = process.env.HEALTH_TOKEN?.trim();
+  return token ? token : null;
+}
+
 /** Cuántos minutos reales dura un día del juego (`DAY_LENGTH_MINUTES`, por defecto 24). */
 export function dayLengthMinutes(): number {
   const value = Number(process.env.DAY_LENGTH_MINUTES);

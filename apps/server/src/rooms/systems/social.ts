@@ -1,6 +1,7 @@
 import type { Client } from "@colyseus/core";
 import { AnnouncementMessage, CHAT_COOLDOWN_MS, ChatBroadcastMessage, MessageType, TRAVEL_TICKET_MS, sanitizeChat } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
+import { auditAdmin, logText } from "../../audit";
 import { bans } from "../../bans";
 import { CommandHost, runCommand } from "../../commands";
 import { playerDirectory } from "../../directory";
@@ -153,11 +154,15 @@ export function createCommandHost(room: CityRoom): CommandHost {
       room.sendTo(session, MessageType.TravelApproved, { cityId: to.cityId, roomId: to.mailbox.roomId });
       room.notice(session, `📍 Yendo hasta ${to.name} (${to.cityName}).`);
     },
-    // Anuncio para todos los barrios: se publica en presence y cada sala lo reenvía.
+    // Anuncio para todos los barrios: se publica en presence y cada sala lo reenvía. (Queda en el
+    // log como el comando `/post`, ver `audit`.)
     announce: (name, text) => {
       const announcement: AnnouncementMessage = { id: `${Date.now()}-${room.nextMessageId()}`, name, text };
       room.presence.publish(ANNOUNCEMENT_TOPIC, announcement);
-      console.log(`[Anuncio] ${name}: ${text}`);
+    },
+    audit: (client, text, allowed) => {
+      const session = sessionOf(client);
+      if (session) auditAdmin(session, room.label, logText(text), allowed);
     },
   };
 }

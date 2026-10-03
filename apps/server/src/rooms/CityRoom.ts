@@ -32,6 +32,7 @@ import {
 } from "@montevideo-world/shared";
 import { getCityMap } from "@montevideo-world/shared/cities";
 import { GameState, Player } from "@montevideo-world/shared/schema";
+import { auditJoin } from "../audit";
 import { bans } from "../bans";
 import { admitJoin, clientIp, connectionClosed, connectionOpened } from "../connectionLimits";
 import { PrivateMailbox, playerDirectory } from "../directory";
@@ -148,8 +149,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   private messageSeq = 0;
   /** Límite de frecuencia por cliente y por tipo de mensaje: lo aplica `route` a todos. */
   private rateLimiter = new RateLimiter();
-  /** "barrio#copia (roomId)", para los avisos del log. */
-  private label = "";
+  /** "barrio#copia (roomId)", para los avisos del log (y la auditoría, `audit.ts`). */
+  label = "";
 
   /**
    * Corre en el pedido HTTP de matchmaking (`joinOrCreate` / `joinById`), antes de reservar el
@@ -346,7 +347,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       mailbox: this,
     });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
-    console.log(`[CityRoom ${this.roomId} ${this.map.city.id}] join ${client.sessionId} (${player.name})`);
+    auditJoin(session, this.label, saved !== undefined);
   }
 
   onLeave(client: Client) {

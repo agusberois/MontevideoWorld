@@ -29,6 +29,12 @@ sudo apt install -y caddy
 git clone <repo> montevideo-world && cd montevideo-world
 npm ci
 npm run build:server
+
+# Progreso de los jugadores fuera del repo, legible sólo por el usuario que corre el server
+# (guarda las claves de todos; el server escribe el archivo con 0600).
+sudo mkdir -p /var/lib/montevideo-world && sudo chown "$USER" /var/lib/montevideo-world && chmod 700 /var/lib/montevideo-world
+echo "PLAYER_DATA_FILE=/var/lib/montevideo-world/players.json" >> apps/server/.env
+
 pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup   # seguir la instrucción que imprime
 
 # TLS/WSS: editar el dominio en deploy/Caddyfile
@@ -37,11 +43,16 @@ caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 ```
 
 - El `Caddyfile` además limita el body a 16 KB, pisa `X-Real-IP` con la IP real (sin eso los
-  límites por IP se esquivan), agrega HSTS y `nosniff`, saca el header `Server` y responde 404 a
-  `/health/full`. Verificar los headers: `curl -I https://game.tudominio.com/health`.
+  límites por IP se esquivan), agrega HSTS y `nosniff` y saca el header `Server`. Verificar los headers:
+  `curl -I https://game.tudominio.com/health`.
 
 - DNS: registro A `game.tudominio.com` → IP del VPS. Abrir puertos 80/443 (no hace falta exponer 2567).
-- Verificar: `curl https://game.tudominio.com/health`. Además de salas y jugadores devuelve métricas
+- Verificar: `curl https://game.tudominio.com/health` → `{"ok":true}` (es lo único público: sirve
+  para el chequeo externo de que está vivo).
+- Detalle: `/health/full`, sólo desde la misma máquina (`ssh` al VPS y
+  `curl http://127.0.0.1:2567/health/full`) o desde afuera con `HEALTH_TOKEN` en el `.env`
+  (`curl -H "Authorization: Bearer $TOKEN" https://game.tudominio.com/health/full`); si no, 404.
+  Además de salas y jugadores devuelve métricas
   (`metrics.ts`): por sala (`cities`: barrio, copia, jugadores, picudos, mensajes descartados por el
   límite de frecuencia y desconectados), duración de los ticks de jugadores y de picudos en una ventana
   reciente (`ticks`: promedio, máximo, cuántos pasaron de 20 ms), el archivo de jugadores (`store`:

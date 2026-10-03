@@ -31,6 +31,8 @@ export function runCommand(text: string, context: Omit<CommandContext, "args" | 
     host.notice(context.client, `No existe el comando /${parsed.name}. Probá /help.`);
     return true;
   }
+  // Todo comando de admin queda en el log, con quién lo usó y desde dónde (también los intentos).
+  if (command.role !== "user") host.audit(context.client, text, context.player.admin);
   if (!canUseCommand(command, context.player.admin)) {
     host.notice(context.client, `El comando /${command.name} es sólo para el admin.`);
     return true;

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint } from "@montevideo-world/shared";
 import { round } from "./metrics";
@@ -197,9 +197,13 @@ class PlayerStore {
       ok,
     });
     try {
-      await mkdir(path.dirname(this.file), { recursive: true });
+      // Sólo el usuario del server puede leerlo: las claves son la única credencial de cada jugador.
+      // (`mode` sólo vale al crear: el `chmod` cubre un `.tmp` viejo que haya quedado con otros
+      // permisos, y el `rename` le pasa los del `.tmp` al archivo final.)
+      await mkdir(path.dirname(this.file), { recursive: true, mode: 0o700 });
       const tmp = `${this.file}.tmp`;
-      await writeFile(tmp, json);
+      await writeFile(tmp, json, { mode: 0o600 });
+      await chmod(tmp, 0o600);
       await rename(tmp, this.file);
     } catch (error) {
       // Se reintenta en la próxima: lo que está en memoria no se pierde.

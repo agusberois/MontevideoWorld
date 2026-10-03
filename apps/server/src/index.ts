@@ -1,5 +1,6 @@
 // Primero: carga apps/server/.env antes de que otros módulos lean process.env.
-import { adminName, allowAnyOrigin, allowedOrigins, dayLengthMinutes, isOriginAllowed } from "./env";
+import { adminName, allowAnyOrigin, allowedOrigins, dayLengthMinutes, healthToken, isOriginAllowed } from "./env";
+import { createHash, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import cors, { CorsOptions } from "cors";
 import express from "express";
@@ -36,6 +37,8 @@ for (const { tool, share } of foodTooExpensiveFor()) {
   );
 }
 
+const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
 const HOST = process.env.HOST ?? "0.0.0.0";
 
@@ -62,9 +65,20 @@ app.get("/", (_req, res) => {
   res.type("text/plain").send("Montevideo World server OK");
 });
 
+// Público: sólo si el server está vivo (para el chequeo externo). El detalle no: le servía a quien
+// ataca para medir su efecto en vivo y sacar los `roomId` de cada copia.
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
 // Estado y métricas: salas (barrio, copia, jugadores, picudos), duración de los ticks en una
 // ventana reciente (todas las salas juntas) y la última escritura del archivo de jugadores.
-app.get("/health", async (_req, res) => {
+// Sólo desde la misma máquina o con `HEALTH_TOKEN` (ver `canSeeHealthDetail`).
+app.get("/health/full", async (req, res) => {
+  if (!canSeeHealthDetail(req)) {
+    res.status(404).end();
+    return;
+  }
   const rooms = await matchMaker.query({ name: ROOM_NAME });
   const memory = process.memoryUsage();
   res.json({
@@ -78,6 +92,22 @@ app.get("/health", async (_req, res) => {
     memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
   });
 });
+
+/**
+ * ¿Puede ver el detalle de salud? Desde la misma máquina sin pasar por un proxy (Caddy siempre manda
+ * `X-Real-IP`/`X-Forwarded-For`, así que lo que llega de afuera nunca cuenta como local), o con
+ * `Authorization: Bearer <HEALTH_TOKEN>`. Se responde 404 para no anunciar que existe.
+ */
+function canSeeHealthDetail(req: express.Request): boolean {
+  const proxied = req.headers["x-real-ip"] !== undefined || req.headers["x-forwarded-for"] !== undefined;
+  const address = req.socket.remoteAddress ?? "";
+  if (!proxied && LOOPBACK_ADDRESSES.has(address)) return true;
+  const token = healthToken();
+  const header = req.headers.authorization ?? "";
+  if (!token || !header.startsWith("Bearer ")) return false;
+  const given = createHash("sha256").update(header.slice("Bearer ".length)).digest();
+  return timingSafeEqual(given, createHash("sha256").update(token).digest());
+}
 
 // Los endpoints de matchmaking (/matchmake/*) los atiende Colyseus, no Express:
 // se les aplica la misma política de CORS.

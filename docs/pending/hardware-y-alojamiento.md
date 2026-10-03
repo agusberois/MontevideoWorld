@@ -228,7 +228,7 @@ región en Sudamérica (**Hetzner, DigitalOcean, Contabo**) quedan descartados p
 4. **Backup:** snapshot diario del proveedor + copia de `players.json` a otro lado (puede ser un
    bucket barato en cualquier región: ahí la latencia no importa).
 
-**Cuándo escalar** (mirando `/health`):
+**Cuándo escalar** (mirando `/health/full`):
 
 | Señal | Qué hacer |
 | --- | --- |
@@ -257,7 +257,7 @@ región en Sudamérica (**Hetzner, DigitalOcean, Contabo**) quedan descartados p
 2. **Probar el juego**: levantar el server en la VPS candidata, jugar desde el celular por 4G y
    fijarse si sentarse, abrir una tienda o pescar se sienten inmediatos.
 3. **Prueba de carga con bots** (como las de `escalabilidad-servidor.md`): 80, 200 y 500 bots
-   caminando desde **otra** máquina, mirando `/health` (`ticks`, `memoryMb`, `cities`) y el `top` de la
+   caminando desde **otra** máquina, mirando `/health/full` (`ticks`, `memoryMb`, `cities`) y el `top` de la
    VPS. Si con el doble del pico esperado los ticks siguen < 5 ms de promedio, el plan alcanza.
 4. **Transferencia real**: después de una semana abierta, comparar el contador de tráfico del
    proveedor con la tabla de "Tráfico estimado" y ajustar el plan.
