@@ -7,7 +7,7 @@
  * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
 exports.isRod = isRod;
 exports.bestRod = bestRod;
 exports.rodStars = rodStars;
@@ -73,6 +73,20 @@ exports.CLOTHING = clothing([
     { id: "championes-rojos", name: "Championes rojos", slot: "shoes", style: "sneakers", color: "#c0392b", price: 40 },
     { id: "botas-marrones", name: "Botas marrones", slot: "shoes", style: "boots", color: "#6b3e1e", price: 55 },
     { id: "chancletas", name: "Chancletas", slot: "shoes", style: "flipflops", color: "#2a9d8f", price: 8 },
+]);
+/**
+ * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
+ * calle Inca). Mismos estilos que el resto, otros colores; no están en `CLOTHING` para que las otras
+ * roperías ("todo el catálogo") no las tengan.
+ */
+exports.KOREAN_FASHION = clothing([
+    { id: "buzo-lila", name: "Buzo lila", slot: "top", style: "hoodie", color: "#b39ddb", price: 55 },
+    { id: "buzo-negro-oversize", name: "Buzo negro oversize", slot: "top", style: "hoodie", color: "#1f1f24", price: 60 },
+    { id: "remera-rosa-pastel", name: "Remera rosa pastel", slot: "top", style: "tshirt", color: "#f4b6c2", price: 22 },
+    { id: "gorra-negra", name: "Gorra negra", slot: "hat", style: "cap", color: "#1f1f24", price: 22 },
+    { id: "jean-nevado", name: "Jean nevado", slot: "bottom", style: "jeans", color: "#8fb3d9", price: 45 },
+    { id: "pantalon-cargo", name: "Pantalón cargo", slot: "bottom", style: "pants", color: "#6b6b3a", price: 40 },
+    { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 45 },
 ]);
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
@@ -161,7 +175,7 @@ exports.TICKET_ID = "boleto-stm";
 exports.TICKETS = [
     { id: exports.TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: money_1.TRAVEL_FARE },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.BOXES, ...exports.TICKETS];
+exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.BOXES, ...exports.TICKETS];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 exports.SELL_RATIO = 0.5;
 /**
@@ -403,9 +417,12 @@ function getItem(id) {
 function isItemSlot(value) {
     return typeof value === "string" && exports.ITEM_SLOTS.includes(value);
 }
-/** Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado sale más). */
-function buyPrice(item) {
-    return Math.ceil(item.price * exports.ITEM_CATEGORIES[item.category].buyMarkup);
+/**
+ * Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado
+ * sale más) y por el `priceFactor` de la tienda (los mayoristas venden más barato).
+ */
+function buyPrice(item, priceFactor = 1) {
+    return Math.ceil(item.price * exports.ITEM_CATEGORIES[item.category].buyMarkup * priceFactor);
 }
 /**
  * Lo que paga una tienda: el precio por el `sellRatio` de su categoría (la mitad por ropa usada, el

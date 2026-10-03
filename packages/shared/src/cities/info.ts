@@ -1,3 +1,4 @@
+import { BARRIO_DE_LOS_JUDIOS_INFO } from "./barrioDeLosJudios/info";
 import { CIUDAD_VIEJA_INFO } from "./ciudadVieja/info";
 import { COMCAR_INFO } from "./comcar/info";
 import { TRES_CRUCES_INFO } from "./tresCruces/info";
@@ -8,7 +9,7 @@ import { CityId, CityInfo, Shop } from "./types";
  * (tecla M). Lo usa el navegador siempre; los mapas completos están en `@montevideo-world/shared/cities`
  * (server) y el cliente los descarga de a uno al entrar (`lib/cityMaps.ts`).
  */
-export const CITY_INFOS: readonly CityInfo[] = [CIUDAD_VIEJA_INFO, TRES_CRUCES_INFO, COMCAR_INFO];
+export const CITY_INFOS: readonly CityInfo[] = [CIUDAD_VIEJA_INFO, TRES_CRUCES_INFO, BARRIO_DE_LOS_JUDIOS_INFO, COMCAR_INFO];
 
 /** Barrio donde aparece siempre el jugador al entrar al juego. */
 export const SPAWN_CITY_ID: CityId = CIUDAD_VIEJA_INFO.id;

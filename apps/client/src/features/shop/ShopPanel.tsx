@@ -158,7 +158,7 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
   /** El carrito: líneas con unidades, el total y si alcanza la plata. */
   const cartLines = stock.flatMap((item) => (cart[item.id] ? [{ item, quantity: cart[item.id] }] : []));
   const cartUnits = cartLines.reduce((sum, line) => sum + line.quantity, 0);
-  const cartTotal = cartLines.reduce((sum, line) => sum + buyPrice(line.item) * line.quantity, 0);
+  const cartTotal = cartLines.reduce((sum, line) => sum + buyPrice(line.item, shop.priceFactor) * line.quantity, 0);
   const cartAffordable = money !== null && money >= cartTotal;
   const setCartQuantity = (itemId: string, quantity: number) =>
     setCart((current) => {
@@ -231,7 +231,7 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
         <ul className={cx("shop-list")}>
           {tab === "buy" &&
             stock.map((item) => {
-              const price = buyPrice(item);
+              const price = buyPrice(item, shop.priceFactor);
               const fits = canStore(item.id);
               const inCart = cart[item.id] ?? 0;
               const max = Math.min(SHOP_MAX_QUANTITY, fitCount(item.id));
@@ -249,7 +249,11 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
                     <ItemRating item={item} />
                     {itemPerks(item).length > 0 && <span className={cx("shop-perks")}>{itemPerks(item).join(" · ")}</span>}
                   </span>
-                  <span className={cx("shop-price")}>{formatMoney(price)}</span>
+                  <span className={cx("shop-price")}>
+                    {/* Mayorista: el precio de las otras tiendas, tachado. */}
+                    {price < buyPrice(item) && <s className={cx("shop-price-old")}>{formatMoney(buyPrice(item))}</s>}
+                    {formatMoney(price)}
+                  </span>
                   <div className={cx("shop-buy-actions")}>
                     {fits ? (
                       <QuantityPicker

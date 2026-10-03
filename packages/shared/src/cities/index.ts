@@ -1,4 +1,5 @@
 import { CityMap } from "../map";
+import { BARRIO_DE_LOS_JUDIOS } from "./barrioDeLosJudios/map";
 import { CIUDAD_VIEJA } from "./ciudadVieja/map";
 import { COMCAR } from "./comcar/map";
 import { TRES_CRUCES } from "./tresCruces/map";
@@ -12,10 +13,15 @@ import { CityDefinition, CityId } from "./types";
 export * from "./info";
 export * from "./types";
 
-export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, TRES_CRUCES, COMCAR];
+export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, TRES_CRUCES, BARRIO_DE_LOS_JUDIOS, COMCAR];
 
 /** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
-const BY_ID: Record<CityId, CityDefinition> = { "ciudad-vieja": CIUDAD_VIEJA, "tres-cruces": TRES_CRUCES, comcar: COMCAR };
+const BY_ID: Record<CityId, CityDefinition> = {
+  "ciudad-vieja": CIUDAD_VIEJA,
+  "tres-cruces": TRES_CRUCES,
+  "barrio-de-los-judios": BARRIO_DE_LOS_JUDIOS,
+  comcar: COMCAR,
+};
 
 export function getCity(id: string): CityDefinition | undefined {
   // `hasOwn`: si no, "constructor" o "__proto__" devolvían algo de `Object.prototype` (el id viene del cliente).

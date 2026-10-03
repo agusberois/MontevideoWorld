@@ -68,7 +68,11 @@ export type LandmarkKind =
   | "stadium"
   | "obelisk"
   | "cellBlock"
-  | "watchtower";
+  | "watchtower"
+  | "reusHouses"
+  | "synagogue"
+  | "church"
+  | "artCenter";
 
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
@@ -109,7 +113,18 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "none";
+export type ShopBuilding =
+  | "clothing"
+  | "fishing"
+  | "kiosk"
+  | "stm"
+  | "pets"
+  | "pharmacy"
+  | "wholesale"
+  | "shoes"
+  | "bakery"
+  | "rotisserie"
+  | "none";
 
 export interface Shop {
   id: string;
@@ -129,6 +144,12 @@ export interface Shop {
   pets?: readonly string[];
   /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
   hospital?: boolean;
+  /**
+   * Multiplica el precio de compra (`buyPrice`): < 1 = más barato (los mayoristas del Barrio de los
+   * Judíos). Tiene que quedar por encima de lo que paga una tienda al comprar (`sellPrice`), o se
+   * podría comprar y revender ganando.
+   */
+  priceFactor?: number;
 }
 
 /**
@@ -148,7 +169,7 @@ export interface PlaceLabel {
 }
 
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export const CITY_IDS = ["ciudad-vieja", "tres-cruces", "comcar"] as const;
+export const CITY_IDS = ["ciudad-vieja", "tres-cruces", "barrio-de-los-judios", "comcar"] as const;
 export type CityId = (typeof CITY_IDS)[number];
 
 /**

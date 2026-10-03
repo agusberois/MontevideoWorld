@@ -377,3 +377,10 @@
     transform: translateX(4px);
   }
 }
+
+/* Mayoristas (`Shop.priceFactor`): el precio de las otras tiendas, tachado, antes del de acá. */
+.shop-price-old {
+  margin-right: 6px;
+  color: var(--muted);
+  font-weight: 400;
+}

@@ -16,6 +16,7 @@ const FEATURES = [
   { icon: "🎣", title: "Tirá la línea en la escollera", text: "Arrimate a la Escollera Sarandí con tu caña. Con una más pro pican bichos más raros." },
   { icon: "🌭", title: "Vendé en el Centenario", text: "Sacá el carrito a la explanada del estadio. Día de clásico, los hinchas te pagan el doble." },
   { icon: "👕", title: "Pilchá a tu personaje", text: "Remeras, buzos, gorras y championes. Comprá en la ropería o quedate con lo que te regalan los hinchas." },
+  { icon: "🛍️", title: "Comprá por mayor", text: "En el Barrio de los Judíos hay tiendas por todos lados: ropa más barata, moda coreana que no hay en otro lado y tortas fritas en la vereda." },
   { icon: "🤝", title: "Hacé negocio", text: "Cambiá cosas y plata con otros jugadores. El trato se cierra cuando los dos dicen que ta." },
   { icon: "🌴", title: "Ojo al piojo con el picudo rojo", text: "Sacudí una palmera y salen picudos. Te corren y te pican: dales una patada y cobrás." },
   { icon: "🚌", title: "Movete en bondi", text: "Sacá boletos STM en la agencia y tomate el bondi a otro barrio. La mochila se va con vos." },

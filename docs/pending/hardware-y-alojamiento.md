@@ -13,6 +13,10 @@ cliente sigue en Vercel, con las funciones en `gru1` (São Paulo). Hosting dentr
 de Antel en Pando) da el ping más bajo a clientes de ANTEL, pero hay pocos proveedores y es menos
 flexible: queda como opción si las mediciones lo justifican.
 
+> **Plan decidido (2026-10-03):** cliente en Vercel, server en una VPS en São Paulo, Supabase en
+> São Paulo, Cloudflare delante y **sin Redis por ahora**. Ver
+> [Plan de producción](#plan-de-producción-decidido-2026-10-03), con el orden para el día del deploy.
+
 > Precios a octubre 2026, aprox., en dólares, sin impuestos. Cambian seguido: confirmarlos en la
 > página de cada proveedor antes de contratar. Lo marcado _(estimación)_ no tiene fuente directa.
 
@@ -214,6 +218,82 @@ región en Sudamérica (**Hetzner, DigitalOcean, Contabo**) quedan descartados p
   con el consentimiento del jugador en los términos. Además, las bases con datos personales se
   **inscriben** ante la URCDP. Alojar en Uruguay evita la transferencia. No es asesoramiento legal:
   revisarlo con alguien del tema antes de abrir el login.
+
+## Plan de producción (decidido 2026-10-03)
+
+Pensado para que ande sin lag, escale y no salga caro. Leer esto antes de deployar.
+
+| Pieza | Dónde | Por qué |
+| --- | --- | --- |
+| Cliente (Next) | **Vercel**, funciones en `gru1` | El juego se descarga una vez del CDN; después todo va por WebSocket a la VPS: Vercel no suma lag |
+| Server Colyseus | **VPS en São Paulo** (ver [Recomendación concreta](#recomendación-concreta)) | Lo que más pesa en el lag es la distancia: 15–45 ms desde Montevideo contra 160–200 ms a EE.UU. |
+| Base de datos y login | **Supabase en `sa-east-1` (São Paulo)**, la misma región que la VPS | Cuentas con Google (resuelve C1, bans y nombres por cuenta) y saca el JSON. En otra región cada guardado y login suma ~150 ms. Plan: `supabase-base-de-datos-y-auth.md` |
+| Borde | **Cloudflare** delante de la VPS (proxy, con WebSocket) | DDoS y no exponer la IP real. Gratis |
+| Caché | **Ninguna aparte (sin Redis)** | Ver abajo |
+
+### Por qué no Redis (todavía)
+
+- El estado del juego **ya vive en la memoria** del proceso de Colyseus: es la caché más rápida que
+  hay. Mochila, plata y posiciones no se leen de ninguna base mientras se juega.
+- Se escribe **poco y en lotes**: sólo si el jugador cambió, cada 15 s o al salir; el plan de
+  Supabase mantiene eso (lotes de ~200 jugadores, una escritura a la vez, y en el acto sólo lo
+  crítico, como un intercambio). Supabase recibe unas pocas escrituras por minuto, no una por acción.
+- Redis entre el juego y Supabase sería otro servicio para pagar y vigilar, y otro punto de falla: si
+  se cae antes de volcar a la base, se pierde progreso (o se duplican ítems en un intercambio).
+- **Cuándo sí:** cuando un proceso de Node no alcance (~1.000+ simultáneos sostenidos). Ahí se corren
+  varios procesos de Colyseus coordinados con `@colyseus/redis-presence` + `@colyseus/redis-driver`, y
+  pasa a Redis lo que hoy está en memoria del proceso: `activeSessions`, `playerDirectory`,
+  `openCopies`, `bans`, `mutes`, `connectionLimits`, boletos de viaje. Redis va **en la misma VPS** o
+  en la misma región (no hace falta uno gestionado).
+
+### Cómo escalar sin que se dispare la factura
+
+1. **Vertical primero**: VPS más grande (≈200 jugadores → 2 vCPU / 4 GB; ≈1.000 → 4 vCPU
+   **dedicadas** / 8 GB). Node usa casi un solo núcleo: conviene uno rápido antes que muchos.
+2. **Después horizontal**: varios procesos + Redis, todo en São Paulo.
+3. Las señales para cada salto están en "Cuándo escalar" (abajo), mirando `/health/full`.
+
+### Gasto estimado por mes _(estimación, confirmar precios)_
+
+| Etapa | Vercel | VPS São Paulo | Supabase | Redis | Total |
+| --- | --- | --- | --- | --- | --- |
+| Beta (decenas) | US$ 0 | ~US$ 10–20 | US$ 0 | — | **~US$ 10–20** |
+| Abierto (cientos) | US$ 0–20 | ~US$ 20–40 | ~US$ 25 (Pro) | — | **~US$ 45–85** |
+| Grande (1.000+) | US$ 20 | ~US$ 80+ | US$ 25+ | en la VPS | **~US$ 125+** |
+
+Cloudflare, UptimeRobot y Sentry: planes gratis. Ojo:
+
+- **Vercel Hobby** no permite uso comercial: si el juego genera ingresos (donaciones), probablemente
+  corresponda Pro.
+- **Supabase gratis** pausa proyectos inactivos y no trae los backups del Pro: para producción en
+  serio, Pro.
+- La transferencia incluida en la VPS sobra para el tráfico del juego (ver "Tráfico estimado").
+
+### Orden para el día del deploy
+
+1. **C1 resuelto** (admin por rol con Supabase, o el transitorio de `seguridad-para-produccion.md`
+   §3.1). Sin esto no se publica el link.
+2. **Supabase** en `sa-east-1`; la service role key sólo en el `.env` de la VPS (nunca en
+   `NEXT_PUBLIC_*` ni en git).
+3. **VPS en São Paulo**: usuario sin privilegios, `ufw` sólo 22/80/443, SSH con llave,
+   `unattended-upgrades`, Node 22, PM2, Caddy. `.env` con `CORS_ORIGIN` (los dominios del juego),
+   `PLAYER_DATA_FILE` fuera del repo (mientras siga el JSON) y, si se quiere mirar el detalle desde
+   afuera, `HEALTH_TOKEN`. Pasos: skill `despliegue`.
+4. **Cloudflare** con proxy al dominio del server. **Importante:** el server toma la IP de
+   `X-Real-IP` para los límites por IP; con Cloudflare delante, Caddy tiene que pisarla con
+   `CF-Connecting-IP` y **aceptar conexiones sólo desde las IPs de Cloudflare** (si no, todos los
+   jugadores parecen la misma IP, o cualquiera puede inventar la suya). Hoy `deploy/Caddyfile` usa
+   `{remote_host}`: cambiarlo al poner Cloudflare.
+5. **Caddy**: dominio real en `deploy/Caddyfile`, `caddy validate`, `curl -I` para ver HSTS y
+   `nosniff`.
+6. **Vercel**: `NEXT_PUBLIC_SERVER_URL=wss://…` en Production y Preview, funciones en `gru1`,
+   redeploy y comprobar `wss://` en el navegador. Con la consola abierta, si no hay avisos
+   `[Report Only]`, pasar la CSP a definitiva (`next.config.ts`, M6).
+7. **Backups y monitoreo**: `pg_dump` diario de Supabase a otro lado (además de los del plan) y, mientras
+   exista, copia horaria de `players.json`; UptimeRobot a `/health` cada minuto; Sentry para errores
+   del cliente; `pm2-logrotate`.
+8. **Probar con gente real** antes de anunciar: ping desde ANTEL, Claro y Movistar ("Cómo medir antes
+   de decidir", abajo).
 
 ## Recomendación concreta
 

@@ -83,6 +83,8 @@ export class CityRenderer {
     this.drawGround();
     this.drawProps();
     const logo = this.logoPlacement();
+    /** Varios landmarks con el mismo nombre (las cuatro hileras de Casas de Reus al Norte): un solo cartel. */
+    const signed = new Set<string>();
     for (const landmark of this.map.city.landmarks) {
       const placed = landmarkPieces(landmark);
       for (const { tile, spec } of placed) this.placePiece(tile, spec);
@@ -91,7 +93,10 @@ export class CityRenderer {
       const buildingTop = Math.max(...placed.map(({ spec }) => spec.maxZ * (spec.scale ?? 1)));
       const maxZ = logo?.landmark === landmark ? Math.max(buildingTop, logo.topZ) : buildingTop;
       // Las garitas son cuatro iguales: sin cartel.
-      if (landmark.kind !== "watchtower") this.addSign(landmark.name, landmark.area, maxZ, "#ffd166", "rgba(18, 21, 31, 0.78)");
+      if (landmark.kind !== "watchtower" && !signed.has(landmark.name)) {
+        signed.add(landmark.name);
+        this.addSign(landmark.name, landmark.area, maxZ, "#ffd166", "rgba(18, 21, 31, 0.78)");
+      }
     }
     for (const shop of this.map.city.shops) {
       // Las tiendas "none" funcionan dentro de un edificio ya dibujado: el cartel va sobre la fachada.

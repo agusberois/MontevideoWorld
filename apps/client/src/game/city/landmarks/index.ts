@@ -1,4 +1,8 @@
 import type { Landmark, LandmarkKind } from "@montevideo-world/shared";
+import { casasReus } from "./barrioDeLosJudios/casasReus";
+import { eac } from "./barrioDeLosJudios/eac";
+import { sanPancracio } from "./barrioDeLosJudios/sanPancracio";
+import { sinagoga } from "./barrioDeLosJudios/sinagoga";
 import { cabildo } from "./ciudadVieja/cabildo";
 import { catedral } from "./ciudadVieja/catedral";
 import { farola } from "./ciudadVieja/farola";
@@ -48,6 +52,11 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   // COMCAR
   cellBlock: pabellon,
   watchtower: garita,
+  // Barrio de los Judíos (Villa Muñoz)
+  reusHouses: casasReus,
+  synagogue: sinagoga,
+  church: sanPancracio,
+  artCenter: eac,
 };
 
 export type { PlacedPiece, RoofSpot };

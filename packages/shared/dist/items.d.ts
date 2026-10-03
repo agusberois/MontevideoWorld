@@ -153,6 +153,12 @@ export interface MedicineItem extends ItemBase {
 export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
 export declare const CLOTHING: readonly ClothingItem[];
 /**
+ * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
+ * calle Inca). Mismos estilos que el resto, otros colores; no están en `CLOTHING` para que las otras
+ * roperías ("todo el catálogo") no las tengan.
+ */
+export declare const KOREAN_FASHION: readonly ClothingItem[];
+/**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).
  */
@@ -300,8 +306,11 @@ export declare function usesLabel(item: ToolItem, uses: number): string;
 export type OutfitIds = Record<ItemSlot, string>;
 export declare function getItem(id: string): ItemDefinition | undefined;
 export declare function isItemSlot(value: unknown): value is ItemSlot;
-/** Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado sale más). */
-export declare function buyPrice(item: ItemDefinition): number;
+/**
+ * Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado
+ * sale más) y por el `priceFactor` de la tienda (los mayoristas venden más barato).
+ */
+export declare function buyPrice(item: ItemDefinition, priceFactor?: number): number;
 /**
  * Lo que paga una tienda: el precio por el `sellRatio` de su categoría (la mitad por ropa usada, el
  * completo por pescado; mínimo $1). Una herramienta gastada vale en proporción a los `uses` que le quedan.

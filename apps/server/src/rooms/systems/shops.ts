@@ -64,7 +64,7 @@ export function shopRoutes(room: CityRoom) {
       const { wallet, inventory } = session;
 
       if (!shop.stock.includes(item.id)) return shopResult(room, session, false, `${shop.name} no vende ${item.name}.`);
-      const price = buyPrice(item);
+      const price = buyPrice(item, shop.priceFactor);
       if (!wallet.canAfford(price)) return shopResult(room, session, false, `No te alcanza: ${item.name} cuesta ${formatMoney(price)}.`);
       if (!inventory.canAdd(item.id)) return shopResult(room, session, false, "No tenés lugar en la mochila.");
 
@@ -190,7 +190,7 @@ export function shopRoutes(room: CityRoom) {
       }
       if (cart.length === 0) return;
 
-      const total = cart.reduce((sum, { item, quantity }) => sum + buyPrice(item) * quantity, 0);
+      const total = cart.reduce((sum, { item, quantity }) => sum + buyPrice(item, shop.priceFactor) * quantity, 0);
       if (!wallet.canAfford(total)) {
         return shopResult(room, session, false, `No te alcanza: el carrito sale ${formatMoney(total)} y tenés ${formatMoney(wallet.balance)}.`);
       }

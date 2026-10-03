@@ -38,6 +38,16 @@ paths:
   terminal y la tienda `building: "none"` "Moda Tres Cruces"), el Sanatorio Americano, el Obelisco y
   el Parque Batlle con el Velódromo y el Estadio Centenario (óvalos con gradas: `drawBowl`), la
   Explanada del Centenario (zona de venta) y el Kiosco del Parque (carritos).
+- Barrio de los Judíos (Villa Muñoz, 84×64, spawn en la Plazoleta Villa Muñoz frente a San
+  Pancracio): grilla de manzanas de casas bajas (`edges` al 40 % del borde, pocos árboles: ~730
+  objetos, como Tres Cruces; con el borde lleno pasaba los 1.500), Arenal Grande doble mano con
+  veredas anchas y la peatonal Emilio Reus (3 tiles, con bancos) entre las **Casas de Reus al Norte**
+  (`reusHouses`: una pieza 1×1 pastel por tile, color por `tileHash`). Emblemáticos: Sinagoga
+  (`synagogue`), Iglesia de San Pancracio (`church`) y el Espacio de Arte Contemporáneo en la ex
+  Cárcel de Miguelete (`artCenter`, con el cartel "MW"). Es **el barrio con más tiendas** (9):
+  mayoristas de ropa (`wholesale`, `shoes`, con `priceFactor` 0,75), Moda Coreana (ropa exclusiva,
+  `KOREAN_FASHION`), panadería (`bakery`), rotisería (`rotisserie`), farmacia y un puesto de tortas
+  fritas. Sin zona de venta: la venta con carrito es de los hinchas del Centenario.
 - Antes de `scatter` de árboles, poner `Plaza` bajo el área de cada emblemático: si no, le crecen
   árboles adentro.
 - Logo: `CityDefinition.logoSign = { landmarkId }` pone el cartel "MW" sobre el techo de ese edificio

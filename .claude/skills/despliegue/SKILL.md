@@ -5,6 +5,10 @@ description: Cómo desplegar Montevideo World — cliente en Vercel (dominios, v
 
 # Despliegue
 
+> Antes de deployar a producción, leer el **plan decidido** (dónde va cada pieza, por qué sin Redis,
+> costos y el orden del día del deploy): `docs/pending/hardware-y-alojamiento.md`, sección
+> "Plan de producción". Lo que falta de seguridad: `docs/pending/seguridad-para-produccion.md`.
+
 ## Cliente → Vercel
 
 1. Importar el repo en Vercel. **Root Directory: `apps/client`** (Framework: Next.js; dejar activado

@@ -35,5 +35,9 @@ no, el ítem se pierde igual y no se cobra nada. Con exponente > 1, en promedio 
 poco menos que vender normal: es una apuesta, no una forma de farmear plata.
 Ciudad Vieja tiene la **Ropería Sarandí** (39,21) junto a la peatonal, que vende todo el catálogo,
 y **Pesca Sarandí** (9,40), sobre la rambla frente a la escollera, que vende las cañas y compra las
-usadas (`buys: ["rod"]`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
+usadas (`buys: ["rod"]`). **Precio por tienda**: `Shop.priceFactor` multiplica el precio de compra (`buyPrice(item,
+priceFactor)`, en el server y en `ShopPanel`, que muestra tachado el precio normal). Los mayoristas
+del Barrio de los Judíos usan 0,75; tiene que quedar por encima de lo que la tienda paga al comprar
+(`sellPrice`, la mitad en ropa) o se podría comprar y revender ganando. La ropa de `KOREAN_FASHION`
+sólo la vende Moda Coreana (no está en `CLOTHING`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
 para un tipo nuevo, sumar su estilo en `SHOP_STYLES` (`buildings.ts`).

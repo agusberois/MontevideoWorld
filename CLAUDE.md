@@ -1,7 +1,7 @@
 # Montevideo World — Documentación viva
 
 MMORPG web 2.5D con vista isométrica estilo Habbo. **v1 = prueba de concepto**: conectarse por
-WebSocket, aparecer en un barrio de Montevideo (**Ciudad Vieja** al entrar; también **Tres Cruces**, con
+WebSocket, aparecer en un barrio de Montevideo (**Ciudad Vieja** al entrar; también **Tres Cruces** y el **Barrio de los Judíos** (el de más tiendas), con
 viaje entre barrios desde la lista M), caminar haciendo clic en el piso (sincronizado en tiempo real) y chatear con globos
 de texto sobre la cabeza del avatar. Hay bancos donde sentarse (clic) y una mochila con ropa
 para ponerse/sacarse, más una barra de acceso rápido, dinero, tiendas y la primera actividad:
@@ -141,11 +141,12 @@ Reglas:
   más jugadores, pasar a una base de datos.
 - Sin colisión entre avatares; el pathfinding sólo esquiva tiles no caminables del barrio.
 - Las texturas horneadas se ven un poco suaves con el zoom al máximo.
-- Pocas tiendas (ropa, pesca, pescadería, el kiosco de carritos y la Agencia STM); el stock es infinito y los precios son fijos.
+- Tiendas con stock infinito y precios fijos por tienda (los mayoristas del Barrio de los Judíos venden
+  más barato con `Shop.priceFactor`); no hay ofertas ni precios que cambien con la demanda.
 - Pesca sin minijuego: el resultado se sortea al tirar y sólo hay que esperar. La venta en el
   Centenario funciona igual (sin minijuego ni mercadería que reponer). Cañas y carritos se gastan
   por uso y se rompen; no se pueden reparar. Prendas sin comprarlas: sólo las que regalan los hinchas al vender.
-- Dos barrios (Ciudad Vieja y Tres Cruces), más el COMCAR (presos adentro, visitas afuera). Al entrar
+- Tres barrios (Ciudad Vieja, Tres Cruces y el Barrio de los Judíos), más el COMCAR (presos adentro, visitas afuera). Al entrar
   siempre se aparece en Ciudad Vieja (el server exige boleto para los demás); al viajar, en la zona de
   spawn del destino. Quien queda en otro barrio sin boleto STM (sólo se venden en Ciudad Vieja) puede
   salir y volver a entrar.

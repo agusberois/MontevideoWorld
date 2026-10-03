@@ -208,6 +208,21 @@ export const CLOTHING: readonly ClothingItem[] = clothing([
 ]);
 
 /**
+ * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
+ * calle Inca). Mismos estilos que el resto, otros colores; no están en `CLOTHING` para que las otras
+ * roperías ("todo el catálogo") no las tengan.
+ */
+export const KOREAN_FASHION: readonly ClothingItem[] = clothing([
+  { id: "buzo-lila", name: "Buzo lila", slot: "top", style: "hoodie", color: "#b39ddb", price: 55 },
+  { id: "buzo-negro-oversize", name: "Buzo negro oversize", slot: "top", style: "hoodie", color: "#1f1f24", price: 60 },
+  { id: "remera-rosa-pastel", name: "Remera rosa pastel", slot: "top", style: "tshirt", color: "#f4b6c2", price: 22 },
+  { id: "gorra-negra", name: "Gorra negra", slot: "hat", style: "cap", color: "#1f1f24", price: 22 },
+  { id: "jean-nevado", name: "Jean nevado", slot: "bottom", style: "jeans", color: "#8fb3d9", price: 45 },
+  { id: "pantalon-cargo", name: "Pantalón cargo", slot: "bottom", style: "pants", color: "#6b6b3a", price: 40 },
+  { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 45 },
+]);
+
+/**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).
  */
@@ -308,7 +323,7 @@ export const TICKETS: readonly TicketItem[] = [
   { id: TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: TRAVEL_FARE },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
 
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 export const SELL_RATIO = 0.5;
@@ -624,9 +639,12 @@ export function isItemSlot(value: unknown): value is ItemSlot {
   return typeof value === "string" && (ITEM_SLOTS as readonly string[]).includes(value);
 }
 
-/** Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado sale más). */
-export function buyPrice(item: ItemDefinition): number {
-  return Math.ceil(item.price * ITEM_CATEGORIES[item.category].buyMarkup);
+/**
+ * Lo que cuesta comprar un ítem en una tienda: su precio por el recargo de su categoría (el pescado
+ * sale más) y por el `priceFactor` de la tienda (los mayoristas venden más barato).
+ */
+export function buyPrice(item: ItemDefinition, priceFactor = 1): number {
+  return Math.ceil(item.price * ITEM_CATEGORIES[item.category].buyMarkup * priceFactor);
 }
 
 /**

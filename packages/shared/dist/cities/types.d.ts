@@ -39,7 +39,7 @@ export declare const TileChar: {
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "synagogue" | "church" | "artCenter";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -76,7 +76,7 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "wholesale" | "shoes" | "bakery" | "rotisserie" | "none";
 export interface Shop {
     id: string;
     name: string;
@@ -95,6 +95,12 @@ export interface Shop {
     pets?: readonly string[];
     /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
     hospital?: boolean;
+    /**
+     * Multiplica el precio de compra (`buyPrice`): < 1 = más barato (los mayoristas del Barrio de los
+     * Judíos). Tiene que quedar por encima de lo que paga una tienda al comprar (`sellPrice`), o se
+     * podría comprar y revender ganando.
+     */
+    priceFactor?: number;
 }
 /**
  * Zona donde se puede vender con un carrito (p. ej. la explanada del Estadio Centenario): los
@@ -111,7 +117,7 @@ export interface PlaceLabel {
     y: number;
 }
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export declare const CITY_IDS: readonly ["ciudad-vieja", "tres-cruces", "comcar"];
+export declare const CITY_IDS: readonly ["ciudad-vieja", "tres-cruces", "barrio-de-los-judios", "comcar"];
 export type CityId = (typeof CITY_IDS)[number];
 /**
  * Lo liviano de un barrio: lo que necesitan la lista de barrios, la landing, las tiendas y los

@@ -18,9 +18,10 @@ exports.CITIES = void 0;
 exports.getCity = getCity;
 exports.getCityMap = getCityMap;
 const map_1 = require("../map");
-const map_2 = require("./ciudadVieja/map");
-const map_3 = require("./comcar/map");
-const map_4 = require("./tresCruces/map");
+const map_2 = require("./barrioDeLosJudios/map");
+const map_3 = require("./ciudadVieja/map");
+const map_4 = require("./comcar/map");
+const map_5 = require("./tresCruces/map");
 /**
  * Entrada `@montevideo-world/shared/cities`: los barrios completos, con su mapa. La usa el server
  * (y el simulador de movimiento). El navegador no la importa: tiene lo liviano en la entrada
@@ -28,9 +29,14 @@ const map_4 = require("./tresCruces/map");
  */
 __exportStar(require("./info"), exports);
 __exportStar(require("./types"), exports);
-exports.CITIES = [map_2.CIUDAD_VIEJA, map_4.TRES_CRUCES, map_3.COMCAR];
+exports.CITIES = [map_3.CIUDAD_VIEJA, map_5.TRES_CRUCES, map_2.BARRIO_DE_LOS_JUDIOS, map_4.COMCAR];
 /** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
-const BY_ID = { "ciudad-vieja": map_2.CIUDAD_VIEJA, "tres-cruces": map_4.TRES_CRUCES, comcar: map_3.COMCAR };
+const BY_ID = {
+    "ciudad-vieja": map_3.CIUDAD_VIEJA,
+    "tres-cruces": map_5.TRES_CRUCES,
+    "barrio-de-los-judios": map_2.BARRIO_DE_LOS_JUDIOS,
+    comcar: map_4.COMCAR,
+};
 function getCity(id) {
     // `hasOwn`: si no, "constructor" o "__proto__" devolvían algo de `Object.prototype` (el id viene del cliente).
     return Object.hasOwn(BY_ID, id) ? BY_ID[id] : undefined;

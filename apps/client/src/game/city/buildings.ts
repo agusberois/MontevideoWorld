@@ -405,6 +405,11 @@ const ROD_COLORS = [0x8a6a45, 0x2a9d8f, 0x3a3f4c, 0xc9a227];
 /** Colores de las botellas de refresco y las bolsas de garrapiñada de la vidriera del kiosco. */
 const KIOSK_COLORS = [0xe63946, 0x2a9d8f, 0xf2b705, 0x6cace4];
 
+/** Rollos de tela y pilas de ropa doblada de los mayoristas del Barrio de los Judíos. */
+const WHOLESALE_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2b3a55, 0xb39ddb, 0xf4b6c2];
+/** Championes y botas de la vidriera de la zapatería. */
+const SHOE_COLORS = [0xf0f0f0, 0xc0392b, 0x6b3e1e, 0x2b2b30, 0x2a9d8f];
+
 /** Colores de las camitas para mascotas de la vidriera de la veterinaria. */
 const PET_BED_COLORS = [0xe63946, 0x6cace4, 0xf2b705, 0x2a9d8f];
 
@@ -451,6 +456,90 @@ const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
         color,
       );
       p.faceRect(face, u - 0.06, u + 0.06, 11, 12.5, shade(color, 30));
+    },
+  },
+  // Mayorista de ropa (Barrio de los Judíos): pilas de prendas dobladas (pares) y rollos de tela (impares).
+  wholesale: {
+    facade: 0xf3e6d0,
+    trim: 0x8e2c48,
+    glass: 0xc9dde6,
+    awning: 0xf4efe3,
+    showcase: (p, face, u, i) => {
+      const color = WHOLESALE_COLORS[i % WHOLESALE_COLORS.length];
+      if (i % 2 === 0) {
+        for (let layer = 0; layer < 4; layer++) {
+          p.faceRect(face, u - 0.08, u + 0.08, 7 + layer * 3, 9.5 + layer * 3, WHOLESALE_COLORS[(i + layer) % WHOLESALE_COLORS.length]);
+        }
+        return;
+      }
+      p.faceRect(face, u - 0.04, u + 0.04, 7, 22, color);
+      p.faceRect(face, u - 0.04, u + 0.04, 21, 22, shade(color, -30));
+    },
+  },
+  // Zapatería: championes en estantes, uno arriba de otro.
+  shoes: {
+    facade: 0xe8e4ef,
+    trim: 0x3a3f8f,
+    glass: 0xc9dde6,
+    awning: 0xf4efe3,
+    showcase: (p, face, u, i) => {
+      for (const [z, shift] of [
+        [8, 0],
+        [16, 1],
+      ]) {
+        const color = SHOE_COLORS[(i + shift) % SHOE_COLORS.length];
+        p.facePoly(
+          face,
+          [
+            [u - 0.08, z],
+            [u + 0.08, z],
+            [u + 0.08, z + 2],
+            [u - 0.02, z + 4],
+            [u - 0.08, z + 4],
+          ],
+          color,
+        );
+        p.faceRect(face, u - 0.08, u + 0.08, z, z + 0.8, 0xf4efe3);
+      }
+    },
+  },
+  // Panadería: flautas y tortas fritas en canastos.
+  bakery: {
+    facade: 0xf6e3c6,
+    trim: 0x8a5a2b,
+    glass: 0xd8eef5,
+    awning: 0xf4efe3,
+    showcase: (p, face, u, i) => {
+      p.faceRect(face, u - 0.09, u + 0.09, 7, 10, 0x8a5a2b);
+      if (i % 2 === 0) {
+        p.facePoly(
+          face,
+          [
+            [u - 0.07, 10],
+            [u + 0.07, 10],
+            [u + 0.04, 20],
+            [u - 0.02, 21],
+          ],
+          0xd9a35b,
+        );
+        return;
+      }
+      for (const dz of [10, 13]) p.faceRect(face, u - 0.07, u + 0.07, dz, dz + 2.5, 0xe0b06a);
+    },
+  },
+  // Rotisería: pollos al spiedo dorándose en la vidriera.
+  rotisserie: {
+    facade: 0xf3d9b1,
+    trim: 0xb22222,
+    glass: 0xf2d2a2,
+    awning: 0xffd166,
+    showcase: (p, face, u, i) => {
+      for (const z of [9, 16]) {
+        const center = p.facePoint(face, u, z + 2);
+        p.g.fillStyle(i % 2 === 0 ? 0xb8692d : 0xc77d3a, 1);
+        p.g.fillEllipse(center.x, center.y, 7, 4.5);
+        p.line(p.facePoint(face, u - 0.1, z + 2), p.facePoint(face, u + 0.1, z + 2), 0x5b5b60, 1);
+      }
     },
   },
   clothing: {
