@@ -12,13 +12,15 @@ import { loadBlocked, saveBlocked, toggleInList } from "../features/players/bloc
  */
 
 /** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
-export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands";
+export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "playerDetails";
 
 export interface GameStoreState {
   /** Un solo panel abierto a la vez. */
   panel: PanelId | null;
   /** La tienda a la que llegaste (para el panel `shop`). */
   shopId: string | null;
+  /** El jugador (sessionId) del panel `playerDetails`: otro (desde su menú) o vos (clic en tu avatar). */
+  detailsId: string | null;
   isAdmin: boolean;
   /** Modo coordenadas del admin (tecla G) prendido. */
   adminCoords: boolean;
@@ -62,6 +64,7 @@ export interface GameStoreState {
 const INITIAL: GameStoreState = {
   panel: null,
   shopId: null,
+  detailsId: null,
   isAdmin: false,
   adminCoords: false,
   clock: null,
@@ -87,7 +90,7 @@ const INITIAL: GameStoreState = {
 };
 
 /** Lo que depende del barrio en el que estás: al viajar se borra (mochila, plata, energía… siguen). */
-const CITY_FIELDS = ["panel", "shopId", "cityCopy", "adminCoords", "players", "fishing", "vending", "interaction", "trading", "jailLeft"] as const;
+const CITY_FIELDS = ["panel", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "interaction", "trading", "jailLeft"] as const;
 
 let state = INITIAL;
 const listeners = new Set<() => void>();
@@ -141,6 +144,11 @@ export function closePanel() {
   setState({ panel: null });
 }
 
+/** Detalles de un jugador del barrio (no con un intercambio abierto, como los demás paneles). */
+export function openPlayerDetails(sessionId: string) {
+  if (!state.trading) setState({ detailsId: sessionId, panel: "playerDetails" });
+}
+
 export function setHotbar(hotbar: HotbarSlots) {
   setState({ hotbar });
   saveHotbar(hotbar);
@@ -186,6 +194,8 @@ export function bindGameStore(): () => void {
     eventBus.on("shop:open", ({ shopId }) => setState({ shopId, panel: "shop" })),
     eventBus.on("trade:state", () => setState({ trading: true, panel: null })),
     eventBus.on("trade:closed", () => setState({ trading: false })),
+    // Clic en tu propio avatar: tus detalles.
+    eventBus.on("player:details", openPlayerDetails),
     // Clic en una parada de ómnibus (y llegaste): lo mismo que la tecla M. No con un intercambio abierto.
     eventBus.on("bus-stop:open", () => {
       if (!state.trading) setState({ panel: "cities" });

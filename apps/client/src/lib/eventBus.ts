@@ -6,6 +6,8 @@ import type {
   TravelMessage,
   ChatBroadcastMessage,
   FishResultMessage,
+  Gender,
+  HairStyle,
   FishStartedMessage,
   VendResultMessage,
   VendStartedMessage,
@@ -102,6 +104,8 @@ export interface GameEvents {
   "interact:use": null;
   /** Phaser → React: clic sobre otro jugador (posición en pantalla para abrir su menú). */
   "player:click": PlayerClick;
+  /** Phaser → React: clic sobre el avatar propio (abre tus detalles, sin menú). */
+  "player:details": string;
   /** Red → React: alguien te invita a intercambiar. */
   "trade:invite": TradeInviteMessage;
   /** Red → React: estado del intercambio en curso (abre o actualiza el panel). */
@@ -120,7 +124,11 @@ export interface PlayerClick {
   screenY: number;
 }
 
-/** Lo que la UI necesita saber de cada jugador del barrio (sale del Schema). */
+/**
+ * Lo que la UI necesita saber de cada jugador del barrio (sale del Schema, así que es público: lo
+ * privado, como la plata o la mochila, no viaja a los demás). La escena la vuelve a mandar sólo
+ * cuando cambia algo de acá (no al caminar).
+ */
 export interface PlayerSummary {
   sessionId: string;
   name: string;
@@ -128,7 +136,23 @@ export interface PlayerSummary {
   isSelf: boolean;
   /** Donador del proyecto (distintivo arriba del nombre). */
   isDonor: boolean;
+  /** Entró con el nombre de admin (★ en el nombre). */
+  isAdmin: boolean;
+  /** Aspecto elegido al entrar, para dibujarlo en sus detalles. */
+  look: { gender: Gender; skin: number; hairColor: number; hairStyle: HairStyle };
+  /** Prendas puestas (id de `ITEMS` o "" por lugar). */
+  outfit: OutfitIds;
+  /** Mascota que lo sigue (id de `PETS` y nombre), o null. */
+  pet: { id: string; name: string } | null;
+  /** Segundos de condena en el COMCAR (0 = libre). */
+  jailLeft: number;
+  /** Qué está haciendo, con la caña o el carrito que usa (id de `ITEMS`). */
+  activity: PlayerActivity | null;
+  /** Energía 0–100 (redondeada). */
+  energy: number;
 }
+
+export type PlayerActivity = { kind: "fishing"; rod: string } | { kind: "vending"; cart: string } | { kind: "sitting" };
 
 type Handler<T> = (payload: T) => void;
 

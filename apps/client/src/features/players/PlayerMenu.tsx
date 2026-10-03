@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PlayerClick, eventBus } from "@/lib/eventBus";
-import { toggleBlocked, useGame } from "@/lib/gameStore";
+import { openPlayerDetails, toggleBlocked, useGame } from "@/lib/gameStore";
 import { nameKey } from "@montevideo-world/shared";
 import { CityRoom, sendGreet, sendTaunt, sendTradeRequest } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
@@ -15,8 +15,9 @@ interface PlayerMenuProps {
 }
 
 /**
- * Menú que aparece al hacer clic sobre otro jugador: Saludar, Intercambiar, Burlarse (si está preso)
- * y Bloquear (dejás de ver su chat; sólo en tu navegador). Se cierra con Esc, con un clic afuera o
+ * Menú que aparece al hacer clic sobre otro jugador: Saludar, Intercambiar, Burlarse (si está preso),
+ * Detalles del jugador (abre el panel `playerDetails`) y Bloquear (dejás de ver su chat; sólo en tu
+ * navegador). Se cierra con Esc, con un clic afuera o
  * al elegir una opción.
  */
 export function PlayerMenu({ room }: PlayerMenuProps) {
@@ -62,7 +63,7 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
       aria-label={`Opciones para ${target.name}`}
       style={{
         left: Math.min(target.screenX, window.innerWidth - 180),
-        top: Math.min(target.screenY, window.innerHeight - 160),
+        top: Math.min(target.screenY, window.innerHeight - 190),
       }}
     >
       <div className={cx("player-menu-name")}>{target.name}</div>
@@ -77,6 +78,16 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
           😜 Burlarse
         </button>
       )}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          openPlayerDetails(target.sessionId);
+          setTarget(null);
+        }}
+      >
+        🪪 Detalles del jugador
+      </button>
       <button
         type="button"
         role="menuitem"

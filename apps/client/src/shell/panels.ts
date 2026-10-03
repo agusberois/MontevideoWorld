@@ -6,6 +6,7 @@ import { Backpack } from "../features/inventory/Backpack";
 import { CityMenu } from "../features/cities/CityMenu";
 import { CommandsPanel } from "../features/chat/CommandsPanel";
 import { MakerPanel } from "../features/admin/MakerPanel";
+import { PlayerDetails } from "../features/players/PlayerDetails";
 import { PlayersPanel } from "../features/players/PlayersPanel";
 import { ShopPanel } from "../features/shop/ShopPanel";
 
@@ -36,6 +37,8 @@ export const PANELS: Record<PanelId, PanelEntry> = {
   admin: { component: AdminPanel, shortcut: "KeyP", adminOnly: true },
   maker: { component: MakerPanel, shortcut: "KeyI", adminOnly: true },
   shop: { component: ShopPanel },
+  // Del jugador `detailsId`: desde su menú o con un clic en tu avatar (`openPlayerDetails`).
+  playerDetails: { component: PlayerDetails },
 };
 
 /** El panel que abre esta tecla, si hay (y si podés usarlo). */

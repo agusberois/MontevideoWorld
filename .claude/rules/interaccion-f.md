@@ -15,7 +15,8 @@ sobre `area`), el clic y la F (`interactionsAround`: lo de los 8 tiles pegados),
 `kind` está en un solo `switch` (`CityScene.describe`). **Para algo nuevo del mapa** (puertas,
 carteles, cajeros…): sumar su `kind` a `MapInteraction` y a `interactionAt`; TypeScript pide después
 su color en `HOVER_COLORS` y su caso en `describe`, y si se usa con F, ponerlo en `NEARBY_PRIORITY`.
-Picudos y jugadores no son del mapa (se mueven): los resuelve la escena antes.
+Picudos y jugadores no son del mapa (se mueven): los resuelve la escena antes (clic en tu propio
+avatar = tus detalles, ver `jugadores-e-intercambio.md`).
 
 `CityScene.findInteraction` busca, desde el tile del avatar propio según el server (cada
 `INTERACT_CHECK_MS`), con qué puede interactuar, en este orden: **levantarse** del banco, **patear**

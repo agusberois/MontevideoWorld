@@ -22,9 +22,11 @@ import {
   MatchMode,
   getItem,
   isCart,
+  HAIR_STYLES,
+  HairStyle,
 } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
-import { PlayerSummary, eventBus } from "@/lib/eventBus";
+import { PlayerActivity, PlayerSummary, eventBus } from "@/lib/eventBus";
 import type { CityRoom } from "@/lib/network";
 import { CameraControl, DRAG_SLOP, FOLLOW_OFFSET_Y, isTyping } from "../CameraControl";
 import { AdminCoords } from "../AdminCoords";
@@ -540,14 +542,7 @@ export class CityScene extends Phaser.Scene {
 
         // Donador: lo marca el admin con /donador, también con el jugador ya conectado.
         this.disposers.push(
-          $(player).listen("donor", (donor) => {
-            avatar.setDonor(donor);
-            const summary = this.roster.get(sessionId);
-            if (summary && summary.isDonor !== donor) {
-              this.roster.set(sessionId, { ...summary, isDonor: donor });
-              this.emitRoster();
-            }
-          }),
+          $(player).listen("donor", (donor) => avatar.setDonor(donor)),
         );
 
         // Mascota: la ven todos; se adopta, se renombra o se despide en la veterinaria.
@@ -591,6 +586,7 @@ export class CityScene extends Phaser.Scene {
             if (isLocal) this.emitEnergy(player.energy);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));
             if (isLocal) this.checkBusStopArrival(player);
+            this.updateRoster(sessionId, player, isLocal);
           }),
         );
 
@@ -600,8 +596,7 @@ export class CityScene extends Phaser.Scene {
           eventBus.emit("player:self", { name: player.name, color: player.color });
           eventBus.emit("player:outfit", outfitIds(player));
         }
-        this.roster.set(sessionId, { sessionId, name: player.name, color: player.color, isSelf: isLocal, isDonor: player.donor });
-        this.emitRoster();
+        this.updateRoster(sessionId, player, isLocal);
       }),
     );
 
@@ -741,6 +736,15 @@ export class CityScene extends Phaser.Scene {
     eventBus.emit("player:energy", energy);
   }
 
+  /** Vuelve a armar el resumen del jugador para React y lo manda sólo si cambió (caminar no cuenta). */
+  private updateRoster(sessionId: string, player: Player, isLocal: boolean) {
+    const summary = summarize(sessionId, player, isLocal);
+    const previous = this.roster.get(sessionId);
+    if (previous && JSON.stringify(previous) === JSON.stringify(summary)) return;
+    this.roster.set(sessionId, summary);
+    this.emitRoster();
+  }
+
   private emitRoster() {
     eventBus.emit("players:list", [...this.roster.values()]);
   }
@@ -756,12 +760,12 @@ export class CityScene extends Phaser.Scene {
     return worldToTile(world.x, world.y);
   }
 
-  /** Otro jugador bajo el puntero (el de más adelante si se superponen); el propio no cuenta. */
-  private otherPlayerAt(pointer: Phaser.Input.Pointer): string | null {
+  /** Jugador bajo el puntero, también el propio (el de más adelante si se superponen). */
+  private playerAt(pointer: Phaser.Input.Pointer): string | null {
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     let found: { sessionId: string; depth: number } | null = null;
     for (const [sessionId, avatar] of this.avatars) {
-      if (avatar === this.localAvatar || !avatar.containsWorldPoint(world.x, world.y)) continue;
+      if (!avatar.containsWorldPoint(world.x, world.y)) continue;
       if (!found || avatar.depth > found.depth) found = { sessionId, depth: avatar.depth };
     }
     return found?.sessionId ?? null;
@@ -808,7 +812,7 @@ export class CityScene extends Phaser.Scene {
     const tile = this.pointerTile(pointer);
     this.hover.clear();
     this.adminCoords.hover(tile);
-    if (this.weevilAt(pointer) || this.otherPlayerAt(pointer)) {
+    if (this.weevilAt(pointer) || this.playerAt(pointer)) {
       this.input.setDefaultCursor("pointer");
       return;
     }
@@ -873,8 +877,13 @@ export class CityScene extends Phaser.Scene {
       return;
     }
 
-    // Clic en otro jugador: React abre su menú (Saludar / Intercambiar) y no se camina.
-    const clicked = this.otherPlayerAt(pointer);
+    // Clic en un jugador: no se camina. En otro, React abre su menú (Saludar / Intercambiar /
+    // Detalles…); en el propio, directo tus detalles.
+    const clicked = this.playerAt(pointer);
+    if (clicked === this.room.sessionId) {
+      eventBus.emit("player:details", clicked);
+      return;
+    }
     if (clicked) {
       this.openPlayerMenu(clicked, pointer.x, pointer.y);
       return;
@@ -967,4 +976,31 @@ export class CityScene extends Phaser.Scene {
 
 function outfitIds(player: Player): OutfitIds {
   return { hat: player.hat, top: player.top, bottom: player.bottom, shoes: player.shoes };
+}
+
+/** Lo público del jugador que muestra React (lista, menú y detalles). Nada de posiciones. */
+function summarize(sessionId: string, player: Player, isSelf: boolean): PlayerSummary {
+  let activity: PlayerActivity | null = null;
+  if (player.fishing) activity = { kind: "fishing", rod: player.rod };
+  else if (player.vending) activity = { kind: "vending", cart: player.cart };
+  else if (player.sitting) activity = { kind: "sitting" };
+  return {
+    sessionId,
+    name: player.name,
+    color: player.color,
+    isSelf,
+    isDonor: player.donor,
+    isAdmin: player.admin,
+    look: {
+      gender: player.gender === "f" ? "f" : "m",
+      skin: player.skin,
+      hairColor: player.hairColor,
+      hairStyle: (HAIR_STYLES as readonly string[]).includes(player.hairStyle) ? (player.hairStyle as HairStyle) : "short",
+    },
+    outfit: outfitIds(player),
+    pet: player.pet ? { id: player.pet, name: player.petName } : null,
+    jailLeft: player.jailLeft,
+    activity,
+    energy: player.energy,
+  };
 }
