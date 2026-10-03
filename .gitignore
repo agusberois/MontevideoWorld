@@ -1,4 +1,12 @@
 /node_modules
 .next/
+next-env.d.ts
+
 # Datos persistidos de los jugadores (mochila, plata, ropa): nunca al repo.
 apps/server/data/
+
+# Configuración local (admin, URLs, claves): nunca al repo. Las plantillas sí.
+.env
+.env.*
+!.env.example
+!.env.local.example

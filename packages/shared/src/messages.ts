@@ -81,6 +81,10 @@ export const MessageType = {
   TravelRequest: "travel:request",
   /** Servidor → Cliente: boleto pagado; ya se puede salir y entrar al barrio `cityId`. */
   TravelApproved: "travel:ok",
+  /** Cliente → Servidor: pedir cuántos juegan en cada barrio (para la lista de barrios). */
+  CitiesRequest: "cities:get",
+  /** Servidor → Cliente: cuántos juegan en cada barrio y en cuántas copias (`CitiesMessage`). */
+  Cities: "cities",
   /** Cliente → Servidor: sacudir la palmera del tile (x, y) (camina hasta ella si hace falta). */
   PalmShake: "palm:shake",
   /** Cliente → Servidor: patear al picudo `id`. */
@@ -437,6 +441,18 @@ export interface BoxOpenedMessage {
   text: string;
 }
 
+/** Cuántos juegan en un barrio, sumando todas sus copias (`copies` = salas abiertas). */
+export interface CityOccupancy {
+  cityId: string;
+  players: number;
+  copies: number;
+}
+
+/** Servidor → Cliente: ocupación de cada barrio con gente (los vacíos no vienen). */
+export interface CitiesMessage {
+  cities: CityOccupancy[];
+}
+
 /** Mapa tipado mensaje → payload, útil para helpers genéricos. */
 export interface ClientToServerMessages {
   [MessageType.Move]: MoveMessage;
@@ -464,6 +480,7 @@ export interface ClientToServerMessages {
   [MessageType.AdminMatch]: AdminMatchMessage;
   [MessageType.BoxOpen]: BoxOpenMessage;
   [MessageType.TravelRequest]: TravelMessage;
+  [MessageType.CitiesRequest]: undefined;
   [MessageType.PalmShake]: { x: number; y: number };
   [MessageType.WeevilKick]: WeevilKickMessage;
   [MessageType.Greet]: TargetPlayerMessage;
@@ -495,6 +512,7 @@ export interface ServerToClientMessages {
   [MessageType.Announcement]: AnnouncementMessage;
   [MessageType.BoxOpened]: BoxOpenedMessage;
   [MessageType.TravelApproved]: TravelMessage;
+  [MessageType.Cities]: CitiesMessage;
   [MessageType.TradeInvite]: TradeInviteMessage;
   [MessageType.TradeState]: TradeStateMessage;
   [MessageType.TradeClosed]: TradeClosedMessage;

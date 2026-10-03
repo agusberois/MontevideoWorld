@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { App } from "@/components/App";
+import { App } from "@/shell/App";
 
 export const metadata: Metadata = {
   title: "Jugar · Montevideo World",

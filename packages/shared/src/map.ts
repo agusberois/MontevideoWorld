@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS, getCity } from "./cities";
+import { Bench, BusStop, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
 
 export type FishingFacing = "south" | "east" | "west" | "north";
 
@@ -365,18 +365,4 @@ export class CityMap {
 
 function inRect(rect: TileRect, x: number, y: number): boolean {
   return x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height;
-}
-
-const cityMaps = new Map<string, CityMap>();
-
-/** CityMap memoizado por barrio (el layout es inmutable). */
-export function getCityMap(cityId: string): CityMap | undefined {
-  let map = cityMaps.get(cityId);
-  if (!map) {
-    const city = getCity(cityId);
-    if (!city) return undefined;
-    map = new CityMap(city);
-    cityMaps.set(cityId, map);
-  }
-  return map;
 }

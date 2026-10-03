@@ -1,0 +1,96 @@
+/* Veterinaria (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* Veterinaria: elegir mascota (fila entera como opción), nombre y adoptar. */
+
+:global(.shop-list) .pet-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+
+:global(.shop-list) .pet-option[aria-checked="true"] {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pet-icon {
+  flex: none;
+}
+
+.pet-name-form {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.pet-adopt {
+  margin: 4px 16px 12px;
+}
+
+.pet-name-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+}
+
+.pet-name-form button,
+.pet-current button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pet-name-form button:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.pet-current {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 16px 14px;
+}
+
+.pet-current p {
+  margin: 0;
+}
+
+.pet-current small {
+  color: var(--muted);
+}
+
+.pet-current .pet-release-toggle {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: underline;
+  padding: 4px 0;
+}
+
+.pet-current .pet-release-yes {
+  background: #e63946;
+  color: #fff;
+}
+
+.pet-release {
+  font-size: 0.85rem;
+}

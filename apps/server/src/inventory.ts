@@ -16,7 +16,9 @@ export class Inventory {
   constructor(readonly capacity = INVENTORY_CAPACITY) {}
 
   count(itemId: string): number {
-    return this.stacks.filter((stack) => stack.itemId === itemId).reduce((total, stack) => total + stack.quantity, 0);
+    let total = 0;
+    for (const stack of this.stacks) if (stack.itemId === itemId) total += stack.quantity;
+    return total;
   }
 
   /** ¿Entra una unidad más de `itemId`? (apilada en una pila existente o en un casillero libre) */

@@ -1,0 +1,47 @@
+/* InteractPrompt (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* ---------- Cartel de interactuar ("F · Sentarse") ---------- */
+
+.interact-prompt {
+  position: fixed;
+  bottom: calc(150px + var(--safe-bottom));
+  left: 50%;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  cursor: pointer;
+  animation: notice-in 0.15s ease-out;
+}
+
+.interact-prompt:hover {
+  border-color: var(--system);
+}
+
+.interact-prompt kbd {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--system);
+  color: #0b0d14;
+  font-family: inherit;
+  font-weight: 800;
+}
+
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}

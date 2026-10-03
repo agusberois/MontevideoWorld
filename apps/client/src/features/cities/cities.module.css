@@ -1,0 +1,243 @@
+/* Barrios y viaje (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.city-menu > ul {
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+}
+
+.city-menu > ul > li {
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+.city-menu > ul > li.current {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.08);
+}
+
+.city-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.city-menu-note {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.city-menu-occupancy {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.city-menu-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.city-menu p {
+  margin: 6px 0 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* La ambulancia: luz que titila arriba. */
+
+.travel-siren {
+  animation: siren 0.5s steps(2, start) infinite;
+}
+
+/* ---------- Viajar entre barrios ---------- */
+
+.city-menu .city-menu-go {
+  margin-left: auto;
+  padding: 3px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.city-menu .city-menu-go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.city-menu > ul > li + li {
+  margin-top: 8px;
+}
+
+.travel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.travel-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(560px, 100%);
+}
+
+.travel-route {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.travel-route strong {
+  color: var(--text);
+}
+
+/* Escena: cielo, edificios que pasan, el ómnibus y la calle. */
+
+.travel-scene {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 190px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: linear-gradient(#1b2740, #2c3b5c 70%);
+}
+
+.travel-skyline {
+  position: absolute;
+  bottom: 44px;
+  left: 0;
+  width: 200%;
+  height: 120px;
+  animation: travel-scroll 4s linear infinite;
+}
+
+.travel-bus {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: travel-sway 0.5s ease-in-out infinite alternate;
+}
+
+.travel-bus svg {
+  display: block;
+  max-width: 46vw;
+  height: auto;
+}
+
+.travel-wheel {
+  /* Gira sobre su propio centro (en SVG el origen por defecto es la esquina del dibujo). */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: travel-spin 0.45s linear infinite;
+}
+
+.travel-road {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30px;
+  background:
+    repeating-linear-gradient(90deg, #ffd166 0 36px, transparent 36px 72px) center / 200% 3px no-repeat,
+    #3b3f46;
+  animation: travel-road 0.6s linear infinite;
+}
+
+.travel-progress {
+  overflow: hidden;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.travel-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: travel-progress linear forwards;
+}
+
+.travel-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-skyline,
+.travel-bus,
+.travel-wheel,
+.travel-road {
+    animation: none;
+  
+  }
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .city-menu .city-menu-go {
+    min-height: 40px;
+  
+  }
+}
+
+@keyframes siren {
+  to {
+    fill: #1d6fb8;
+  }
+}
+
+@keyframes travel-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes travel-road {
+  to {
+    background-position: -72px center, 0 0;
+  }
+}
+
+@keyframes travel-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes travel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes travel-sway {
+  from {
+    transform: translate(-50%, 0) rotate(-0.4deg);
+  }
+  to {
+    transform: translate(-50%, -2px) rotate(0.4deg);
+  }
+}

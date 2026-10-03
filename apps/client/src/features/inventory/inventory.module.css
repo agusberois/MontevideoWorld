@@ -1,0 +1,398 @@
+/* Mochila y barra rápida (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.backpack-body {
+  padding: 4px 16px 12px;
+}
+
+.backpack-capacity {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.backpack-equipped li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.backpack-equipped li + li {
+  border-top: 1px solid var(--panel-border);
+}
+
+.backpack-slot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+
+.backpack-slot small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.backpack-equipped button {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.backpack-equipped button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Grilla de casilleros: un ítem (o una pila de iguales) por casillero. */
+
+.backpack-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.backpack-cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.backpack-cell.empty {
+  border-style: dashed;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.backpack-cell button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.backpack-cell-static {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.backpack-cell:has(button):hover {
+  border-color: var(--accent);
+}
+
+/* Reordenar la mochila: casillero levantado (celulares) y casillero donde se va a soltar. */
+
+.backpack-cell.moving {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  opacity: 0.7;
+}
+
+.backpack-cell.drop-target {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.backpack-cell-name {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.6rem;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backpack-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.item-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  /* Fondo claro y neutro: las prendas negras y las blancas se distinguen igual de bien. */
+  background: #e9ecf2;
+}
+
+.item-icon svg {
+  display: block;
+}
+
+.item-icon-empty {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.backpack-equipped li[draggable="true"] {
+  cursor: grab;
+}
+
+.hotbar-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hotbar-slot[draggable="true"] {
+  cursor: grab;
+}
+
+.hotbar-slot.worn {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.hotbar-slot.missing .item-icon {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.hotbar-slot.drop-target {
+  border-color: var(--system);
+  background: rgba(255, 209, 102, 0.15);
+}
+
+.hotbar-key {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  z-index: 1;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: rgba(18, 21, 31, 0.85);
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.hotbar-qty {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
+.hotbar-worn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- Cajas sorpresa ---------- */
+
+.backpack-cell.box {
+  border-color: rgba(255, 209, 102, 0.55);
+  background: rgba(200, 85, 61, 0.18);
+}
+
+.backpack-cell.box:hover {
+  border-color: var(--system);
+}
+
+/* Desgaste de una herramienta: barrita abajo del casillero (ver ToolWear.tsx). */
+
+.tool-wear {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.tool-wear span {
+  display: block;
+  height: 100%;
+}
+
+.tool-wear :global(.high) {
+  background: #06d6a0;
+}
+
+.tool-wear :global(.mid) {
+  background: #ffd166;
+}
+
+.tool-wear :global(.low) {
+  background: var(--danger);
+}
+
+.backpack-cell.rod-in-use {
+  border-color: rgba(76, 201, 240, 0.7);
+}
+
+/* Arriba a la izquierda (el contador ×N va a la derecha), sin tapar el nombre. */
+
+.backpack-badge {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-size: 0.55rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Cañas y pescados se arrastran a la barra rápida. */
+
+.backpack-cell-static[draggable="true"] {
+  cursor: grab;
+}
+
+/* ---------- Selector de la barra rápida (tocar un casillero) ---------- */
+
+.hotbar-picker {
+  width: min(460px, 100%);
+}
+
+.hotbar-picker-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.hotbar-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hotbar-picker-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 78px;
+  padding: 6px 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+}
+
+.hotbar-picker-grid button:hover,
+.hotbar-picker-grid button.active {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.12);
+}
+
+.hotbar-picker-clear {
+  padding: 10px;
+  border: 1px solid rgba(255, 107, 107, 0.55);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Info del ítem tocado en la mochila (lo que en escritorio es el tooltip). */
+
+.backpack-detail {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(76, 201, 240, 0.35);
+  border-radius: 8px;
+  background: rgba(76, 201, 240, 0.08);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* Nueve casilleros que entran en cualquier ancho (los íconos se achican con el casillero). */
+
+  .hotbar-slot {
+    width: clamp(30px, calc((100vw - 2 * var(--edge) - var(--safe-left) - var(--safe-right) - 40px) / 9), 44px);
+    height: clamp(30px, calc((100vw - 2 * var(--edge) - var(--safe-left) - var(--safe-right) - 40px) / 9), 44px);
+  
+  }
+
+  .hotbar-slot .item-icon {
+    width: 78% !important;
+    height: 78% !important;
+  
+  }
+
+  .hotbar-slot .item-icon svg {
+    width: 88%;
+    height: 88%;
+  
+  }
+
+  .backpack-equipped button {
+    min-height: 40px;
+  
+  }
+}
+
+@media (max-width: 760px) {
+  .backpack-grid {
+    gap: 5px;
+  
+  }
+}
+
+@media (max-height: 500px) and (min-width: 561px) {
+  .hotbar-slot {
+    width: 36px;
+    height: 36px;
+  
+  }
+}

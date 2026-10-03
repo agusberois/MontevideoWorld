@@ -79,6 +79,10 @@ exports.MessageType = {
     TravelRequest: "travel:request",
     /** Servidor → Cliente: boleto pagado; ya se puede salir y entrar al barrio `cityId`. */
     TravelApproved: "travel:ok",
+    /** Cliente → Servidor: pedir cuántos juegan en cada barrio (para la lista de barrios). */
+    CitiesRequest: "cities:get",
+    /** Servidor → Cliente: cuántos juegan en cada barrio y en cuántas copias (`CitiesMessage`). */
+    Cities: "cities",
     /** Cliente → Servidor: sacudir la palmera del tile (x, y) (camina hasta ella si hace falta). */
     PalmShake: "palm:shake",
     /** Cliente → Servidor: patear al picudo `id`. */

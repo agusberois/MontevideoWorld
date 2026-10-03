@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { InventoryMessage, MatchMode, OutfitIds } from "@montevideo-world/shared";
 import { type PlayerSummary, eventBus } from "./eventBus";
-import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "./hotbar";
+import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
 
 /**
  * Estado de la UI del juego que llega por el EventBus (de la red o de la escena) más qué panel está
@@ -10,7 +10,7 @@ import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "./hotbar";
  * `bindGameStore` y decidir si es del barrio (`CITY_FIELDS`: se borra al viajar) o del jugador.
  */
 
-/** Paneles que se abren de a uno (ver el registro en `components/panels.ts`). */
+/** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
 export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands";
 
 export interface GameStoreState {

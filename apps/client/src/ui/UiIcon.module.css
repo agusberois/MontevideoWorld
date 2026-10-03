@@ -1,0 +1,5 @@
+/* UiIcon (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.ui-icon {
+  flex: none;
+}

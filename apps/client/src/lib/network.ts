@@ -31,6 +31,7 @@ import {
 import type { GameState } from "@montevideo-world/shared/schema";
 import { type GameEvents, eventBus } from "./eventBus";
 import { getPlayerKey } from "./playerKey";
+import { loadCityMap } from "./cityMaps";
 
 export type CityRoom = Room<GameState>;
 
@@ -72,6 +73,10 @@ export async function joinCity(
 ): Promise<CitySession> {
   lastJoin = { name, appearance };
   const options: JoinOptions = { name, cityId, appearance, playerKey: getPlayerKey() ?? undefined };
+  // El mapa del barrio se descarga mientras se conecta: la escena lo necesita ya cargado.
+  const map = loadCityMap(cityId);
+  map.catch(() => {}); // si la entrada falla antes, que no quede un rechazo sin atender
+  let session: CitySession;
   try {
     // Con `roomId` (`/trace`) se entra a esa copia justa; si ya cerró o está llena, a cualquiera del barrio.
     const room = roomId
@@ -79,14 +84,22 @@ export async function joinCity(
           .joinById<GameState>(roomId, options)
           .catch(() => getClient().joinOrCreate<GameState>(ROOM_NAME, options))
       : await getClient().joinOrCreate<GameState>(ROOM_NAME, options);
-    return { room, cityId: options.cityId };
+    session = { room, cityId: options.cityId };
   } catch (error) {
     // Preso (`/ban`): el server no lo deja entrar a otro barrio; va directo al COMCAR.
     if (!(error instanceof ServerError) || error.code !== JAILED_JOIN_CODE || cityId === JAIL_CITY_ID) throw error;
     const jailOptions: JoinOptions = { ...options, cityId: JAIL_CITY_ID };
-    const room = await getClient().joinOrCreate<GameState>(ROOM_NAME, jailOptions);
+    const [room] = await Promise.all([getClient().joinOrCreate<GameState>(ROOM_NAME, jailOptions), loadCityMap(JAIL_CITY_ID)]);
     return { room, cityId: JAIL_CITY_ID };
   }
+  try {
+    await map;
+  } catch (error) {
+    // Sin mapa no hay escena: se sale de la sala y se informa como error de conexión.
+    void session.room.leave();
+    throw error;
+  }
+  return session;
 }
 
 /**
@@ -135,6 +148,7 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   notice: MessageType.Notice,
   announcement: MessageType.Announcement,
   "travel:approved": MessageType.TravelApproved,
+  "cities:update": MessageType.Cities,
   "box:opened": MessageType.BoxOpened,
   "trade:invite": MessageType.TradeInvite,
   "trade:state": MessageType.TradeState,

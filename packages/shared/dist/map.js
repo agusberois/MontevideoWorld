@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CityMap = void 0;
-exports.getCityMap = getCityMap;
-const cities_1 = require("./cities");
+const types_1 = require("./cities/types");
 /** Hasta cuántos tiles se busca el agua para tirar la línea (la plataforma de la escollera mide 7 de ancho). */
 const FISHING_REACH = 6;
 const DIRECTIONS = [
@@ -30,7 +29,7 @@ class CityMap {
         this.walkable = new Uint8Array(this.width * this.height);
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < this.width; x++) {
-                if (cities_1.WALKABLE_TILE_CHARS.has(city.layout[y][x]))
+                if (types_1.WALKABLE_TILE_CHARS.has(city.layout[y][x]))
                     this.walkable[y * this.width + x] = 1;
             }
         }
@@ -66,7 +65,7 @@ class CityMap {
     }
     /** Se pesca parado en la escollera. */
     canFishAt(x, y) {
-        return this.tileAt(x, y) === cities_1.TileChar.Jetty;
+        return this.tileAt(x, y) === types_1.TileChar.Jetty;
     }
     /** Se vende con carrito parado en la zona de venta del barrio (si tiene una). */
     canVendAt(x, y) {
@@ -91,25 +90,25 @@ class CityMap {
         for (const [facing, dx, dy] of options) {
             for (let d = 1; d <= FISHING_REACH; d++) {
                 const char = this.tileAt(x + dx * d, y + dy * d);
-                if (char === cities_1.TileChar.Water) {
+                if (char === types_1.TileChar.Water) {
                     if (!best || d < best.water)
                         best = { facing, water: d };
                     break;
                 }
                 // Sólo se tira por encima de la escollera (no por arriba de la rambla ni de edificios).
-                if (char !== cities_1.TileChar.Jetty)
+                if (char !== types_1.TileChar.Jetty)
                     break;
             }
         }
         if (!best)
             return undefined;
         const [, dx, dy] = options.find(([facing]) => facing === best.facing);
-        const further = this.tileAt(x + dx * (best.water + 1), y + dy * (best.water + 1)) === cities_1.TileChar.Water;
+        const further = this.tileAt(x + dx * (best.water + 1), y + dy * (best.water + 1)) === types_1.TileChar.Water;
         return { facing: best.facing, distance: further ? best.water + 1 : best.water };
     }
     /** ¿Hay una palmera en (x, y)? (ahí viven los picudos rojos) */
     isPalm(x, y) {
-        return this.tileAt(x, y) === cities_1.TileChar.Palm;
+        return this.tileAt(x, y) === types_1.TileChar.Palm;
     }
     /** ¿El tile (x, y) está pegado a la palmera (incluye diagonales)? Desde ahí se la sacude. */
     isNextTo(target, x, y) {
@@ -325,18 +324,5 @@ class CityMap {
 exports.CityMap = CityMap;
 function inRect(rect, x, y) {
     return x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height;
-}
-const cityMaps = new Map();
-/** CityMap memoizado por barrio (el layout es inmutable). */
-function getCityMap(cityId) {
-    let map = cityMaps.get(cityId);
-    if (!map) {
-        const city = (0, cities_1.getCity)(cityId);
-        if (!city)
-            return undefined;
-        map = new CityMap(city);
-        cityMaps.set(cityId, map);
-    }
-    return map;
 }
 //# sourceMappingURL=map.js.map

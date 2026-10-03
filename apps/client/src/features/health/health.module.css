@@ -1,0 +1,75 @@
+/* Desmayo y guardia (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* ---------- Desmayo y guardia del sanatorio ---------- */
+
+/* Pantalla negra del desmayo: entra de golpe y se va aclarando. */
+
+.faint-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #000;
+  color: #f4f4f4;
+  text-align: center;
+  pointer-events: none;
+  animation: faint-fade linear forwards;
+}
+
+.faint-overlay p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.hospital-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 16px;
+}
+
+.hospital-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #ff6b81;
+  font-size: 1rem;
+}
+
+.hospital-health strong {
+  font-size: 1.3rem;
+}
+
+.hospital-health.low {
+  color: var(--danger);
+}
+
+.hospital-heal {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #ff6b81;
+  color: #1a0a0e;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hospital-heal:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+@keyframes faint-fade {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

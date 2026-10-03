@@ -147,17 +147,30 @@ export interface PlaceLabel {
   y: number;
 }
 
-export interface CityDefinition {
-  id: string;
+/** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
+export const CITY_IDS = ["ciudad-vieja", "tres-cruces", "comcar"] as const;
+export type CityId = (typeof CITY_IDS)[number];
+
+/**
+ * Lo liviano de un barrio: lo que necesitan la lista de barrios, la landing, las tiendas y los
+ * avisos. Viaja siempre en el paquete del navegador; el mapa (`CityDefinition`) se descarga al entrar.
+ */
+export interface CityInfo {
+  id: CityId;
   name: string;
   description: string;
+  landmarks: readonly Landmark[];
+  shops: readonly Shop[];
+  /** Es la cárcel (el COMCAR): no sale en la landing y se va "de visita". */
+  prison?: boolean;
+}
+
+export interface CityDefinition extends Omit<CityInfo, "prison"> {
   layout: readonly string[];
   /** Zona donde aparecen los jugadores al entrar al barrio. */
   spawnArea: TileRect;
-  landmarks: readonly Landmark[];
   benches: readonly Bench[];
   busStops: readonly BusStop[];
-  shops: readonly Shop[];
   /** Dónde se vende con carrito (sólo en algunos barrios). */
   vending?: VendingZone;
   placeLabels: readonly PlaceLabel[];

@@ -14,31 +14,37 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.JAIL_CITY_ID = exports.SPAWN_CITY_ID = exports.CITIES = void 0;
+exports.CITIES = void 0;
 exports.getCity = getCity;
-exports.shopsSelling = shopsSelling;
-exports.whereToBuy = whereToBuy;
-const ciudadVieja_1 = require("./ciudadVieja");
-const comcar_1 = require("./comcar");
-const tresCruces_1 = require("./tresCruces");
+exports.getCityMap = getCityMap;
+const map_1 = require("../map");
+const map_2 = require("./ciudadVieja/map");
+const map_3 = require("./comcar/map");
+const map_4 = require("./tresCruces/map");
+/**
+ * Entrada `@montevideo-world/shared/cities`: los barrios completos, con su mapa. La usa el server
+ * (y el simulador de movimiento). El navegador no la importa: tiene lo liviano en la entrada
+ * principal (`CITY_INFOS`) y descarga cada mapa al entrar (`apps/client/src/lib/cityMaps.ts`).
+ */
+__exportStar(require("./info"), exports);
 __exportStar(require("./types"), exports);
-/** Todos los barrios del juego, en el orden en que se muestran en la lista (tecla M). */
-exports.CITIES = [ciudadVieja_1.CIUDAD_VIEJA, tresCruces_1.TRES_CRUCES, comcar_1.COMCAR];
-/** Barrio donde aparece siempre el jugador al entrar al juego. */
-exports.SPAWN_CITY_ID = ciudadVieja_1.CIUDAD_VIEJA.id;
-/** Adonde va preso el que banea el admin (`/ban`): no se sale hasta cumplir. */
-exports.JAIL_CITY_ID = comcar_1.COMCAR.id;
+exports.CITIES = [map_2.CIUDAD_VIEJA, map_4.TRES_CRUCES, map_3.COMCAR];
+/** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
+const BY_ID = { "ciudad-vieja": map_2.CIUDAD_VIEJA, "tres-cruces": map_4.TRES_CRUCES, comcar: map_3.COMCAR };
 function getCity(id) {
-    return exports.CITIES.find((city) => city.id === id);
+    return BY_ID[id];
 }
-/** Dónde se vende `itemId` (p. ej. para decir dónde comprar boletos): tienda y barrio. */
-function shopsSelling(itemId) {
-    return exports.CITIES.flatMap((city) => city.shops.filter((shop) => shop.stock.includes(itemId)).map((shop) => ({ city, shop })));
-}
-/** "Agencia STM (Ciudad Vieja)": dónde se compra `itemId`, para los avisos. */
-function whereToBuy(itemId) {
-    return shopsSelling(itemId)
-        .map(({ city, shop }) => `${shop.name} (${city.name})`)
-        .join(" o ");
+const cityMaps = new Map();
+/** CityMap memoizado por barrio (el layout es inmutable). */
+function getCityMap(cityId) {
+    let map = cityMaps.get(cityId);
+    if (!map) {
+        const city = getCity(cityId);
+        if (!city)
+            return undefined;
+        map = new map_1.CityMap(city);
+        cityMaps.set(cityId, map);
+    }
+    return map;
 }
 //# sourceMappingURL=index.js.map

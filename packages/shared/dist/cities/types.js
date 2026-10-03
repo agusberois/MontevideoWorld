@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WALKABLE_TILE_CHARS = exports.TileChar = void 0;
+exports.CITY_IDS = exports.WALKABLE_TILE_CHARS = exports.TileChar = void 0;
 /**
  * Un carácter por tile en `CityDefinition.layout`. Fila = coordenada y, columna = coordenada x.
  * En el mapa, x crece hacia el este y y hacia el sur.
@@ -35,4 +35,6 @@ exports.WALKABLE_TILE_CHARS = new Set([
     exports.TileChar.Grass,
     exports.TileChar.Jetty,
 ]);
+/** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
+exports.CITY_IDS = ["ciudad-vieja", "tres-cruces", "comcar"];
 //# sourceMappingURL=types.js.map

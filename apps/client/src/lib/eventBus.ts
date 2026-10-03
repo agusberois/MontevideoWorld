@@ -2,6 +2,7 @@ import type {
   AdminNearbyMessage,
   AnnouncementMessage,
   BoxOpenedMessage,
+  CitiesMessage,
   TravelMessage,
   ChatBroadcastMessage,
   FishResultMessage,
@@ -87,6 +88,8 @@ export interface GameEvents {
   "box:opened": BoxOpenedMessage;
   /** Red → React: boleto pagado, ya se puede viajar al barrio. */
   "travel:approved": TravelMessage;
+  /** Red → lista de barrios: cuántos juegan en cada uno (respuesta a `cities:get`). */
+  "cities:update": CitiesMessage;
   /** Phaser → React: el avatar propio llegó a la parada de ómnibus que clickeaste (abrir la lista de barrios). */
   "bus-stop:open": { name: string };
   /** Phaser → React: la cámara quedó libre (true) o fija siguiendo al avatar (false). */

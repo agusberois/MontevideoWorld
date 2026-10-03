@@ -3,7 +3,7 @@
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
- * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
+ * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
  */
 
 import { TRAVEL_FARE } from "./money";
@@ -20,20 +20,20 @@ export const ITEM_SLOT_LABELS: Record<ItemSlot, string> = {
   shoes: "Pies",
 };
 
-export type ItemStyle =
-  | "cap"
-  | "beanie"
-  | "beret"
-  | "tshirt"
-  | "jersey"
-  | "hoodie"
-  | "tank"
-  | "jeans"
-  | "pants"
-  | "shorts"
-  | "sneakers"
-  | "boots"
-  | "flipflops";
+/**
+ * Estilos de prenda de cada lugar del cuerpo. El cliente dibuja cada uno en el avatar
+ * (`game/objects/clothing/<lugar>.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
+ * hasta tener los dos dibujos.
+ */
+export const ITEM_STYLES = {
+  hat: ["cap", "beanie", "beret"],
+  top: ["tshirt", "jersey", "hoodie", "tank"],
+  bottom: ["jeans", "pants", "shorts"],
+  shoes: ["sneakers", "boots", "flipflops"],
+} as const satisfies Record<ItemSlot, readonly string[]>;
+
+export type SlotStyle<S extends ItemSlot> = (typeof ITEM_STYLES)[S][number];
+export type ItemStyle = SlotStyle<ItemSlot>;
 
 interface ItemBase {
   id: string;
@@ -44,11 +44,14 @@ interface ItemBase {
   price: number;
 }
 
-export interface ClothingItem extends ItemBase {
+/** Prenda de un lugar del cuerpo: su `style` es uno de los de ese lugar. */
+export interface ClothingOf<S extends ItemSlot> extends ItemBase {
   category: "clothing";
-  slot: ItemSlot;
-  style: ItemStyle;
+  slot: S;
+  style: SlotStyle<S>;
 }
+
+export type ClothingItem = { [S in ItemSlot]: ClothingOf<S> }[ItemSlot];
 
 /** Dificultad de 1 (fácil, común, barato) a 5 (difícil, raro, caro). */
 export type FishDifficulty = 1 | 2 | 3 | 4 | 5;
@@ -177,7 +180,8 @@ export interface MedicineItem extends ItemBase {
 
 export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
 
-type CatalogEntry<T> = Omit<T, "category">;
+/** El ítem sin `category` (la pone el armador). Distributivo, para que la ropa siga atando `slot` y `style`. */
+type CatalogEntry<T> = T extends unknown ? Omit<T, "category"> : never;
 
 const clothing = (items: CatalogEntry<ClothingItem>[]): ClothingItem[] =>
   items.map((item) => ({ ...item, category: "clothing" }));
@@ -609,8 +613,11 @@ export function usesLabel(item: ToolItem, uses: number): string {
 /** Prenda puesta en cada lugar ("" = nada). Es la forma en que viaja en el Schema. */
 export type OutfitIds = Record<ItemSlot, string>;
 
+/** Índice por id: `getItem` se llama en cada operación de mochila y tienda. */
+const ITEMS_BY_ID = new Map<string, ItemDefinition>(ITEMS.map((item) => [item.id, item]));
+
 export function getItem(id: string): ItemDefinition | undefined {
-  return ITEMS.find((item) => item.id === id);
+  return ITEMS_BY_ID.get(id);
 }
 
 export function isItemSlot(value: unknown): value is ItemSlot {

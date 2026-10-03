@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Shop, TilePoint, TileRect } from "./cities";
+import { Bench, BusStop, CityDefinition, Shop, TilePoint, TileRect } from "./cities/types";
 export type FishingFacing = "south" | "east" | "west" | "north";
 /** Hacia dónde mira quien pesca y a cuántos tiles cae la boya (ver `CityMap.fishingSpot`). */
 export interface FishingSpot {
@@ -119,6 +119,4 @@ export declare class CityMap {
      */
     findPath(from: TilePoint, to: TilePoint): TilePoint[];
 }
-/** CityMap memoizado por barrio (el layout es inmutable). */
-export declare function getCityMap(cityId: string): CityMap | undefined;
 //# sourceMappingURL=map.d.ts.map

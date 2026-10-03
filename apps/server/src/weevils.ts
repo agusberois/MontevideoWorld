@@ -174,11 +174,14 @@ export class WeevilManager {
     const dy = to.y - meta.y;
     const distance = Math.hypot(dx, dy);
     if (distance <= stopAt) return true;
-    const advance = Math.min(step, distance - stopAt);
+    // Si este paso alcanza, llegó: comparar después con la distancia recalculada fallaría por
+    // redondeo (queda a 0,2000…04 y no llega nunca, ocupando lugar del tope `MAX_WEEVILS`).
+    const arrives = step >= distance - stopAt;
+    const advance = arrives ? distance - stopAt : step;
     meta.x += (dx / distance) * advance;
     meta.y += (dy / distance) * advance;
     this.sync(weevil, meta);
-    return false;
+    return arrives;
   }
 
   /** Copia la posición al Schema en centésimas de tile (sólo lo que cambió viaja). */

@@ -1,0 +1,379 @@
+/* Tiendas (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.shop-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+
+.shop-tabs button {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shop-tabs button[aria-selected="true"] {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.12);
+  color: var(--text);
+}
+
+.shop-no-room {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.shop-cart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 10px;
+}
+
+.shop-cart.filled {
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.shop-cart-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+
+.shop-cart-summary strong {
+  color: #06d6a0;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-cart-summary small {
+  color: var(--danger);
+}
+
+.shop-cart-buy,
+.shop-cart-clear {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.shop-cart-buy {
+  background: var(--accent);
+  color: #0b0d14;
+}
+
+.shop-cart-buy:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.shop-cart-clear {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--muted);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+/* Aviso de cómo salió la compra / venta: grande, con el ítem, arriba de la lista. */
+
+.shop-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  animation: shop-toast-in 0.28s ease-out;
+}
+
+.shop-toast.ok {
+  border-color: rgba(6, 214, 160, 0.55);
+  background: rgba(6, 214, 160, 0.16);
+  color: #9ef0c9;
+}
+
+.shop-toast.error {
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.16);
+  color: var(--danger);
+  animation: shop-toast-in 0.28s ease-out, shop-toast-shake 0.35s ease-in-out 0.28s;
+}
+
+.shop-toast-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #06d6a0;
+  color: #0b0d14;
+  font-size: 0.95rem;
+}
+
+.shop-toast.error .shop-toast-mark {
+  background: var(--danger);
+}
+
+.shop-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.3;
+}
+
+.shop-toast-text small {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.shop-row-flash {
+  position: absolute;
+  inset: 0 -8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 46px;
+  border-radius: 8px;
+  background: rgba(6, 214, 160, 0.18);
+  color: #06d6a0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  pointer-events: none;
+  animation: shop-row-flash 1.4s ease-out forwards;
+}
+
+.shop-row-flash.sold {
+  background: rgba(255, 209, 102, 0.16);
+  color: #ffd166;
+}
+
+.shop-buy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* − / número / + */
+
+.shop-qty {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+:global(.shop-list) .shop-qty button {
+  min-width: 26px;
+  padding: 4px 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.shop-qty input {
+  width: 34px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.shop-qty input::-webkit-outer-spin-button,
+.shop-qty input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* Celulares: botones de cantidad de al menos ~36 px y el selector arriba del botón. */
+
+@media (max-width: 760px), (max-height: 500px) {
+  :global(.shop-list) .shop-qty button {
+    min-width: 36px;
+    min-height: 36px;
+  
+  }
+
+  .shop-qty input {
+    width: 40px;
+    min-height: 36px;
+  
+  }
+
+  .shop-buy-actions {
+    flex-direction: column;
+    align-items: stretch;
+  
+  }
+}
+
+.shop-stars {
+  display: block;
+  color: var(--system);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.shop-uses {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.shop-sell-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:global(.shop-list) .shop-haggle-toggle {
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  background: transparent;
+  color: var(--system);
+}
+
+:global(.shop-list) .shop-haggle-toggle[aria-expanded="true"] {
+  background: rgba(255, 209, 102, 0.15);
+}
+
+.haggle-price {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.haggle-price input {
+  flex: 1;
+  accent-color: var(--system);
+}
+
+.haggle-price strong {
+  min-width: 56px;
+  color: #06d6a0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.haggle-odds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.haggle-chance {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.haggle-chance.high {
+  color: #06d6a0;
+}
+
+.haggle-chance.mid {
+  color: var(--system);
+}
+
+.haggle-chance.low {
+  color: var(--danger);
+}
+
+.haggle-bar {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.haggle-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.12s;
+}
+
+.haggle-bar span.high {
+  background: #06d6a0;
+}
+
+.haggle-bar span.mid {
+  background: var(--system);
+}
+
+.haggle-bar span.low {
+  background: var(--danger);
+}
+
+.haggle-warning {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+:global(.shop-list) .haggle-go {
+  align-self: stretch;
+  background: var(--system);
+  color: #0b0d14;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .shop-tabs button {
+    min-height: 40px;
+  
+  }
+}
+
+@keyframes shop-row-flash {
+  0% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shop-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes shop-toast-shake {
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}

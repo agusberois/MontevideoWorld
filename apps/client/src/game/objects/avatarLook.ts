@@ -1,5 +1,5 @@
 import {
-  ClothingItem,
+  ClothingOf,
   Gender,
   HAIR_COLORS,
   HAIR_STYLES,
@@ -25,15 +25,16 @@ export interface AvatarLook {
 }
 
 /** Prendas puestas, resueltas contra el catálogo. Un lugar sin prenda queda `undefined`. */
-export type Outfit = Partial<Record<ItemSlot, ClothingItem>>;
+export type Outfit = { [S in ItemSlot]?: ClothingOf<S> };
 
 export function outfitFromIds(ids: OutfitIds): Outfit {
-  const outfit: Outfit = {};
+  const outfit: Partial<Record<ItemSlot, ClothingOf<ItemSlot>>> = {};
   for (const slot of ITEM_SLOTS) {
     const item = ids[slot] ? getClothing(ids[slot]) : undefined;
     if (item && item.slot === slot) outfit[slot] = item;
   }
-  return outfit;
+  // Cada prenda quedó en su propio lugar (`item.slot === slot`).
+  return outfit as Outfit;
 }
 
 /** Campos del aspecto tal como llegan del Schema (validados por el server, pero se defiende igual). */

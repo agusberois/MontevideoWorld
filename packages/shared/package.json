@@ -13,6 +13,14 @@
     "./schema": {
       "types": "./dist/schema/index.d.ts",
       "default": "./dist/schema/index.js"
+    },
+    "./cities": {
+      "types": "./dist/cities/index.d.ts",
+      "default": "./dist/cities/index.js"
+    },
+    "./cities/*": {
+      "types": "./dist/cities/*/map.d.ts",
+      "default": "./dist/cities/*/map.js"
     }
   },
   "files": [

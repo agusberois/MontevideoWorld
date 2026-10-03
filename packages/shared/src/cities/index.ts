@@ -1,31 +1,36 @@
-import { CIUDAD_VIEJA } from "./ciudadVieja";
-import { COMCAR } from "./comcar";
-import { TRES_CRUCES } from "./tresCruces";
-import { CityDefinition, Shop } from "./types";
+import { CityMap } from "../map";
+import { CIUDAD_VIEJA } from "./ciudadVieja/map";
+import { COMCAR } from "./comcar/map";
+import { TRES_CRUCES } from "./tresCruces/map";
+import { CityDefinition, CityId } from "./types";
 
+/**
+ * Entrada `@montevideo-world/shared/cities`: los barrios completos, con su mapa. La usa el server
+ * (y el simulador de movimiento). El navegador no la importa: tiene lo liviano en la entrada
+ * principal (`CITY_INFOS`) y descarga cada mapa al entrar (`apps/client/src/lib/cityMaps.ts`).
+ */
+export * from "./info";
 export * from "./types";
 
-/** Todos los barrios del juego, en el orden en que se muestran en la lista (tecla M). */
 export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, TRES_CRUCES, COMCAR];
 
-/** Barrio donde aparece siempre el jugador al entrar al juego. */
-export const SPAWN_CITY_ID = CIUDAD_VIEJA.id;
-
-/** Adonde va preso el que banea el admin (`/ban`): no se sale hasta cumplir. */
-export const JAIL_CITY_ID = COMCAR.id;
+/** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
+const BY_ID: Record<CityId, CityDefinition> = { "ciudad-vieja": CIUDAD_VIEJA, "tres-cruces": TRES_CRUCES, comcar: COMCAR };
 
 export function getCity(id: string): CityDefinition | undefined {
-  return CITIES.find((city) => city.id === id);
+  return (BY_ID as Record<string, CityDefinition | undefined>)[id];
 }
 
-/** Dónde se vende `itemId` (p. ej. para decir dónde comprar boletos): tienda y barrio. */
-export function shopsSelling(itemId: string): Array<{ city: CityDefinition; shop: Shop }> {
-  return CITIES.flatMap((city) => city.shops.filter((shop) => shop.stock.includes(itemId)).map((shop) => ({ city, shop })));
-}
+const cityMaps = new Map<string, CityMap>();
 
-/** "Agencia STM (Ciudad Vieja)": dónde se compra `itemId`, para los avisos. */
-export function whereToBuy(itemId: string): string {
-  return shopsSelling(itemId)
-    .map(({ city, shop }) => `${shop.name} (${city.name})`)
-    .join(" o ");
+/** CityMap memoizado por barrio (el layout es inmutable). */
+export function getCityMap(cityId: string): CityMap | undefined {
+  let map = cityMaps.get(cityId);
+  if (!map) {
+    const city = getCity(cityId);
+    if (!city) return undefined;
+    map = new CityMap(city);
+    cityMaps.set(cityId, map);
+  }
+  return map;
 }

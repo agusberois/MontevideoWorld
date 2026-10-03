@@ -4,10 +4,10 @@
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
- * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
+ * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.CLOTHING = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
 exports.isRod = isRod;
 exports.bestRod = bestRod;
 exports.rodStars = rodStars;
@@ -41,6 +41,17 @@ exports.ITEM_SLOT_LABELS = {
     top: "Torso",
     bottom: "Piernas",
     shoes: "Pies",
+};
+/**
+ * Estilos de prenda de cada lugar del cuerpo. El cliente dibuja cada uno en el avatar
+ * (`game/objects/clothing/<lugar>.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
+ * hasta tener los dos dibujos.
+ */
+exports.ITEM_STYLES = {
+    hat: ["cap", "beanie", "beret"],
+    top: ["tshirt", "jersey", "hoodie", "tank"],
+    bottom: ["jeans", "pants", "shorts"],
+    shoes: ["sneakers", "boots", "flipflops"],
 };
 const clothing = (items) => items.map((item) => ({ ...item, category: "clothing" }));
 const fish = (items) => items.map((item) => ({ ...item, category: "fish" }));
@@ -384,8 +395,10 @@ exports.LOW_USES = 5;
 function usesLabel(item, uses) {
     return `${uses}/${item.maxUses} usos`;
 }
+/** Índice por id: `getItem` se llama en cada operación de mochila y tienda. */
+const ITEMS_BY_ID = new Map(exports.ITEMS.map((item) => [item.id, item]));
 function getItem(id) {
-    return exports.ITEMS.find((item) => item.id === id);
+    return ITEMS_BY_ID.get(id);
 }
 function isItemSlot(value) {
     return typeof value === "string" && exports.ITEM_SLOTS.includes(value);

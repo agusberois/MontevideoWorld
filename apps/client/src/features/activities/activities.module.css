@@ -1,0 +1,150 @@
+/* Pesca y venta (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.fishing-cast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 800;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.fishing-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+
+.fishing-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.fishing-bar {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fishing-bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left;
+  animation: fishing-wait linear forwards;
+}
+
+.fishing-card button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.fishing-card button kbd {
+  border-color: var(--panel-border);
+  color: var(--muted);
+}
+
+.fishing-result {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 0.85rem;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.fishing-result.ok {
+  border: 1px solid rgba(6, 214, 160, 0.5);
+  color: #06d6a0;
+}
+
+.fishing-result.miss {
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+}
+
+/* Partido en el Centenario (vendedor ambulante): mismo formato que el resultado, en amarillo. */
+
+.vending-match {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  background: var(--panel);
+  color: #ffd166;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.fishing-cast:disabled {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* ---------- Cañas de pescar ---------- */
+
+/* Nombre de la caña dentro del botón "Pescar con …". */
+
+.fishing-uses {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.fishing-uses.low {
+  color: var(--danger);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.fishing-rod-name {
+  font-weight: 800;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .fishing-cast {
+    min-height: 44px;
+  
+  }
+
+  .fishing-card button {
+    min-height: 36px;
+  
+  }
+}
+
+@keyframes fishing-wait {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

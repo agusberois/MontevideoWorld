@@ -10,7 +10,8 @@
  * Esperado: saltos=0 y finalMal=0 en todo. Los retrocesos de "reversa", "alternando" y "clics
  * rápidos" son los de invertir la dirección (el paso en curso se termina): son lógicos.
  */
-import { STEP_MS, TilePoint, getCityMap } from "@montevideo-world/shared";
+import { STEP_MS, TilePoint } from "@montevideo-world/shared";
+import { getCityMap } from "@montevideo-world/shared/cities";
 import { LocalMover, MoverAvatar, sameTile } from "../movement";
 
 const map = getCityMap("ciudad-vieja")!;

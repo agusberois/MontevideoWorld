@@ -5,7 +5,7 @@ import { isoPoint, tileDiamond, tileToWorld } from "../iso";
 import { PieceSpec, benchSpec, busStopSpec, houseSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
-import { ROOF_SPOTS, landmarkPieces } from "./landmarks";
+import { landmarkPieces, roofSpot } from "./landmarks";
 
 export const FLOOR_DEPTH = -100000;
 /** Textura del logo de Montevideo World (la carga la escena en `preload`). */
@@ -114,12 +114,12 @@ export class CityRenderer {
 
   /**
    * Dónde va el cartel "MW": el punto del techo del edificio emblemático indicado en
-   * `CityDefinition.logoSign` (ver `ROOF_SPOTS`), escalado como el edificio.
+   * `CityDefinition.logoSign` (ver `roof` en `landmarks/`), escalado como el edificio.
    */
   private logoPlacement() {
     const id = this.map.city.logoSign?.landmarkId;
     const landmark = this.map.city.landmarks.find((candidate) => candidate.id === id);
-    const spot = landmark ? ROOF_SPOTS[landmark.kind] : undefined;
+    const spot = landmark ? roofSpot(landmark.kind) : undefined;
     if (!landmark || !spot || !this.scene.textures.exists(LOGO_TEXTURE)) return null;
 
     const scale = landmarkPieces(landmark)[0]?.spec.scale ?? 1;

@@ -3,13 +3,25 @@
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
  * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
- * dibuja cada prenda según su `style` (`Avatar.ts`, `ItemIcon.tsx`).
+ * dibuja cada prenda según su `style` (`game/objects/clothing/`, `ItemIcon.tsx`).
  */
 export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
-export type ItemStyle = "cap" | "beanie" | "beret" | "tshirt" | "jersey" | "hoodie" | "tank" | "jeans" | "pants" | "shorts" | "sneakers" | "boots" | "flipflops";
+/**
+ * Estilos de prenda de cada lugar del cuerpo. El cliente dibuja cada uno en el avatar
+ * (`game/objects/clothing/<lugar>.ts`) y en el ícono (`ItemIcon.tsx`): un estilo nuevo no compila
+ * hasta tener los dos dibujos.
+ */
+export declare const ITEM_STYLES: {
+    readonly hat: readonly ["cap", "beanie", "beret"];
+    readonly top: readonly ["tshirt", "jersey", "hoodie", "tank"];
+    readonly bottom: readonly ["jeans", "pants", "shorts"];
+    readonly shoes: readonly ["sneakers", "boots", "flipflops"];
+};
+export type SlotStyle<S extends ItemSlot> = (typeof ITEM_STYLES)[S][number];
+export type ItemStyle = SlotStyle<ItemSlot>;
 interface ItemBase {
     id: string;
     name: string;
@@ -18,11 +30,15 @@ interface ItemBase {
     /** Precio en pesos enteros: lo que cobra una tienda al vender (ropa) o lo que paga (pescado). */
     price: number;
 }
-export interface ClothingItem extends ItemBase {
+/** Prenda de un lugar del cuerpo: su `style` es uno de los de ese lugar. */
+export interface ClothingOf<S extends ItemSlot> extends ItemBase {
     category: "clothing";
-    slot: ItemSlot;
-    style: ItemStyle;
+    slot: S;
+    style: SlotStyle<S>;
 }
+export type ClothingItem = {
+    [S in ItemSlot]: ClothingOf<S>;
+}[ItemSlot];
 /** Dificultad de 1 (fácil, común, barato) a 5 (difícil, raro, caro). */
 export type FishDifficulty = 1 | 2 | 3 | 4 | 5;
 export interface FishItem extends ItemBase {

@@ -1,0 +1,259 @@
+/* Hud (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* ---------- HUD ---------- */
+
+.hud {
+  position: fixed;
+  top: calc(var(--edge) + var(--safe-top));
+  left: calc(var(--edge) + var(--safe-left));
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  /* Deja lugar arriba a la derecha para el botón de la cámara. */
+  max-width: calc(100vw - 2 * var(--edge) - var(--safe-left) - var(--safe-right) - 190px);
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+
+.hud strong {
+  color: var(--accent);
+}
+
+.hud button {
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hud button:hover {
+  border-color: var(--accent);
+}
+
+/* Ícono + texto de cada elemento del HUD. */
+
+.hud-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.hud kbd {
+  padding: 0 4px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.7rem;
+}
+
+/* En escritorio, datos y acciones van en la misma fila (los grupos no cuentan para el layout). */
+
+.hud-info,
+.hud-actions {
+  display: contents;
+}
+
+.hud-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud .hud-city {
+  color: var(--system);
+  font-weight: 600;
+}
+
+.hud .hud-money {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(6, 214, 160, 0.15);
+  color: #06d6a0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Necesidades (energía, hambre) ---------- */
+
+.hud-energy {
+  color: #06d6a0;
+}
+
+.hud-hunger {
+  color: #f4a259;
+}
+
+.hud-health {
+  color: #ff6b81;
+}
+
+.hud-need.mid {
+  color: var(--system);
+}
+
+.hud-need.low {
+  color: var(--danger);
+}
+
+.hud-need-bar {
+  width: 64px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hud-need-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width 0.25s linear;
+}
+
+.hud-need-value {
+  min-width: 2.2em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.hud-need.low :global(.ui-icon) {
+  animation: need-blink 1s steps(2, start) infinite;
+}
+
+/* ---------- Admin ---------- */
+
+.hud .hud-admin {
+  border-color: rgba(255, 159, 28, 0.6);
+  color: #ff9f1c;
+}
+
+.hud .hud-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* HUD: arriba de punta a punta. Datos en una fila y acciones (sólo íconos) en otra. */
+
+  .hud {
+    right: calc(var(--edge) + var(--safe-right));
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    max-width: none;
+    padding: 6px 8px;
+    font-size: 0.78rem;
+  
+  }
+
+  .hud-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+  
+  }
+
+  .hud-actions {
+    display: flex;
+    gap: 4px;
+  
+  }
+
+  /* El nombre propio ya está arriba del avatar. */
+
+  .hud .hud-name {
+    display: none;
+  
+  }
+
+  .hud-city {
+    min-width: 0;
+  
+  }
+
+  /* Si no entra todo, el nombre del barrio se corta con "…" (las barras y la plata no). */
+
+  .hud-city-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  
+  }
+
+  .hud-info > :not(.hud-city) {
+    flex: none;
+  
+  }
+
+  .hud-energy {
+    margin-left: auto;
+  
+  }
+
+  .hud-need-bar {
+    width: 22px;
+  
+  }
+
+  .hud .hud-need {
+    gap: 3px;
+  
+  }
+
+  /* Con dos barras no entra el número: el nivel se ve en la barra (y el lector de pantalla lee el valor). */
+
+  .hud-need-value {
+    display: none;
+  
+  }
+
+  .hud .hud-button {
+    flex: 1;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 4px;
+  
+  }
+
+  .hud-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  
+  }
+}
+
+@media (max-height: 500px) and (min-width: 561px) {
+  .hud {
+    right: auto;
+    flex-direction: row;
+    align-items: center;
+    max-width: calc(100vw - 2 * var(--edge) - var(--safe-left) - var(--safe-right));
+  
+  }
+
+  .hud .hud-button {
+    flex: none;
+    width: 40px;
+  
+  }
+}
+
+@keyframes need-blink {
+  to {
+    visibility: hidden;
+  }
+}

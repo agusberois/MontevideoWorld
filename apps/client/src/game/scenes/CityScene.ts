@@ -20,7 +20,6 @@ import {
   CustomerState,
   getPet,
   MatchMode,
-  getCityMap,
   getItem,
   isCart,
 } from "@montevideo-world/shared";
@@ -38,6 +37,7 @@ import { Customers } from "../objects/Customers";
 import { Pet } from "../objects/Pet";
 import { Weevil } from "../objects/Weevil";
 import { lookFromAppearance } from "../objects/avatarLook";
+import { loadedCityMap } from "@/lib/cityMaps";
 
 const HOVER_DEPTH = FLOOR_DEPTH + 20;
 /** Color del borde al pasar el mouse, por tipo de cosa del mapa (ver `CityMap.interactionAt`). */
@@ -141,8 +141,9 @@ export class CityScene extends Phaser.Scene {
   }
 
   init(data: CitySceneData) {
-    const map = getCityMap(data.cityId);
-    if (!map) throw new Error(`Barrio desconocido: ${data.cityId}`);
+    // `joinCity` ya lo descargó (cada barrio es un chunk aparte, ver `lib/cityMaps.ts`).
+    const map = loadedCityMap(data.cityId);
+    if (!map) throw new Error(`Mapa sin cargar: ${data.cityId}`);
     this.room = data.room;
     this.map = map;
     this.localAvatar = null;

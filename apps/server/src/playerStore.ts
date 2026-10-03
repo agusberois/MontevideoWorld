@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { InventoryStack, OutfitIds, SavedNeeds, TilePoint } from "@montevideo-world/shared";
+import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint } from "@montevideo-world/shared";
 import { round } from "./metrics";
 
 /**
@@ -37,8 +37,40 @@ export interface FlushStats {
   ok: boolean;
 }
 
+/** Sala que puede cerrar una sesión duplicada (misma clave en otra pestaña). */
+export interface SessionOwner {
+  evictDuplicate(sessionId: string): void;
+}
+
+/**
+ * Qué sesión está usando cada clave ahora (en cualquier sala). Una clave = una sesión a la vez: si
+ * entra de nuevo (otra pestaña, recargar antes de que se cierre la anterior), la vieja se guarda y
+ * se cierra. Así nadie puede duplicar ítems abriendo dos pestañas con la misma mochila.
+ */
+export const activeSessions = new Map<string, { owner: SessionOwner; sessionId: string }>();
+
 /** Cada cuánto se escribe el archivo como máximo (los cambios se juntan en una sola escritura). */
 const WRITE_DELAY_MS = 2000;
+/** Claves sin cambios en este tiempo y sin progreso (ver `isUntouched`) se borran del archivo. */
+export const INACTIVE_KEY_MS = 90 * 24 * 60 * 60 * 1000;
+/** Cada cuánto se buscan claves para borrar (además de al arrancar). */
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * ¿Es un jugador que entró y nunca avanzó? Sin plata de más, sin nada en la mochila que no sea del
+ * kit inicial, sin mascota, sin ser donador y sin estar preso. Perder uno de éstos no le quita nada
+ * a nadie: si vuelve, arranca igual que como estaba.
+ */
+export function isUntouched(record: PlayerRecord, now = Date.now()): boolean {
+  const starter = new Set<string>(STARTER_INVENTORY);
+  return (
+    record.money <= STARTING_MONEY &&
+    (record.inventory ?? []).every((stack) => starter.has(stack.itemId)) &&
+    !record.pet &&
+    !record.donor &&
+    !(record.jailedUntil && record.jailedUntil > now)
+  );
+}
 
 /**
  * Almacén de jugadores en un archivo JSON (`PLAYER_DATA_FILE`, por defecto `apps/server/data/players.json`).
@@ -71,10 +103,34 @@ class PlayerStore {
       this.records = new Map(Object.entries(parsed));
       for (const [key, { updatedAt: _, ...record }] of this.records) this.fingerprints.set(key, JSON.stringify(record));
       console.log(`[PlayerStore] ${this.records.size} jugadores guardados en ${this.file}`);
+      this.prune();
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       console.log(`[PlayerStore] sin datos todavía; se van a guardar en ${this.file}`);
     }
+    setInterval(() => this.prune(), PRUNE_INTERVAL_MS).unref();
+  }
+
+  /**
+   * Borra las claves sin cambios hace más de `INACTIVE_KEY_MS` que nunca avanzaron (`isUntouched`):
+   * cada navegador nuevo suma una clave y, sin esto, el archivo (y armarlo) crecería sin techo. Las
+   * claves en uso (`activeSessions`) no se tocan. Devuelve cuántas borró.
+   */
+  prune(now = Date.now()): number {
+    let removed = 0;
+    for (const [key, record] of this.records) {
+      const updatedAt = Date.parse(record.updatedAt);
+      if (activeSessions.has(key) || !(now - updatedAt > INACTIVE_KEY_MS) || !isUntouched(record, now)) continue;
+      this.records.delete(key);
+      this.fingerprints.delete(key);
+      removed += 1;
+    }
+    if (removed > 0) {
+      console.log(`[PlayerStore] se borraron ${removed} claves sin actividad (quedan ${this.records.size})`);
+      this.dirty = true;
+      this.timer ??= setTimeout(() => void this.flush(), WRITE_DELAY_MS);
+    }
+    return removed;
   }
 
   /** Cuántos jugadores hay guardados. */
@@ -194,15 +250,3 @@ export function issueTravelTicket(
   }
   travelTickets.set(key, { cityId, expiresAt, ...place });
 }
-
-/** Sala que puede cerrar una sesión duplicada (misma clave en otra pestaña). */
-export interface SessionOwner {
-  evictDuplicate(sessionId: string): void;
-}
-
-/**
- * Qué sesión está usando cada clave ahora (en cualquier sala). Una clave = una sesión a la vez: si
- * entra de nuevo (otra pestaña, recargar antes de que se cierre la anterior), la vieja se guarda y
- * se cierra. Así nadie puede duplicar ítems abriendo dos pestañas con la misma mochila.
- */
-export const activeSessions = new Map<string, { owner: SessionOwner; sessionId: string }>();

@@ -1,0 +1,258 @@
+/* Ingreso y creador de personaje (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* ---------- Pantalla de ingreso ---------- */
+
+.join-screen {
+  display: grid;
+  /* Columna acotada al ancho de la pantalla: si no, el contenido la ensancha en celulares. */
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  height: 100%;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+}
+
+.join-card {
+  width: 100%;
+  max-width: 620px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
+  overflow-y: auto;
+  padding: 28px 24px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.join-logo {
+  display: block;
+  margin: -4px auto 10px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.45));
+}
+
+.join-card h1 {
+  margin: 0 0 4px;
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+}
+
+.join-card p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+.join-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.join-card input {
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+}
+
+.join-card button {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.join-card button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Creador de personaje: vista previa a la izquierda, opciones a la derecha. */
+
+.join-creator {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 18px;
+  text-align: left;
+}
+
+.join-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 70%, rgba(76, 201, 240, 0.16), rgba(0, 0, 0, 0.25) 70%);
+}
+
+.join-preview-avatar.rolled {
+  animation: join-roll 0.35s ease-out;
+}
+
+.join-preview-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+  white-space: nowrap;
+}
+
+.join-card .join-dice {
+  width: 100%;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.join-card .join-dice:hover {
+  border-color: var(--accent);
+}
+
+.join-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.join-options fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.join-options legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.join-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.join-card .join-chips button {
+  padding: 5px 10px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.join-card .join-chips button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.15);
+  color: var(--text);
+}
+
+.join-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.join-card .join-swatches button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
+.join-card .join-swatches button[aria-checked="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.join-submit {
+  margin-top: 16px;
+}
+
+@media (max-width: 560px) {
+  .join-card {
+    padding: 20px 16px;
+  
+  }
+
+  .join-creator {
+    grid-template-columns: minmax(0, 1fr);
+  
+  }
+
+  .join-preview .avatar-preview {
+    width: 110px;
+    height: auto;
+  
+  }
+}
+
+/* Inicio de sesión: la misma tarjeta, más angosta, con el botón de Google. */
+
+.login-card {
+  max-width: 400px;
+}
+
+.join-card .login-google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid #dadce0;
+  background: #ffffff;
+  color: #1f1f1f;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.join-card .login-google:hover {
+  background: #f4f6f9;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.join-card .login-google:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.login-google-icon {
+  flex: none;
+}
+
+.join-error {
+  margin-top: 12px;
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.join-server {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+@keyframes join-roll {
+  from {
+    transform: rotate(-12deg) scale(0.85);
+    opacity: 0.4;
+  }
+}

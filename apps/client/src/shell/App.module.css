@@ -1,0 +1,101 @@
+/* App (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* ---------- Contenedor de abajo (pesca / venta, barra rápida, chat) ---------- */
+
+/* En escritorio no existe para el layout: cada uno se ubica solo (position: fixed). */
+
+.dock {
+  display: contents;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /*
+    Abajo: una columna (pesca / venta, barra rápida, chat) pegada al borde y que sube con el
+    teclado del celular. Los hijos dejan de ser fixed y se apilan.
+  */
+
+  .dock {
+    position: fixed;
+    right: calc(var(--edge) + var(--safe-right));
+    bottom: calc(var(--edge) + max(var(--safe-bottom), var(--keyboard-inset)));
+    left: calc(var(--edge) + var(--safe-left));
+    z-index: 9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+  
+  }
+
+  .dock > * {
+    pointer-events: auto;
+  
+  }
+
+  .dock :global(.interact-prompt) {
+    position: static;
+    min-height: 44px;
+    padding: 8px 16px;
+    transform: none;
+  
+  }
+
+  .dock :global(.fishing) {
+    position: static;
+    width: min(340px, 100%);
+    transform: none;
+    pointer-events: none;
+  
+  }
+
+  .dock :global(.hotbar) {
+    position: static;
+    gap: 3px;
+    max-width: 100%;
+    padding: 4px;
+    transform: none;
+  
+  }
+
+  .dock :global(.chat) {
+    position: static;
+    width: 100%;
+    background: rgba(18, 21, 31, 0.78);
+  
+  }
+
+  /* Escribiendo: el chat se agranda y lo demás de abajo se esconde para dejarle lugar. */
+
+  .dock:has(:global(.chat).expanded) > :not(:global(.chat)) {
+    display: none;
+  
+  }
+}
+
+@media (max-height: 500px) and (min-width: 561px) {
+  .dock {
+    flex-direction: row;
+    flex-wrap: wrap-reverse;
+    align-items: flex-end;
+    justify-content: flex-end;
+  
+  }
+
+  .dock :global(.fishing) {
+    align-self: flex-end;
+    margin-right: auto;
+  
+  }
+
+  .dock :global(.chat) {
+    order: 2;
+    width: min(320px, 42vw);
+  
+  }
+
+  .dock :global(.hotbar) {
+    order: 1;
+  
+  }
+}

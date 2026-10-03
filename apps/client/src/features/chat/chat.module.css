@@ -1,0 +1,240 @@
+/* Chat y comandos (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.chat-history {
+  max-height: 200px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.chat-history li {
+  overflow-wrap: anywhere;
+}
+
+.chat-history .chat-name {
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.chat-history .chat-system {
+  color: var(--system);
+  font-style: italic;
+}
+
+/* Mensajes privados (/mensaje): violeta; el nombre es un botón para responder. */
+
+.chat-history .chat-private {
+  color: #d4b8ff;
+}
+
+.chat-history .chat-private button.chat-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #c39bff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-history .chat-private button.chat-name:hover {
+  text-decoration: underline;
+}
+
+.chat-empty {
+  color: var(--muted);
+}
+
+/* Autoayuda de comandos: lista arriba del input mientras se escribe "/…" (ChatBox.tsx). */
+
+.chat-commands {
+  max-height: 180px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border-top: 1px solid var(--panel-border);
+}
+
+.chat-commands button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-commands button.active {
+  background: rgba(76, 201, 240, 0.16);
+}
+
+.chat-command-usage {
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+}
+
+.chat-command-admin {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 159, 28, 0.2);
+  color: #ff9f1c;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.chat-command-description {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.chat-command-hint {
+  margin: 0;
+  padding: 6px 10px;
+  border-top: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.chat-form {
+  display: flex;
+  border-top: 1px solid var(--panel-border);
+}
+
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+
+.chat-form button {
+  padding: 0 14px;
+  border: 0;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.commands-intro {
+  margin: 10px 16px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.commands-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 16px 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.commands-list {
+  margin: 0;
+  padding: 0 16px 6px;
+  list-style: none;
+}
+
+.commands-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 0;
+}
+
+.commands-list li + li {
+  border-top: 1px solid var(--panel-border);
+}
+
+.commands-list code {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(76, 201, 240, 0.14);
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.commands-list code.admin {
+  background: rgba(255, 159, 28, 0.14);
+  color: #ff9f1c;
+}
+
+.commands-list span {
+  font-size: 0.82rem;
+}
+
+/* Botón para agrandar / achicar el chat: sólo en el modo compacto. */
+
+.chat-toggle {
+  display: none;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* Compacto: se ven los dos últimos mensajes, que se desvanecen hacia arriba. */
+
+  :global(.chat):not(:global(.expanded)) .chat-history {
+    max-height: 48px;
+    padding: 4px 10px;
+    overflow: hidden;
+    font-size: 0.78rem;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%);
+    mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  
+  }
+
+  :global(.chat).expanded .chat-history {
+    max-height: min(260px, calc((100dvh - var(--keyboard-inset)) * 0.38));
+  
+  }
+
+  .chat-commands {
+    max-height: min(180px, calc((100dvh - var(--keyboard-inset)) * 0.3));
+  
+  }
+
+  .chat-form input {
+    min-height: 44px;
+  
+  }
+
+  .chat-toggle {
+    display: block;
+    width: 40px;
+    border: 0;
+    border-left: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+  
+  }
+
+  .chat-history .chat-private button.chat-name {
+    padding: 2px 0;
+  
+  }
+}

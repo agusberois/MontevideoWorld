@@ -1,0 +1,64 @@
+/* Cajas sorpresa (antes en app/globals.css). Las clases que no están acá son globales. */
+
+/* Lo que salió de la caja: arriba de todo, en el medio. Clic para cerrarlo antes. */
+
+.box-reveal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+  max-width: calc(100vw - 32px);
+  padding: 20px 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  animation: box-reveal-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+  cursor: pointer;
+}
+
+.box-reveal > :not(.box-reveal-burst) {
+  position: relative;
+}
+
+.box-reveal-burst {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 0deg, transparent 0 10%, rgba(255, 209, 102, 0.16) 10% 15%, transparent 15% 35%, rgba(255, 209, 102, 0.16) 35% 40%, transparent 40% 60%, rgba(255, 209, 102, 0.16) 60% 65%, transparent 65% 85%, rgba(255, 209, 102, 0.16) 85% 90%, transparent 90%);
+  animation: box-reveal-spin 6s linear infinite;
+}
+
+.box-reveal-stars {
+  color: var(--system);
+  letter-spacing: 0.08em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .box-reveal,
+.box-reveal-burst {
+    animation: none;
+  
+  }
+}
+
+@keyframes box-reveal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}
+
+@keyframes box-reveal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

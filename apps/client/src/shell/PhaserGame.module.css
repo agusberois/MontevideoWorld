@@ -1,0 +1,15 @@
+/* PhaserGame (antes en app/globals.css). Las clases que no están acá son globales. */
+
+.game-container {
+  position: fixed;
+  inset: 0;
+  /* Los gestos sobre el mapa los maneja Phaser (tocar para caminar, pellizcar para el zoom). */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.game-container canvas {
+  display: block;
+}

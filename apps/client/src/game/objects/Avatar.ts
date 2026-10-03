@@ -1,8 +1,13 @@
 import * as Phaser from "phaser";
-import { CHAT_BUBBLE_MS, ClothingItem, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TilePoint } from "@montevideo-world/shared";
+import { CHAT_BUBBLE_MS, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import { AvatarLook, Outfit, outfitFromIds } from "./avatarLook";
+import { HEAD_R, HEAD_Y, HIP_Y, OUTLINE, OUTLINE_ALPHA, SHOULDER_Y, hairCap } from "./clothing/body";
+import { drawBelt, drawBottomLeg, drawHips } from "./clothing/bottom";
+import { drawHat } from "./clothing/hat";
+import { drawShoes } from "./clothing/shoes";
+import { drawTop, drawTopSleeve } from "./clothing/top";
 
 /** Nombre sobre la cabeza (por encima del pelo más alto y de los gorros). */
 const NAME_Y = -92;
@@ -27,12 +32,6 @@ const CATCH_UP_FROM = 2;
 const CATCH_UP_PER_TILE = 0.3;
 const MAX_CATCH_UP = 2.5;
 const MAX_QUEUE = 8;
-
-/** Geometría del cuerpo (px, origen en los pies). */
-const HEAD_Y = -69;
-const HEAD_R = 10.5;
-const HIP_Y = -30;
-const SHOULDER_Y = -55;
 
 /** Ciclo de caminata: radianes de fase por ms y amplitud del balanceo de piernas/brazos. */
 const WALK_PHASE_PER_MS = 1 / 70;
@@ -61,13 +60,9 @@ const HIT_HALF_WIDTH = 17;
 const HIT_TOP = -86;
 const HIT_BOTTOM = 6;
 
-const OUTLINE = 0x000000;
-const OUTLINE_ALPHA = 0.28;
 const EYE_COLOR = 0x2b1d14;
 const MOUTH_COLOR = 0x7a3b2e;
 const LIPS_COLOR = 0xc0475a;
-const BELT_COLOR = 0x2a1d14;
-const UNDERWEAR_COLOR = 0xe4e1da;
 
 export type SitFacing = "south" | "east";
 /** Hacia dónde mira el que pesca (hacia el agua). */
@@ -101,16 +96,6 @@ export interface AvatarConfig {
   isAdmin?: boolean;
   /** Donador del proyecto: lleva un distintivo dorado arriba del nombre. */
   isDonor?: boolean;
-}
-
-function itemColor(item: ClothingItem): number {
-  return Phaser.Display.Color.HexStringToColor(item.color).color;
-}
-
-/** Medio círculo superior del pelo (de oreja a oreja pasando por la coronilla). */
-function hairCap(g: Phaser.GameObjects.Graphics, radius: number) {
-  g.beginPath();
-  g.arc(0, HEAD_Y, radius, Math.PI, Math.PI * 2, false);
 }
 
 /**
@@ -383,8 +368,8 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.legGraphics.forEach((g) => this.drawLeg(g.clear(), outfit));
     this.armGraphics.forEach((g) => this.drawArm(g.clear(), outfit));
     this.drawTorso(this.torso.clear(), outfit);
-    this.drawHat(this.hatFront.clear(), outfit.hat, false);
-    this.drawHat(this.hatBack.clear(), outfit.hat, true);
+    drawHat(this.hatFront.clear(), outfit.hat, false);
+    drawHat(this.hatBack.clear(), outfit.hat, true);
   }
 
   /** Sentado en un banco (`facing` = hacia dónde mira) o parado. */
@@ -685,64 +670,17 @@ export class Avatar extends Phaser.GameObjects.Container {
     }
   }
 
-  // --- Ropa ------------------------------------------------------------------------------------
+  // --- Ropa (cada prenda se dibuja en clothing/<lugar>.ts) -----------------------------------------
 
-  /** Pierna desde la cadera: piel, pantalón/short/ropa interior y calzado (la punta mira a +x). */
+  /** Pierna desde la cadera: piel, prenda de abajo (o ropa interior) y calzado (la punta mira a +x). */
   private drawLeg(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
-    const skin = this.look.skin;
-    g.fillStyle(shade(skin, -6), 1);
+    g.fillStyle(shade(this.look.skin, -6), 1);
     g.fillRoundedRect(-3, -2, 6, 28, 3);
-
-    const bottom = outfit.bottom;
-    if (bottom) {
-      const color = itemColor(bottom);
-      const length = bottom.style === "shorts" ? 15 : 28;
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(-3.5, -2, 7, length, 3);
-      g.fillStyle(shade(color, -15), 1);
-      if (bottom.style === "shorts") g.fillRect(-3.5, length - 4, 7, 2);
-      else g.fillRect(-3.5, 12, 7, 1.5);
-      if (bottom.style === "jeans") {
-        g.lineStyle(1, shade(color, 25), 0.7);
-        g.lineBetween(1.5, 0, 1.5, 24);
-      }
-      g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-      g.strokeRoundedRect(-3.5, -2, 7, length, 3);
-    } else {
-      g.fillStyle(UNDERWEAR_COLOR, 1);
-      g.fillRoundedRect(-3.5, -2, 7, 8, 3);
-    }
-
-    const shoes = outfit.shoes;
-    if (shoes?.style === "flipflops") {
-      // Pie a la vista sobre una suela finita, con la tira en V.
-      const color = itemColor(shoes);
-      g.fillStyle(shade(color, -20), 1);
-      g.fillEllipse(1.5, 29, 11, 3.5);
-      g.fillStyle(skin, 1);
-      g.fillEllipse(1, 27, 9, 4.5);
-      g.lineStyle(1.5, color, 1);
-      g.lineBetween(-2, 25.5, 2, 27.5);
-      g.lineBetween(2, 27.5, 5, 25.5);
-    } else if (shoes) {
-      const color = itemColor(shoes);
-      const top = shoes.style === "boots" ? 18 : 24;
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(-4, top, 10, 30 - top, 3);
-      g.fillStyle(shoes.style === "sneakers" ? (color > 0xe0e0e0 ? 0xbdbdbd : 0xf4f4f4) : 0x2a1d14, 1);
-      g.fillRect(-4, 28.5, 10, 1.5);
-      g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-      g.strokeRoundedRect(-4, top, 10, 30 - top, 3);
-    } else {
-      // Descalzo.
-      g.fillStyle(skin, 1);
-      g.fillEllipse(1, 27.5, 9, 5);
-      g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
-      g.strokeEllipse(1, 27.5, 9, 5);
-    }
+    drawBottomLeg(g, outfit.bottom);
+    drawShoes(g, outfit.shoes, this.look.skin);
   }
 
-  /** Brazo desde el hombro: piel, manga corta/larga según la prenda de arriba, y mano. */
+  /** Brazo desde el hombro: piel, mano y la manga de la prenda de arriba. */
   private drawArm(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
     const skin = this.look.skin;
     g.fillStyle(shade(skin, -6), 1);
@@ -751,145 +689,16 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillCircle(0, 21, 3.3);
     g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
     g.strokeCircle(0, 21, 3.3);
-
-    const top = outfit.top;
-    if (!top || top.style === "tank") return;
-    const color = shade(itemColor(top), -10);
-    const sleeve = top.style === "hoodie" ? 19 : 11;
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(-3.2, -1, 6.4, sleeve, 3);
-    if (top.style === "hoodie") {
-      g.fillStyle(shade(color, -15), 1);
-      g.fillRect(-3.2, sleeve - 4, 6.4, 3);
-    }
-    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-    g.strokeRoundedRect(-3.2, -1, 6.4, sleeve, 3);
+    drawTopSleeve(g, outfit.top);
   }
 
-  /** Cuello, prenda de arriba (o torso desnudo), cadera y cinturón. */
+  /** Cuello, cadera, prenda de arriba (o torso desnudo) y cinturón. */
   private drawTorso(g: Phaser.GameObjects.Graphics, outfit: Outfit) {
-    const skin = this.look.skin;
-    g.fillStyle(shade(skin, -12), 1);
+    g.fillStyle(shade(this.look.skin, -12), 1);
     g.fillRect(-3, HEAD_Y + 8, 6, 7);
-
-    const bottom = outfit.bottom;
-    g.fillStyle(bottom ? itemColor(bottom) : UNDERWEAR_COLOR, 1);
-    g.fillRoundedRect(-9.5, HIP_Y - 4, 19, 8, 3);
-
-    const top = outfit.top;
-    if (top?.style === "hoodie") {
-      // Capucha caída detrás del cuello.
-      g.fillStyle(shade(itemColor(top), -25), 1);
-      g.fillEllipse(-1, SHOULDER_Y - 2, 18, 8);
-    }
-
-    // Base: sombra lateral + cuerpo + brillo. Sin remera (o con musculosa) la base es la piel.
-    const base = top && top.style !== "tank" ? itemColor(top) : skin;
-    g.fillStyle(shade(base, -18), 1);
-    g.fillRoundedRect(-11, SHOULDER_Y - 3, 22, 27, 6);
-    g.fillStyle(base, 1);
-    g.fillRoundedRect(-7.5, SHOULDER_Y - 3, 18.5, 27, 6);
-
-    if (!top && this.look.gender === "f") {
-      // Sin remera, el avatar de mujer queda con una bikini.
-      g.fillStyle(UNDERWEAR_COLOR, 1);
-      g.fillRoundedRect(-9, SHOULDER_Y + 3, 19, 8, 3);
-      g.lineStyle(1, shade(UNDERWEAR_COLOR, -30), 0.8);
-      g.strokeRoundedRect(-9, SHOULDER_Y + 3, 19, 8, 3);
-    } else if (!top) {
-      g.lineStyle(1.2, shade(skin, -22), 0.8);
-      g.beginPath();
-      g.arc(-2.5, SHOULDER_Y + 6, 5, Math.PI * 0.15, Math.PI * 0.85, false);
-      g.strokePath();
-      g.beginPath();
-      g.arc(5.5, SHOULDER_Y + 6, 5, Math.PI * 0.15, Math.PI * 0.85, false);
-      g.strokePath();
-      g.fillStyle(shade(skin, -25), 1);
-      g.fillCircle(2, SHOULDER_Y + 18, 1);
-    } else if (top.style === "tank") {
-      const color = itemColor(top);
-      g.fillStyle(shade(color, -12), 1);
-      g.fillRoundedRect(-9, SHOULDER_Y + 1, 18, 23, 5);
-      g.fillStyle(color, 1);
-      g.fillRoundedRect(-6.5, SHOULDER_Y + 1, 15.5, 23, 5);
-      g.fillRect(-6.5, SHOULDER_Y - 3, 3, 6);
-      g.fillRect(4, SHOULDER_Y - 3, 3, 6);
-    } else {
-      const color = itemColor(top);
-      g.fillStyle(shade(color, 12), 1);
-      g.fillRoundedRect(2, SHOULDER_Y + 1, 6, 12, 3);
-      if (top.style === "jersey") {
-        // Cuello blanco (el escote en V de la cara queda encima) y escudo con el sol.
-        g.fillStyle(0xffffff, 1);
-        g.fillTriangle(-5, SHOULDER_Y - 3, 5, SHOULDER_Y - 3, 0, SHOULDER_Y + 4);
-        g.fillStyle(0xf2b705, 1);
-        g.fillCircle(5.5, SHOULDER_Y + 6, 2);
-      } else if (top.style === "hoodie") {
-        g.fillStyle(shade(color, -15), 1);
-        g.fillRoundedRect(-6, SHOULDER_Y + 13, 13, 7, 3);
-        g.lineStyle(1, 0xf4f4f4, 0.9);
-        g.lineBetween(-2, SHOULDER_Y - 1, -2, SHOULDER_Y + 7);
-        g.lineBetween(2, SHOULDER_Y - 1, 2, SHOULDER_Y + 7);
-      }
-    }
-    g.lineStyle(1.5, OUTLINE, OUTLINE_ALPHA);
-    g.strokeRoundedRect(-11, SHOULDER_Y - 3, 22, 27, 6);
-
-    if (bottom && bottom.style !== "shorts") {
-      g.fillStyle(BELT_COLOR, 1);
-      g.fillRect(-10, HIP_Y - 5, 20, 3);
-      g.fillStyle(0xc9a227, 1);
-      g.fillRect(2, HIP_Y - 5, 3, 3);
-    }
-  }
-
-  /** Gorro sobre el pelo. `back` = vista de espaldas (sin visera ni detalles de frente). */
-  private drawHat(g: Phaser.GameObjects.Graphics, hat: ClothingItem | undefined, back: boolean) {
-    if (!hat) return;
-    const R = HEAD_R;
-    const color = itemColor(hat);
-
-    switch (hat.style) {
-      case "cap":
-        g.fillStyle(color, 1);
-        hairCap(g, R + 1.8);
-        g.lineTo(R + 1.8, HEAD_Y - 1);
-        g.lineTo(-R - 1.8, HEAD_Y - 1);
-        g.closePath();
-        g.fillPath();
-        if (!back) {
-          g.fillStyle(shade(color, -20), 1);
-          g.fillEllipse(R + 3, HEAD_Y - 2, 13, 4.5);
-        } else {
-          g.fillStyle(shade(color, -30), 1);
-          g.fillRect(-3, HEAD_Y - 4, 6, 2.5);
-        }
-        g.fillStyle(shade(color, 20), 1);
-        g.fillCircle(0, HEAD_Y - R - 1.5, 1.6);
-        return;
-      case "beanie":
-        g.fillStyle(color, 1);
-        hairCap(g, R + 2.5);
-        g.lineTo(R + 2.5, HEAD_Y - 1);
-        g.lineTo(-R - 2.5, HEAD_Y - 1);
-        g.closePath();
-        g.fillPath();
-        g.fillStyle(shade(color, -18), 1);
-        g.fillRoundedRect(-R - 2.5, HEAD_Y - 5, R * 2 + 5, 5, 2);
-        g.fillStyle(shade(color, 25), 1);
-        g.fillCircle(0, HEAD_Y - R - 4, 3.5);
-        return;
-      case "beret":
-        g.fillStyle(color, 1);
-        g.fillEllipse(-1, HEAD_Y - R + 1, R * 2 + 8, 9);
-        g.fillStyle(shade(color, 18), 1);
-        g.fillEllipse(-3, HEAD_Y - R - 0.5, R, 3);
-        g.fillStyle(color, 1);
-        g.fillRect(-0.75, HEAD_Y - R - 5, 1.5, 3);
-        return;
-      default:
-        return;
-    }
+    drawHips(g, outfit.bottom);
+    drawTop(g, outfit.top, this.look.skin, this.look.gender);
+    drawBelt(g, outfit.bottom);
   }
 
   // --- Cabeza ----------------------------------------------------------------------------------

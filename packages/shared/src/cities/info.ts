@@ -1,0 +1,37 @@
+import { CIUDAD_VIEJA_INFO } from "./ciudadVieja/info";
+import { COMCAR_INFO } from "./comcar/info";
+import { TRES_CRUCES_INFO } from "./tresCruces/info";
+import { CityId, CityInfo, Shop } from "./types";
+
+/**
+ * Lo liviano de cada barrio (nombre, edificios, tiendas), en el orden en que se muestran en la lista
+ * (tecla M). Lo usa el navegador siempre; los mapas completos están en `@montevideo-world/shared/cities`
+ * (server) y el cliente los descarga de a uno al entrar (`lib/cityMaps.ts`).
+ */
+export const CITY_INFOS: readonly CityInfo[] = [CIUDAD_VIEJA_INFO, TRES_CRUCES_INFO, COMCAR_INFO];
+
+/** Barrio donde aparece siempre el jugador al entrar al juego. */
+export const SPAWN_CITY_ID: CityId = CIUDAD_VIEJA_INFO.id;
+
+/** Adonde va preso el que banea el admin (`/ban`): no se sale hasta cumplir. */
+export const JAIL_CITY_ID: CityId = COMCAR_INFO.id;
+
+export function isCityId(id: string): id is CityId {
+  return CITY_INFOS.some((city) => city.id === id);
+}
+
+export function getCityInfo(id: string): CityInfo | undefined {
+  return CITY_INFOS.find((city) => city.id === id);
+}
+
+/** Dónde se vende `itemId` (p. ej. para decir dónde comprar boletos): tienda y barrio. */
+export function shopsSelling(itemId: string): Array<{ city: CityInfo; shop: Shop }> {
+  return CITY_INFOS.flatMap((city) => city.shops.filter((shop) => shop.stock.includes(itemId)).map((shop) => ({ city, shop })));
+}
+
+/** "Agencia STM (Ciudad Vieja)": dónde se compra `itemId`, para los avisos. */
+export function whereToBuy(itemId: string): string {
+  return shopsSelling(itemId)
+    .map(({ city, shop }) => `${shop.name} (${city.name})`)
+    .join(" o ");
+}

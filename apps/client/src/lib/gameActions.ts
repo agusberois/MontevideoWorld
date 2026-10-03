@@ -1,7 +1,7 @@
 import { getItem } from "@montevideo-world/shared";
 import { eventBus } from "./eventBus";
 import { gameStore } from "./gameStore";
-import { ItemActionContext, itemAction } from "./itemActions";
+import { ItemActionContext, itemAction } from "../features/inventory/itemActions";
 import { CityRoom, sendFishing, sendTravelRequest, sendVending } from "./network";
 
 /**
