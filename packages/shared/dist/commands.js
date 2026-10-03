@@ -6,10 +6,12 @@
  * (`apps/server/src/commands/`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMMANDS = exports.COMMAND_PREFIX = void 0;
+exports.COMMANDS = exports.COMMAND_PREFIX = exports.MAX_MUTE_MINUTES = void 0;
 exports.getCommand = getCommand;
 exports.canUseCommand = canUseCommand;
 exports.parseCommand = parseCommand;
+/** `/silenciar`: máximo de minutos (un día; se levanta antes si se reinicia el server). */
+exports.MAX_MUTE_MINUTES = 24 * 60;
 /** Todo comando empieza con este carácter. */
 exports.COMMAND_PREFIX = "/";
 /** Catálogo de comandos. Para agregar uno: definirlo acá y registrar su handler en el server. */
@@ -49,6 +51,12 @@ exports.COMMANDS = [
         name: "ban",
         usage: "/ban <minutos> <jugador>",
         description: "Manda al jugador preso al COMCAR por esos minutos (aunque salga y vuelva a entrar). Con 0, lo libera.",
+        role: "admin",
+    },
+    {
+        name: "silenciar",
+        usage: "/silenciar <minutos> <jugador>",
+        description: "No deja hablar a un jugador conectado (chat, mensajes, saludos) por esos minutos. Con 0, lo vuelve a dejar.",
         role: "admin",
     },
     {

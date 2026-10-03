@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { playerId } from "./playerStore";
 import type { PlayerSession } from "./rooms/session";
 
 /**
@@ -11,9 +11,9 @@ import type { PlayerSession } from "./rooms/session";
  * `[Admin] DENEGADO "Pepe" (…) en …: admin:give caña-pro × 1` (cliente modificado)
  */
 
-/** Hash corto de la clave del jugador (8 hex del SHA-256), o "sin clave". */
+/** Hash corto de la clave del jugador (las 8 primeras letras de su `playerId`), o "sin clave". */
 export function keyTag(key: string | null): string {
-  return key ? createHash("sha256").update(key).digest("hex").slice(0, 8) : "sin clave";
+  return key ? playerId(key).slice(0, 8) : "sin clave";
 }
 
 /**

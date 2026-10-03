@@ -1,3 +1,5 @@
+import { sanitizeLabel } from "./sanitize";
+
 /**
  * Mascotas: se adoptan en la Veterinaria de Ciudad Vieja (`Shop.pets`), se les pone nombre y
  * siguen a su dueño por todos lados (lo dibuja cada cliente; el server sólo guarda cuál es y cómo se
@@ -89,10 +91,7 @@ export function getPet(id: string): PetDefinition | undefined {
 
 export const PET_NAME_MAX_LENGTH = 14;
 
-const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/g;
-
-/** Nombre de la mascota: sin caracteres de control ni espacios de más, hasta `PET_NAME_MAX_LENGTH`. */
+/** Nombre de la mascota: limpio como el de un jugador (`sanitizeLabel`), hasta `PET_NAME_MAX_LENGTH`. */
 export function sanitizePetName(value: unknown): string {
-  if (typeof value !== "string") return "";
-  return value.replace(CONTROL_CHARS, "").replace(/\s+/g, " ").trim().slice(0, PET_NAME_MAX_LENGTH);
+  return sanitizeLabel(value, PET_NAME_MAX_LENGTH);
 }

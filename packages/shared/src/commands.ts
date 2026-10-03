@@ -5,6 +5,9 @@
  * (`apps/server/src/commands/`).
  */
 
+/** `/silenciar`: máximo de minutos (un día; se levanta antes si se reinicia el server). */
+export const MAX_MUTE_MINUTES = 24 * 60;
+
 /** Todo comando empieza con este carácter. */
 export const COMMAND_PREFIX = "/";
 
@@ -57,6 +60,12 @@ export const COMMANDS = [
     name: "ban",
     usage: "/ban <minutos> <jugador>",
     description: "Manda al jugador preso al COMCAR por esos minutos (aunque salga y vuelva a entrar). Con 0, lo libera.",
+    role: "admin",
+  },
+  {
+    name: "silenciar",
+    usage: "/silenciar <minutos> <jugador>",
+    description: "No deja hablar a un jugador conectado (chat, mensajes, saludos) por esos minutos. Con 0, lo vuelve a dejar.",
     role: "admin",
   },
   {

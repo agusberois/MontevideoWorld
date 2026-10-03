@@ -32,7 +32,8 @@ exports.CITIES = [map_2.CIUDAD_VIEJA, map_4.TRES_CRUCES, map_3.COMCAR];
 /** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
 const BY_ID = { "ciudad-vieja": map_2.CIUDAD_VIEJA, "tres-cruces": map_4.TRES_CRUCES, comcar: map_3.COMCAR };
 function getCity(id) {
-    return BY_ID[id];
+    // `hasOwn`: si no, "constructor" o "__proto__" devolvían algo de `Object.prototype` (el id viene del cliente).
+    return Object.hasOwn(BY_ID, id) ? BY_ID[id] : undefined;
 }
 const cityMaps = new Map();
 /** CityMap memoizado por barrio (el layout es inmutable). */

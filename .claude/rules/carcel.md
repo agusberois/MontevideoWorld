@@ -12,9 +12,13 @@ paths:
 # Cárcel (COMCAR, `/ban`)
 
 - `/ban <minutos> <jugador>` (admin, hasta `MAX_BAN_MINUTES`; 0 = liberar). `bans.ts` anota hasta
-  cuándo por **clave** (y va al guardado, `PlayerRecord.jailedUntil`: sigue preso si se reinicia el
-  server) y por **nombre** (sin clave, o si no está conectado: también se marcan las claves guardadas
-  con ese nombre).
+  cuándo por **id** (`playerId` de la clave; va al guardado, `PlayerRecord.jailedUntil`: sigue preso si
+  se reinicia el server) y por **nombre** (`nameKey`: también los parecidos), pero el de nombre
+  **vence a `NAME_BAN_MAX_MS` (1 h) como mucho**: frena al que vuelve sin clave con el mismo nombre
+  sin dejar preso por días a otro que lo use. Quien no tiene clave queda preso 1 h como mucho.
+- Desconectado: van presos todos los guardados con ese nombre (`idsByName`). El admin recibe cuántos
+  tocó (0: sólo por nombre; más de 1: aviso de que pueden ser personas distintas y cómo deshacerlo) y
+  queda `[Ban] "nombre" desconectado → N guardados (ids cortos) hasta …` en el log.
 - Conectado: su sala (`jail`, vía `playerDirectory`) le corta lo que hacía, avisa y le manda
   `travel:ok { cityId: JAIL_CITY_ID }`; el cliente viaja solo. Si en `JAIL_TRAVEL_GRACE_MS` sigue
   ahí, se lo desconecta con `JAILED_KICK_CODE`.

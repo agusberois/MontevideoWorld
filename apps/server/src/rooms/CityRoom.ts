@@ -27,16 +27,20 @@ import {
   isPlayerKey,
   randomAppearance,
   sanitizeAppearance,
+  NAME_MAX_LENGTH,
+  isReservedName,
   sanitizeName,
+  truncate,
   sanitizePetName,
 } from "@montevideo-world/shared";
 import { getCityMap } from "@montevideo-world/shared/cities";
 import { GameState, Player } from "@montevideo-world/shared/schema";
-import { auditJoin } from "../audit";
+import { auditJoin, logText } from "../audit";
 import { bans } from "../bans";
-import { admitJoin, clientIp, connectionClosed, connectionOpened } from "../connectionLimits";
+import { mutes } from "../mutes";
+import { admitJoin, admitNewKey, clientIp, connectionClosed, connectionOpened } from "../connectionLimits";
 import { PrivateMailbox, playerDirectory } from "../directory";
-import { isAdminName, isOriginAllowed } from "../env";
+import { adminName, isAdminName, isOriginAllowed } from "../env";
 import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
 import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
@@ -88,6 +92,24 @@ const CITY_FULL_CODE = 503;
 /** Lo que `CityRoom.onAuth` le pasa a `onJoin` (en `client.auth`). */
 interface JoinAuth {
   ip: string;
+}
+
+/** Cuánto esperar para avisarle a alguien que entró con otro nombre (ver `onJoin`). */
+const RENAME_NOTICE_DELAY_MS = 1500;
+
+function guestName(): string {
+  return `Invitado${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+/** `name` si nadie lo usa; si no, con un número al final ("Juan2", "Juan3"…) sin pasar el largo máximo. */
+function uniqueName(name: string, taken: (name: string) => boolean): string {
+  if (!taken(name)) return name;
+  for (let n = 2; n < 100; n++) {
+    const suffix = String(n);
+    const candidate = `${truncate(name, NAME_MAX_LENGTH - suffix.length)}${suffix}`;
+    if (!taken(candidate)) return candidate;
+  }
+  return guestName();
 }
 
 /** Salas abiertas en este proceso: para guardar a todos si el proceso se va a caer (`saveEveryone`). */
@@ -156,7 +178,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
    * Corre en el pedido HTTP de matchmaking (`joinOrCreate` / `joinById`), antes de reservar el
    * asiento: aplica los límites por IP (`connectionLimits.ts`). Lo que devuelve llega a `onJoin`.
    */
-  static async onAuth(_token: string, _options: unknown, context: AuthContext): Promise<JoinAuth> {
+  static async onAuth(_token: string, options: Partial<JoinOptions> | undefined, context: AuthContext): Promise<JoinAuth> {
     // CORS sólo frena que el navegador lea la respuesta: el pedido igual llega. Acá se corta antes de
     // reservar el asiento, así otra página no puede meter a sus visitantes al juego.
     if (!isOriginAllowed(context.headers.origin)) {
@@ -165,12 +187,16 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const ip = clientIp(context.ip);
     const refused = admitJoin(ip);
     if (refused) throw new ServerError(TOO_MANY_JOINS_CODE, refused);
+    // Clave sin progreso guardado: tope de claves nuevas por IP (M1, `players.json` sin techo).
+    const key = isPlayerKey(options?.playerKey) ? options.playerKey : null;
+    const refusedKey = key && !playerStore.get(key) ? admitNewKey(ip, key) : null;
+    if (refusedKey) throw new ServerError(TOO_MANY_JOINS_CODE, refusedKey);
     return { ip };
   }
 
   onCreate(options: Partial<JoinOptions> = {}) {
     const map = typeof options.cityId === "string" ? getCityMap(options.cityId) : undefined;
-    if (!map) throw new Error(`Barrio desconocido: ${String(options.cityId)}`);
+    if (!map) throw new Error(`Barrio desconocido: ${logText(String(options.cityId), 40)}`);
     if ((openCopies.get(map.city.id)?.size ?? 0) >= MAX_COPIES_PER_CITY) {
       throw new ServerError(CITY_FULL_CODE, `${map.city.name} está lleno: probá en un rato.`);
     }
@@ -251,7 +277,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
 
     const player = new Player();
     player.sessionId = client.sessionId;
-    player.name = sanitizeName(options.name) || `Invitado${Math.floor(1000 + Math.random() * 9000)}`;
+    player.name = sanitizeName(options.name) || guestName();
     // Aspecto elegido en la pantalla de ingreso (validado); si no vino o es inválido, uno al azar.
     const look = sanitizeAppearance(options.appearance) ?? randomAppearance();
     player.color = look.color;
@@ -264,13 +290,21 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     player.y = spawn.y;
     // Con clave: se recupera lo guardado (y si la clave ya estaba en uso, se cierra esa sesión).
     const key = isPlayerKey(options.playerKey) ? options.playerKey : null;
+    // Nombres: nadie usa uno reservado ni imita al del admin, y no hay dos conectados que se vean
+    // iguales (`nameKey`): al segundo se le suma un número. La sesión que esta clave reemplaza (otra
+    // pestaña) no cuenta.
+    const wantedName = player.name;
+    const reserved = !player.admin && isReservedName(player.name, adminName());
+    if (reserved) player.name = guestName();
+    const replacing = key ? activeSessions.get(key)?.sessionId : undefined;
+    player.name = uniqueName(player.name, (name) => playerDirectory.find(name).some((other) => other.sessionId !== replacing));
     // Fuera del barrio de spawn sólo se entra con boleto (se paga en la sala de origen). Al de spawn
     // también puede venir uno (de `/trace`): se consume igual, para aparecer al lado del jugador.
     const issued = key ? travelTickets.get(key) : undefined;
     const ticket = issued && issued.cityId === this.map.city.id && issued.expiresAt >= Date.now() ? issued : undefined;
     // Preso (`/ban`): sólo puede entrar al COMCAR, y ahí entra sin boleto. El cliente, al ver este
     // código, entra solo al COMCAR.
-    const jailedUntil = bans.until(key, player.name);
+    const jailedUntil = Math.max(bans.until(key, wantedName), bans.until(key, player.name));
     const inJail = this.map.city.id === JAIL_CITY_ID;
     if (jailedUntil && !inJail) {
       throw new ServerError(JAILED_JOIN_CODE, `Estás preso en el COMCAR: te quedan ${formatJailLeft((jailedUntil - Date.now()) / 1000)}.`);
@@ -348,6 +382,13 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
     auditJoin(session, this.label, saved !== undefined);
+    if (player.name !== wantedName) {
+      const why = reserved ? "Ese nombre está reservado" : "Ya hay alguien conectado con ese nombre (o uno muy parecido)";
+      // Con demora: el cliente registra sus handlers después de entrar (si no, el aviso se pierde).
+      this.clock.setTimeout(() => {
+        if (!session.closed && this.sessions.get(client.sessionId) === session) this.notice(session, `${why}: entraste como ${player.name}.`);
+      }, RENAME_NOTICE_DELAY_MS);
+    }
   }
 
   onLeave(client: Client) {
@@ -628,5 +669,15 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   jail(sessionId: string, until: number) {
     const session = this.sessions.get(sessionId);
     if (session) jail(this, session, until);
+  }
+
+  mute(sessionId: string, until: number) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    mutes.set(session.key, session.player.name, until);
+    this.notice(
+      session,
+      until ? `🔇 Te silenciaron: no podés hablar por ${formatJailLeft((until - Date.now()) / 1000)}.` : "🔊 Ya podés volver a hablar.",
+    );
   }
 }

@@ -23,7 +23,7 @@ export interface CommandHost {
   giveItem(client: Client, itemId: string, quantity: number): number;
   /** Anuncio en el medio de la pantalla para todos los barrios. */
   announce(name: string, text: string): void;
-  /** Jugadores de esta sala cuyo nombre coincide (sin distinguir mayúsculas). */
+  /** Jugadores de esta sala con ese nombre o uno que se ve igual (`nameKey`). */
   findPlayers(name: string): Array<{ client: Client; player: Player }>;
   /** Suma `amount` al saldo (y le reenvía el saldo); false si se pasa del tope. */
   giveMoney(client: Client, amount: number): boolean;
@@ -45,9 +45,12 @@ export interface CommandHost {
   healFully(client: Client): void;
   /**
    * Preso al COMCAR hasta `until` (ms; 0 = liberarlo). Conectado (`target`), lo lleva su sala; si
-   * no, queda anotado por nombre y por las claves guardadas con ese nombre, para cuando entre.
+   * no, queda anotado por nombre (como mucho `NAME_BAN_MAX_MS`) y por los jugadores guardados con
+   * ese nombre, para cuando entren. Devuelve a cuántos guardados tocó (0 si estaba conectado).
    */
-  jail(target: OnlinePlayer | null, name: string, until: number): void;
+  jail(target: OnlinePlayer | null, name: string, until: number): number;
+  /** Silencia a un conectado (en cualquier barrio) hasta `until` (ms; 0 = levantarlo). */
+  mute(to: OnlinePlayer, until: number): void;
   /** Deja en el log `[Admin]` un comando de admin (o el intento de usarlo sin serlo). */
   audit(client: Client, text: string, allowed: boolean): void;
 }

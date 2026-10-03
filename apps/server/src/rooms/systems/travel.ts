@@ -13,7 +13,7 @@ import {
 import { getCity } from "@montevideo-world/shared/cities";
 import { bans } from "../../bans";
 import { liveRooms } from "../../metrics";
-import { issueTravelTicket } from "../../playerStore";
+import { issueTravelTicket, playerId } from "../../playerStore";
 import type { CityRoom } from "../CityRoom";
 import type { PlayerSession } from "../session";
 import { stopActivities } from "./activities";
@@ -94,7 +94,7 @@ export function updateJail(room: CityRoom) {
  */
 export function jail(room: CityRoom, session: PlayerSession, until: number) {
   const { player } = session;
-  bans.set(session.key, player.name, until);
+  bans.set(session.key ? playerId(session.key) : null, player.name, until);
   room.savePlayer(session);
   if (room.map.city.id === JAIL_CITY_ID) {
     // Estaba de visita: lo meten adentro.

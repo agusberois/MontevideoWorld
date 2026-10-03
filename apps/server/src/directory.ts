@@ -1,4 +1,4 @@
-import type { ChatBroadcastMessage, TilePoint } from "@montevideo-world/shared";
+import { ChatBroadcastMessage, TilePoint, nameKey } from "@montevideo-world/shared";
 
 /** Sala que puede entregarle un mensaje privado a uno de sus jugadores y decir dónde está (`/trace`). */
 export interface PrivateMailbox {
@@ -7,6 +7,8 @@ export interface PrivateMailbox {
   tileOf(sessionId: string): TilePoint | undefined;
   /** Preso al COMCAR hasta `until` (ms; 0 = liberarlo): lo anota y lo lleva (o lo suelta). */
   jail(sessionId: string, until: number): void;
+  /** Silenciado hasta `until` (ms; 0 = levantarlo), por `/silenciar`. */
+  mute(sessionId: string, until: number): void;
 }
 
 /** Un jugador conectado, en cualquier barrio. */
@@ -35,15 +37,11 @@ class PlayerDirectory {
     this.players.delete(sessionId);
   }
 
-  /** Conectados con ese nombre (sin distinguir mayúsculas ni espacios de más). */
+  /** Conectados con ese nombre o uno que se ve igual (`nameKey`: mayúsculas, tildes, letras parecidas). */
   find(name: string): OnlinePlayer[] {
-    const wanted = normalizeName(name);
-    return [...this.players.values()].filter((player) => normalizeName(player.name) === wanted);
+    const wanted = nameKey(name);
+    return [...this.players.values()].filter((player) => nameKey(player.name) === wanted);
   }
-}
-
-function normalizeName(name: string): string {
-  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
 }
 
 export const playerDirectory = new PlayerDirectory();

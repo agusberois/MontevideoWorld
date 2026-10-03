@@ -36,10 +36,29 @@ desconocido hace fallar `onCreate`.
 
 `CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (casi toda la Plaza Independencia, ~400 tiles)
 y avisa a los demás por chat de sistema.
+**Nombres** (`sanitize.ts`): `sanitizeName` pasa a NFKC, saca control e invisibles (`\p{Cf}`: bidi,
+ancho cero, guion blando, y los "rellenos" que se ven en blanco) y deja a lo sumo una marca
+combinante seguida (lo mismo los nombres de mascota; el chat igual pero conserva U+200D para los
+emojis compuestos). Para comparar nombres se usa `nameKey` (esqueleto: sin mayúsculas, tildes,
+espacios ni signos, letras cirílicas/griegas parecidas → latinas, 0→o, 1/I→l, rn→m): lo usan los
+nombres únicos y reservados, `/mensaje`, `/plata`, `/ban`, `/trace`, los bans por nombre y
+`keysByName`. En `onJoin`: un nombre reservado (`isReservedName`: Admin, Sistema, Moderador
+—también adentro de otro—, Mod, Staff… y el de `ADMIN_NAME`, salvo para el admin) pasa a
+`Invitado####`, y si ya hay alguien conectado con el mismo esqueleto se le suma un número
+(`juan2`; la sesión que esa clave reemplaza no cuenta). Se le avisa con un `notice` a los 1,5 s (antes
+el cliente todavía no registró sus handlers). Ojo: al viajar se vuelve a pedir el nombre original,
+así que el número puede cambiar o irse.
 **Progreso guardado.** El navegador genera una clave secreta (`lib/playerKey.ts`, `mw:playerKey`
 en localStorage) y la manda en `JoinOptions.playerKey`. Con ella el server guarda en
 `playerStore` (archivo JSON, `PLAYER_DATA_FILE`) la mochila, la plata y la ropa puesta: al
-salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Sólo se escribe
+salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Una clave nueva que
+sigue intacta (`isUntouched`: sin plata de más, sólo el kit, sin mascota…) queda sólo en memoria
+(para viajar, `/trace` u otra pestaña) y no se escribe: se guarda recién cuando tiene algo que perder,
+y desde ahí siempre; las sólo-en-memoria se olvidan a la hora sin uso. El archivo
+no tiene las claves: va indexado por `playerId(clave)` (SHA-256 hex) en formato
+`{ version: 2, players }`; el viejo (por clave en texto plano) se migra solo al arrancar, dejando una
+copia `players.json.v1.bak` (0600, tiene las claves: borrarla cuando no haga falta volver atrás). Los
+bans por clave también van por id. Sólo se escribe
 si algún jugador cambió (huella por clave), de forma asíncrona y sin indentar (el archivo no es para leer a mano). Al entrar
 con una clave conocida se restaura todo (validando ítems, cantidades y montos); sin clave, kit
 inicial. En localStorage vive **sólo la clave**, nunca el progreso, así no se puede editar desde

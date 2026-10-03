@@ -25,14 +25,18 @@ recibe con `name` = quién lo manda, y al que lo manda una copia con `to`. Sin g
 `ChatBox` se ve en violeta y clic en el nombre deja escrito "/mensaje <nombre> " para responder),
 `/post <mensaje>` (admin), `/box [cantidad]` (admin, 1–10 cajas sorpresa a la mochila propia) y
 `/plata <monto> [jugador]` (admin: carga plata a un jugador del barrio por nombre, sin distinguir
-mayúsculas y con espacios; sin nombre, a uno mismo; acepta "1.000") y `/donador <si|no> [jugador]`
+mayúsculas, tildes ni letras parecidas —`nameKey`, como todas las búsquedas por nombre— y con espacios; sin nombre, a uno mismo; acepta "1.000") y `/donador <si|no> [jugador]`
 (admin: marca a un jugador como **donador** del proyecto) y `/trace <jugador>` (admin: te lleva al
 lado de un conectado en cualquier barrio o copia, sin boleto. En la misma sala lo teletransporta
 (`teleport`: corta todo y cambia `x/y`; el cliente, ante un salto de más de 2 tiles, aparece sin
 caminar). En otra sala emite un pase (`issueTravelTicket` con `near` = el jugador) y `travel:ok`
 con `roomId`: el cliente entra con `joinById` a esa copia y `onJoin` lo pone al lado (`tileNear`).
 `playerDirectory` guarda `cityId` y la sala (`mailbox.roomId`, `tileOf`, `jail`)) y
-`/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y `/curar [jugador]` (admin:
+`/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y
+`/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier
+barrio vía `mailbox.mute`; 0 = levantarlo: `mutes.ts`, por id la condena entera y por nombre como
+mucho 1 h, sólo en memoria. Silenciado no sale su chat, `/mensaje`, saludo ni burla; los demás
+comandos sí) y `/curar [jugador]` (admin:
 energía, hambre y salud al 100; también el botón **Curarme** del panel de Admin). El donador va en el Schema
 (`player.donor`) y en el progreso guardado (`PlayerRecord.donor`, así sigue al volver o al viajar):
 todos ven un distintivo dorado "♥ DONADOR" arriba de su nombre (`Avatar.setDonor`; el globo de
@@ -53,3 +57,10 @@ peces suma 100 = %), consume la caja, agrega el premio (si no entra, no se abre)
 Chat → `room.send("chat", { text })` → el server sanitiza, aplica cooldown y hace
 `broadcast("chat", ChatBroadcastMessage)` → `ChatBox` lo agrega al historial y `CityScene`
 muestra el globo sobre la cabeza durante `CHAT_BUBBLE_MS`.
+
+**Antispam y bloqueo.** El chat (y `/mensaje`) además del cooldown descarta el **mismo texto** (sin
+mayúsculas) si llega a menos de `REPEAT_CHAT_MS` (5 s) del anterior, con aviso. **Bloquear** es del
+cliente: botón en el menú del jugador (clic en su avatar) y en la lista (Tab); se guarda en el
+navegador (`features/players/blockStorage.ts`, esqueleto `nameKey`) y vive en `gameStore.blocked`.
+`bindRoomMessages` (`lib/network.ts`) no reemite al EventBus el chat ni los privados de un bloqueado,
+así no llegan ni al `ChatBox` ni al globo; la copia de un privado propio (`to`) siempre pasa.

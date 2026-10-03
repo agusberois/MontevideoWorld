@@ -20,6 +20,6 @@ export interface PetDefinition {
 export declare const PETS: readonly PetDefinition[];
 export declare function getPet(id: string): PetDefinition | undefined;
 export declare const PET_NAME_MAX_LENGTH = 14;
-/** Nombre de la mascota: sin caracteres de control ni espacios de más, hasta `PET_NAME_MAX_LENGTH`. */
+/** Nombre de la mascota: limpio como el de un jugador (`sanitizeLabel`), hasta `PET_NAME_MAX_LENGTH`. */
 export declare function sanitizePetName(value: unknown): string;
 //# sourceMappingURL=pets.d.ts.map

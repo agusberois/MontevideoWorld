@@ -1,6 +1,6 @@
 import { Bench, EXHAUSTED_RECOVERY, MAX_ROUTE_LENGTH, MessageType, TilePoint, WALK_ENERGY_COST, WALK_HUNGER_COST, WEEVIL_REWARD } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
-import { PlayerSession, halt, isWalking } from "../session";
+import { PlayerSession, halt, isWalking, oncePerTick } from "../session";
 import { stopActivities } from "./activities";
 import { openShop } from "./shops";
 import type { MessageRoutes } from "./types";
@@ -8,7 +8,7 @@ import type { MessageRoutes } from "./types";
 /** Caminar, sentarse, sacudir palmeras y patear picudos; el paso de cada tick (`stepPlayers`). */
 export function movementRoutes(room: CityRoom) {
   return {
-    [MessageType.Move]: (session, message) => {
+    [MessageType.Move]: oncePerTick(MessageType.Move, (session, message) => {
       const { player } = session;
       if (!room.map.isWalkable(message.x, message.y)) return;
       if (!session.needs.hasEnergy(WALK_ENERGY_COST)) return notifyExhausted(room, session);
@@ -30,10 +30,10 @@ export function movementRoutes(room: CityRoom) {
       if (path.length === 0) return;
       player.sitting = false;
       session.path = path;
-    },
+    }),
 
     /** Clic en un banco: caminar hasta enfrente y sentarse al llegar (si sigue libre). */
-    [MessageType.Sit]: (session, message) => {
+    [MessageType.Sit]: oncePerTick(MessageType.Sit, (session, message) => {
       const { player } = session;
       const bench = room.map.benchAt(message.x, message.y);
       if (!bench || isBenchTaken(room, bench, session)) return;
@@ -49,10 +49,10 @@ export function movementRoutes(room: CityRoom) {
       player.sitting = false;
       session.path = path;
       session.pending = { kind: "bench", bench };
-    },
+    }),
 
     /** Clic en una palmera: si está al lado la sacude; si no, camina hasta ella y la sacude al llegar. */
-    [MessageType.PalmShake]: (session, message) => {
+    [MessageType.PalmShake]: oncePerTick(MessageType.PalmShake, (session, message) => {
       const { player } = session;
       if (!room.map.isPalm(message.x, message.y)) return;
       const palm = { x: message.x, y: message.y };
@@ -67,7 +67,7 @@ export function movementRoutes(room: CityRoom) {
       player.sitting = false;
       session.path = path;
       session.pending = { kind: "palm", palm };
-    },
+    }),
 
     /** Patada a un picudo: hay que estar cerca. Aplastarlo paga `WEEVIL_REWARD`. */
     [MessageType.WeevilKick]: (session, message) => {
@@ -108,11 +108,21 @@ export function teleport(session: PlayerSession, tile: TilePoint) {
 }
 
 /**
- * Cada `STEP_MS`: primero los que ya llegaron (sin camino) hacen lo que tenían pendiente (sentarse
+ * Cada `STEP_MS`: primero los pedidos de camino que quedaron en cola (`oncePerTick`), después los que ya llegaron (sin camino) hacen lo que tenían pendiente (sentarse
  * un tick después de llegar, así el avatar no salta dos tiles de golpe; sacudir la palmera; abrir la
  * tienda) y después cada uno con camino avanza un tile.
  */
 export function stepPlayers(room: CityRoom) {
+  // Tick nuevo: cada uno puede volver a buscar camino; el pedido que quedó en cola va primero.
+  for (const session of room.sessions.values()) {
+    session.searchedThisTick = false;
+    const queued = session.queuedSearch;
+    if (!queued || session.closed) continue;
+    session.queuedSearch = null;
+    session.searchedThisTick = true;
+    queued();
+  }
+
   for (const session of room.sessions.values()) {
     const { pending, player } = session;
     if (!pending || isWalking(session)) continue;

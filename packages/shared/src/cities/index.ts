@@ -18,7 +18,8 @@ export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, TRES_CRUCES, COM
 const BY_ID: Record<CityId, CityDefinition> = { "ciudad-vieja": CIUDAD_VIEJA, "tres-cruces": TRES_CRUCES, comcar: COMCAR };
 
 export function getCity(id: string): CityDefinition | undefined {
-  return (BY_ID as Record<string, CityDefinition | undefined>)[id];
+  // `hasOwn`: si no, "constructor" o "__proto__" devolvían algo de `Object.prototype` (el id viene del cliente).
+  return Object.hasOwn(BY_ID, id) ? BY_ID[id as CityId] : undefined;
 }
 
 const cityMaps = new Map<string, CityMap>();

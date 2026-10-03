@@ -4,6 +4,7 @@ import type { Player } from "@montevideo-world/shared/schema";
 import type { Inventory } from "../inventory";
 import type { Needs } from "../needs";
 import type { Wallet } from "../wallet";
+import type { MessageRoutes } from "./systems/types";
 
 /**
  * Lo que el jugador va a hacer al llegar al final de su camino. Es uno solo: pedir otra cosa lo
@@ -35,6 +36,8 @@ export interface PlayerSession {
   vendingTimer: Delayed | null;
   customerTimer: Delayed | null;
   lastChatAt: number;
+  /** Último mensaje de chat (o `/mensaje`) y cuándo: repetirlo enseguida no sale (`REPEAT_CHAT_MS`). */
+  lastChatText: string;
   /** Lo último que se le mandó de sus necesidades privadas (para mandar sólo si cambió). */
   sentNeeds: NeedsMessage | null;
   /** Cambió la mochila / la plata y falta mandársela (se manda una vez, ver `CityRoom.flushPrivate`). */
@@ -48,6 +51,10 @@ export interface PlayerSession {
   closed: boolean;
   /** IP desde la que entró (para el tope de conexiones por IP, `connectionLimits.ts`). */
   ip: string;
+  /** Ya buscó camino en este tick (caminar, banco, palmera, tienda): ver `oncePerTick`. */
+  searchedThisTick: boolean;
+  /** El último de esos pedidos que llegó con el tick ya usado: se resuelve al empezar el próximo. */
+  queuedSearch: (() => void) | null;
 }
 
 export function createSession(client: Client, player: Player, inventory: Inventory, wallet: Wallet, needs: Needs, key: string | null): PlayerSession {
@@ -64,11 +71,14 @@ export function createSession(client: Client, player: Player, inventory: Invento
     vendingTimer: null,
     customerTimer: null,
     lastChatAt: 0,
+    lastChatText: "",
     sentNeeds: null,
     inventoryDirty: false,
     walletDirty: false,
     closed: false,
     ip: "?",
+    searchedThisTick: false,
+    queuedSearch: null,
   };
 }
 
@@ -81,4 +91,25 @@ export function isWalking(session: PlayerSession): boolean {
 export function halt(session: PlayerSession) {
   session.path = [];
   session.pending = null;
+  session.queuedSearch = null;
+}
+
+/**
+ * Para los pedidos que buscan camino (`findPath`: un BFS por el mapa, hasta ~1 ms en los grandes):
+ * a lo sumo uno por jugador por tick. El primero se resuelve en el acto (al jugar no se nota); los
+ * que llegan después en el mismo tick no se calculan: queda el **último** y se resuelve al empezar el
+ * próximo tick (`stepPlayers` en `systems/movement.ts`), igual que si hubiera llegado ahí. Sin esto, mandar `move` a 20/s con
+ * destinos lejanos le costaba CPU a todas las salas (un solo hilo). Cualquier `halt` lo descarta
+ * (otra acción más nueva manda).
+ */
+export function oncePerTick<K extends keyof MessageRoutes>(_type: K, run: MessageRoutes[K]): MessageRoutes[K] {
+  const handler = run as (session: PlayerSession, message: unknown) => void;
+  return ((session: PlayerSession, message: unknown) => {
+    if (!session.searchedThisTick) {
+      session.searchedThisTick = true;
+      session.queuedSearch = null;
+      return handler(session, message);
+    }
+    session.queuedSearch = () => handler(session, message);
+  }) as MessageRoutes[K];
 }

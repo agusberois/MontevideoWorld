@@ -44,6 +44,8 @@ PlayerRecord>` en memoria que se vuelca entero a `PLAYER_DATA_FILE` (por defecto
 `apps/server/data/players.json`). La clave del `Map` es la **clave secreta del navegador**
 (`JoinOptions.playerKey`, validada con `isPlayerKey`: 32–64 caracteres `[A-Za-z0-9_-]`), que el
 cliente genera y guarda en `localStorage` (`mw:playerKey`, `apps/client/src/lib/playerKey.ts`).
+**Desde 2026-10-03 el archivo no guarda la clave:** va indexado por `playerId(clave)` = SHA-256 hex
+(formato `{ version: 2, players }`), que es justo el `legacy_key_hash` de la importación: se copia tal cual.
 
 `PlayerRecord`:
 

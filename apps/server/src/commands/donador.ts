@@ -1,6 +1,11 @@
 import type { CommandHandler } from "./types";
 
-const VALUES: Record<string, boolean> = { si: true, sí: true, no: false };
+/** `Map` y no objeto: "constructor" o "__proto__" no pueden colarse como valor. */
+const VALUES = new Map<string, boolean>([
+  ["si", true],
+  ["sí", true],
+  ["no", false],
+]);
 
 /**
  * /donador <si|no> [jugador] (admin): marca o desmarca a un jugador del barrio como donador del
@@ -9,7 +14,7 @@ const VALUES: Record<string, boolean> = { si: true, sí: true, no: false };
  */
 export const donador: CommandHandler = ({ client, player, args }, host) => {
   const [rawValue, ...nameParts] = args;
-  const donor = rawValue ? VALUES[rawValue.toLocaleLowerCase("es")] : undefined;
+  const donor = rawValue ? VALUES.get(rawValue.toLocaleLowerCase("es")) : undefined;
   if (donor === undefined) return host.notice(client, "Usá: /donador <si|no> [jugador].");
 
   const name = nameParts.join(" ");

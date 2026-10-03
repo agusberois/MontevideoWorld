@@ -95,8 +95,8 @@ corré `npm run build:shared`.
   se pasa se descarta en silencio; un spam sostenido desconecta con código **4002** (`[RateLimit]` en
   el log). El chat y el saludo tienen además su cooldown (`CHAT_COOLDOWN_MS`).
 - **Límites por IP** (`connectionLimits.ts`, desde el `onAuth` estático de `CityRoom`, que corre en el
-  pedido HTTP antes de reservar el asiento): hasta 8 conexiones abiertas y un balde de 8 pedidos de
-  entrada (uno cada 4 s). Sólo se exponen `joinOrCreate` y `joinById`, y cada barrio tiene hasta 10
+  pedido HTTP antes de reservar el asiento): hasta 8 conexiones abiertas, un balde de 8 pedidos de
+  entrada (uno cada 4 s) y 20 claves nuevas (sin progreso guardado) distintas por hora. Sólo se exponen `joinOrCreate` y `joinById`, y cada barrio tiene hasta 10
   copias. La IP sale de `X-Real-IP`: en producción Caddy la pisa con la real (`deploy/Caddyfile`).
 - **Sacar a un jugador** siempre con `room.closeSession(session, código)`, nunca con
   `client.leave` suelto: marca la sesión `closed` (sus mensajes se ignoran y nadie puede intercambiar

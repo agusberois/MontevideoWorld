@@ -4,6 +4,8 @@
  * `/help`; el cliente puede usarla para autocompletar. La lógica de cada comando está en el server
  * (`apps/server/src/commands/`).
  */
+/** `/silenciar`: máximo de minutos (un día; se levanta antes si se reinicia el server). */
+export declare const MAX_MUTE_MINUTES: number;
 /** Todo comando empieza con este carácter. */
 export declare const COMMAND_PREFIX = "/";
 /** Quién puede usar un comando: cualquier jugador o sólo el admin. */
@@ -51,6 +53,11 @@ export declare const COMMANDS: readonly [{
     readonly name: "ban";
     readonly usage: "/ban <minutos> <jugador>";
     readonly description: "Manda al jugador preso al COMCAR por esos minutos (aunque salga y vuelva a entrar). Con 0, lo libera.";
+    readonly role: "admin";
+}, {
+    readonly name: "silenciar";
+    readonly usage: "/silenciar <minutos> <jugador>";
+    readonly description: "No deja hablar a un jugador conectado (chat, mensajes, saludos) por esos minutos. Con 0, lo vuelve a dejar.";
     readonly role: "admin";
 }, {
     readonly name: "trace";

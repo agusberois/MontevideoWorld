@@ -1,8 +1,9 @@
 import type { Client } from "@colyseus/core";
-import { AnnouncementMessage, CHAT_COOLDOWN_MS, ChatBroadcastMessage, MessageType, TRAVEL_TICKET_MS, sanitizeChat } from "@montevideo-world/shared";
+import { AnnouncementMessage, CHAT_COOLDOWN_MS, ChatBroadcastMessage, MessageType, TRAVEL_TICKET_MS, formatJailLeft, nameKey, sanitizeChat } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { auditAdmin, logText } from "../../audit";
 import { bans } from "../../bans";
+import { mutes } from "../../mutes";
 import { CommandHost, runCommand } from "../../commands";
 import { playerDirectory } from "../../directory";
 import { issueTravelTicket, playerStore } from "../../playerStore";
@@ -22,6 +23,17 @@ export function socialRoutes(room: CityRoom) {
       if (now - session.lastChatAt < CHAT_COOLDOWN_MS) return;
       const text = sanitizeChat(message.text);
       if (!text) return;
+      // Lo que otros leen (chat y `/mensaje`): silenciado no sale, y el mismo texto repetido enseguida
+      // tampoco (el cooldown deja 2,5 por segundo: sin esto se podía inundar el chat con lo mismo).
+      const spoken = !text.startsWith("/") || /^\/mensaje(\s|$)/i.test(text);
+      if (spoken) {
+        if (isMuted(room, session, now)) return;
+        const same = text.toLocaleLowerCase("es") === session.lastChatText;
+        if (same && now - session.lastChatAt < REPEAT_CHAT_MS) {
+          return room.notice(session, "Ya lo dijiste: esperá unos segundos para repetirlo.");
+        }
+        session.lastChatText = text.toLocaleLowerCase("es");
+      }
       session.lastChatAt = now;
       // "/algo" es un comando (ver `commands/`): no va al chat.
       if (runCommand(text, { client: session.client, player: session.player }, room.commandHost)) return;
@@ -33,7 +45,7 @@ export function socialRoutes(room: CityRoom) {
       const target = room.sessions.get(message.targetId);
       if (!target || target === session) return;
       const now = Date.now();
-      if (now - session.lastChatAt < CHAT_COOLDOWN_MS) return;
+      if (now - session.lastChatAt < CHAT_COOLDOWN_MS || isMuted(room, session, now)) return;
       session.lastChatAt = now;
       sayAs(room, session, `👋 ¡Hola, ${target.player.name}!`, now);
     },
@@ -46,7 +58,7 @@ export function socialRoutes(room: CityRoom) {
       const target = room.sessions.get(message.targetId);
       if (!target || target === session || target.player.jailLeft === 0 || session.player.jailLeft > 0) return;
       const now = Date.now();
-      if (now - session.lastChatAt < CHAT_COOLDOWN_MS) return;
+      if (now - session.lastChatAt < CHAT_COOLDOWN_MS || isMuted(room, session, now)) return;
       session.lastChatAt = now;
       const name = target.player.name;
       const taunts = [
@@ -60,6 +72,20 @@ export function socialRoutes(room: CityRoom) {
       sayAs(room, session, taunts[Math.floor(Math.random() * taunts.length)], now);
     },
   } satisfies Partial<MessageRoutes>;
+}
+
+/**
+ * Mismo mensaje dos veces: el segundo sale recién pasado este tiempo desde el último que mandó.
+ * (Comparado sin mayúsculas; otro texto en el medio lo habilita de nuevo.)
+ */
+const REPEAT_CHAT_MS = 5000;
+
+/** Silenciado por `/silenciar`: le avisa cuánto le queda y devuelve true. */
+function isMuted(room: CityRoom, session: PlayerSession, now: number): boolean {
+  const until = mutes.until(session.key, session.player.name, now);
+  if (!until) return false;
+  room.notice(session, `🔇 Estás silenciado: te quedan ${formatJailLeft((until - now) / 1000)}.`);
+  return true;
 }
 
 function sayAs(room: CityRoom, session: PlayerSession, text: string, timestamp: number) {
@@ -89,10 +115,10 @@ export function createCommandHost(room: CityRoom): CommandHost {
       return given;
     },
     findPlayers: (name) => {
-      const wanted = name.toLocaleLowerCase("es");
+      const wanted = nameKey(name);
       const found: Array<{ client: Client; player: Player }> = [];
       for (const { client, player } of room.sessions.values()) {
-        if (player.name.toLocaleLowerCase("es") === wanted) found.push({ client, player });
+        if (nameKey(player.name) === wanted) found.push({ client, player });
       }
       return found;
     },
@@ -132,13 +158,22 @@ export function createCommandHost(room: CityRoom): CommandHost {
       room.sendNeeds(session);
     },
     jail: (target, name, until) => {
-      if (target) return target.mailbox.jail(target.sessionId, until);
-      bans.set(null, name, until);
-      for (const key of playerStore.keysByName(name)) {
-        bans.set(key, name, until);
-        playerStore.setJailedUntil(key, until);
+      if (target) {
+        target.mailbox.jail(target.sessionId, until);
+        return 0;
       }
+      bans.set(null, name, until);
+      const ids = playerStore.idsByName(name);
+      for (const id of ids) {
+        bans.set(id, name, until);
+        playerStore.setJailedUntil(id, until);
+      }
+      // Registro de a quiénes tocó (el comando ya queda en `[Admin]`): por nombre pueden ser varios.
+      const tags = ids.map((id) => id.slice(0, 8)).join(", ") || "ninguno";
+      console.log(`[Ban] ${logText(name)} desconectado → ${ids.length} guardados (${tags}) ${until ? `hasta ${new Date(until).toISOString()}` : "liberados"}`);
+      return ids.length;
     },
+    mute: (to, until) => to.mailbox.mute(to.sessionId, until),
     traceTo: (client, to) => {
       const session = sessionOf(client);
       if (!session) return;

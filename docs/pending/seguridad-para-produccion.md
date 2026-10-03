@@ -515,15 +515,86 @@ con la CSP (no usa `eval`, pero hay que confirmar que no cargue nada de otro ori
 
 ### Fase 2 – Antes de crecer
 
-16. [ ] **M1**: no persistir claves nuevas intactas; límite de claves nuevas por IP.
-17. [ ] **M3**: un `findPath` por jugador por tick; tope de nodos del BFS.
-18. [ ] **M4**: normalización de nombres (NFKC, sin `\p{Cf}`), nombres reservados por esqueleto,
+16. [x] **M1**: no persistir claves nuevas intactas; límite de claves nuevas por IP.
+    **Hecho (2026-10-03):** `playerStore.set` deja una clave nueva intacta (`isUntouched`) **sólo
+    en memoria** (`ephemeral`: no entra al archivo ni a `size`) y la escribe recién cuando tiene algo
+    que perder; desde ahí siempre. No se descarta del todo porque viajar, `/trace` y la sesión
+    duplicada pasan el progreso por el store: sin eso, un jugador nuevo que pagó el boleto llegaba
+    con el kit y la plata de nuevo. Las sólo-en-memoria se olvidan a la hora sin uso
+    (`forgetEphemeral`, cada 10 min). Además `onAuth` limita a 20 claves nuevas **distintas** por IP
+    por hora (`admitNewKey`; repetir una clave no cuenta, así viajar no gasta el cupo): hace falta
+    porque la caña del kit se puede vender y con eso la clave ya se guarda. Probado: 100 claves
+    intactas → 0 en disco; una que vende → 1, y sigue aunque vuelva a quedar intacta; la intacta que
+    pagó un boleto conserva su saldo en memoria; a la hora se olvidan; 20 de 22 claves nuevas
+    aceptadas, la repetida pasa, otra IP pasa, a la hora vuelve a pasar.
+17. [x] **M3**: un `findPath` por jugador por tick; tope de nodos del BFS.
+    **Hecho (2026-10-03):** `oncePerTick` (`rooms/session.ts`) envuelve `move`, `sit`, `palm:shake`
+    y `shop:visit` (los que buscan camino): el primer pedido de cada tick se resuelve en el acto (al
+    jugar no cambia nada), los siguientes del mismo tick no buscan camino y queda el último
+    (`session.queuedSearch`), que `stepPlayers` resuelve al empezar el próximo tick; `halt` (otra
+    acción) lo descarta y una sesión cerrada no lo corre. Con `STEP_MS` = 250 son a lo sumo 4
+    búsquedas por segundo por jugador (antes 20, el límite de `move`). **Tope de nodos: no hizo
+    falta**: el BFS ya visita cada tile del mapa una vez como máximo (el tope es el tamaño del mapa,
+    ~10.800 en el más grande); lo caro era la cantidad de búsquedas. `isInYard` (cárcel) sólo corre
+    con `/ban`. Probado llamando a los handlers: 31 `move` en un tick → 1 BFS en el acto + 1 al
+    tick siguiente hacia el último destino; un clic en un tick nuevo se resuelve en el acto; con
+    `halt` la cola se descarta.
+18. [x] **M4**: normalización de nombres (NFKC, sin `\p{Cf}`), nombres reservados por esqueleto,
     nombres únicos entre conectados; lo mismo para nombres de mascotas.
-19. [ ] **M8**: indexar `players.json` por `sha256(clave)`.
-20. [ ] **M9 / B4**: ban por nombre con vencimiento y aviso de a cuántas claves toca; `/silenciar`;
+    **Hecho (2026-10-03):** `sanitizeLabel` (nombres y mascotas: NFKC, sin control ni `\p{Cf}` ni
+    rellenos invisibles, una marca combinante como mucho); el chat igual pero conserva U+200D (emojis
+    compuestos). `nameKey` (esqueleto con un mapa básico de confusables) reemplaza las tres copias de
+    `normalizeName` (directorio, bans, `keysByName`) y `findPlayers`. `isReservedName`: Admin,
+    Sistema, Moderador (también adentro), Mod, Staff, Soporte… y el nombre del admin → `Invitado####`.
+    Únicos entre conectados de todos los barrios: al segundo se le suma un número; la sesión que la
+    misma clave reemplaza no cuenta; aviso al jugador a los 1,5 s. El ban por nombre se chequea con
+    el nombre pedido y con el final (renombrarse no lo evade). Probado: "Juan", "juan" → `juan2`,
+    "Juán " → `Juán3`, "АGOSHO" (A cirílica) y "Sistema" → `Invitado…`, la misma clave en otra
+    pestaña conserva "Juan"; ancho cero, bidi, ancho completo, guion blando y zalgo se limpian.
+    **No cubre** (va con C1): quien entra con el nombre exacto del admin sigue siendo admin.
+19. [x] **M8**: indexar `players.json` por `sha256(clave)`.
+    **Hecho (2026-10-03):** `playerId(clave)` (SHA-256 hex) es el índice; `get`/`set` siguen
+    recibiendo la clave y la hashean adentro; lo que no tiene la clave (ban a un desconectado) usa
+    `getById`, `idsByName` y `setJailedUntil(id)`, y `bans` va por id. El archivo pasa a
+    `{ version: 2, players }` (con la versión, porque una clave de 64 hex no se distingue de un hash):
+    el viejo se migra al arrancar y se reescribe en 2 s, dejando `players.json.v1.bak` (0600) para
+    poder volver al código anterior. El hash corto de los logs (`keyTag`) es el comienzo del mismo id,
+    y coincide con `legacy_key_hash` del plan de Supabase. Lo que vive sólo en memoria
+    (`activeSessions`, boletos) sigue por clave. Probado: archivo viejo → progreso recuperado con la
+    clave, archivo nuevo sin la clave e id = sha256(clave), copia idéntica al original con 0600; ban
+    por nombre a un desconectado → preso al entrar con su clave aunque cambie de nombre; segundo
+    arranque lee el formato nuevo directo.
+20. [x] **M9 / B4**: ban por nombre con vencimiento y aviso de a cuántas claves toca; `/silenciar`;
     bloquear jugadores en el cliente.
-21. [ ] **B1, B2, B5, B6, B9**: arreglos chicos (lookups con `Object.hasOwn`, logs escapados,
+    **M9 hecho (2026-10-03), falta B4:** el ban por nombre vence a `NAME_BAN_MAX_MS` (1 h) como
+    mucho, aunque la condena sea más larga (la condena entera va por id); los vencidos se limpian
+    del `Map`. `CommandHost.jail` devuelve a cuántos guardados tocó y `/ban` se lo dice al admin: 0
+    (sólo por nombre, con el tope), 1 (normal) o varios (aviso de que pueden ser personas distintas y
+    `/ban 0 <nombre>` para deshacer). Registro `[Ban] … → N guardados (ids cortos) hasta …`. Ojo: un
+    jugador sin clave queda preso 1 h como mucho. Probado: con 1 guardado preso por id a las 23 h y
+    otro "Pepe" sin clave libre a las 2 h; "Juan" toca a "Juan" y "juán" con el aviso; sin guardados
+    avisa el tope; `/ban 0` libera a los dos.
+    **B4 hecho (2026-10-03):** el mismo texto (sin mayúsculas) en chat o `/mensaje` a menos de 5 s
+    del anterior se descarta con aviso (`REPEAT_CHAT_MS`). `/silenciar <minutos> <jugador>` (admin,
+    hasta un día, sólo a conectados de cualquier barrio): `mutes.ts`, por id la condena entera y por
+    nombre como mucho 1 h, sólo en memoria (reiniciar lo levanta); silenciado no sale chat,
+    `/mensaje`, saludo ni burla. Bloquear en el cliente: botón en el menú del jugador y en la lista
+    (Tab), guardado en el navegador por `nameKey`; se filtra en `bindRoomMessages`, antes del EventBus
+    (ni chat ni globo ni privados). Probado contra el server: "hola" + "HOLA" → sale uno y aviso; con
+    otro texto en el medio sale; silenciado no salen chat, `/mensaje` ni saludo (aviso con lo que
+    queda) y `/help` sí; `/silenciar 0` lo levanta; queda en `[Admin]`. **El bloqueo del cliente no
+    se probó en el navegador.**
+21. [x] **B1, B2, B5, B6, B9**: arreglos chicos (lookups con `Object.hasOwn`, logs escapados,
     `x-powered-by`, cortes por punto de código).
+    **Hecho (2026-10-03):** B1 `getCity` con `Object.hasOwn` ("constructor"/"__proto__" →
+    `undefined`, y `getCityMap` igual; era el único lookup así con texto del cliente: el `Record` de
+    `trading.ts` usa ids ya validados); B2 `/donador` con un `Map`; B5 el error de barrio desconocido
+    pasa por `logText` (y los logs de M10 ya lo usaban); B6 `HOST` por defecto `127.0.0.1` con
+    `NODE_ENV=production` y `0.0.0.0` en desarrollo (`x-powered-by` ya estaba); B9 `truncate`
+    (`sanitize.ts`) corta por punto de código en nombres, chat y nombres de mascota. Probado: B1 con
+    "constructor"/"__proto__"; un nombre que termina en emojis queda sin sustitutos sueltos; en
+    producción escucha en `127.0.0.1`; `cityId` con U+202E y salto de línea sale escapado en la
+    respuesta y en el log.
 
 ### Fase 3 – Cuentas
 

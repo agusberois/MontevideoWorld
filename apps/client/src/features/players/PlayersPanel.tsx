@@ -1,7 +1,7 @@
 "use client";
 
-import { getCityInfo } from "@montevideo-world/shared";
-import { useGame } from "@/lib/gameStore";
+import { getCityInfo, nameKey } from "@montevideo-world/shared";
+import { toggleBlocked, useGame } from "@/lib/gameStore";
 import type { PanelProps } from "../../shell/panels";
 import { UiIcon } from "../../ui/UiIcon";
 import { moduleClasses } from "@/lib/cx";
@@ -12,6 +12,7 @@ const cx = moduleClasses(styles);
 /** Lista de jugadores conectados en el barrio (tecla Tab). Vos primero, el resto por nombre. */
 export function PlayersPanel({ cityId, onClose }: PanelProps) {
   const players = useGame((state) => state.players);
+  const blocked = useGame((state) => state.blocked);
   const cityName = getCityInfo(cityId)?.name ?? cityId;
   const sorted = [...players].sort(
     (a, b) => Number(b.isSelf) - Number(a.isSelf) || a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
@@ -46,7 +47,19 @@ export function PlayersPanel({ cityId, onClose }: PanelProps) {
                   ♥ Donador
                 </span>
               )}
-              {player.isSelf && <span className={cx("players-self")}>Vos</span>}
+              {player.isSelf ? (
+                <span className={cx("players-self")}>Vos</span>
+              ) : (
+                <button
+                  type="button"
+                  className={cx("players-block")}
+                  aria-pressed={blocked.includes(nameKey(player.name))}
+                  title="Bloquear: dejás de ver su chat y sus mensajes (sólo vos, en este navegador)"
+                  onClick={() => toggleBlocked(player.name)}
+                >
+                  {blocked.includes(nameKey(player.name)) ? "Desbloquear" : "🚫"}
+                </button>
+              )}
             </li>
           ))}
         </ul>

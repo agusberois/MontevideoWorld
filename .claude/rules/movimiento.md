@@ -26,7 +26,11 @@ server al principio); el server lo sigue si es válido paso a paso (`CityMap.fol
 donde está, o desde el primer tile vecino si por la latencia se pasó uno; vecinos caminables,
 sin cortar esquinas) y si no llega al destino completa con `findPath`. Sigue siendo autoritativo
 (un paso por tick, mismas reglas): el recorrido del cliente no da ventaja, sólo hace que los dos
-caminen exactamente lo mismo. Cada tile del server confirma el próximo paso esperado (o el de
+caminen exactamente lo mismo. **Un pedido de camino por tick** (`oncePerTick` en `rooms/session.ts`,
+para `move`, `sit`, `palm:shake` y `shop:visit`): el primero de cada tick se resuelve en el acto; los
+que llegan después en ese tick no buscan camino, queda el último y `stepPlayers` lo resuelve al
+empezar el próximo (`halt` lo descarta). Así un bot a 20 `move`/s hace 4 BFS por segundo, no 20.
+Cada tile del server confirma el próximo paso esperado (o el de
 después); un tile de más pegado al recorrido se tolera (vuelve solo); otra cosa se corrige
 caminando (nunca saltando). Si no confirma nada en `PREDICTION_STALL_MS` (agotado, rechazo) el
 avatar vuelve caminando a su posición real. Ir a un banco, tienda, palmera… cancela la

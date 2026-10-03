@@ -40,7 +40,9 @@ for (const { tool, share } of foodTooExpensiveFor()) {
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
 const PORT = Number(process.env.PORT ?? DEFAULT_PORT);
-const HOST = process.env.HOST ?? "0.0.0.0";
+// En producción, sólo la propia máquina (atrás de Caddy): si alguien arranca el server a mano sin
+// PM2, el 2567 no queda expuesto sin TLS. En desarrollo, toda la red (para probar desde otras compus).
+const HOST = process.env.HOST ?? (process.env.NODE_ENV === "production" ? "127.0.0.1" : "0.0.0.0");
 
 if (process.env.NODE_ENV === "production" && allowAnyOrigin) {
   console.warn(

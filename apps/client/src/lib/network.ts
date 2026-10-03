@@ -30,6 +30,7 @@ import {
 } from "@montevideo-world/shared";
 import type { GameState } from "@montevideo-world/shared/schema";
 import { type GameEvents, eventBus } from "./eventBus";
+import { isBlocked } from "./gameStore";
 import { getPlayerKey } from "./playerKey";
 import { loadCityMap } from "./cityMaps";
 
@@ -162,7 +163,12 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
  */
 export function bindRoomMessages(room: CityRoom): () => void {
   const unbinds = (Object.keys(SERVER_MESSAGES) as (keyof GameEvents)[]).map((event) =>
-    room.onMessage(SERVER_MESSAGES[event]!, (message: GameEvents[typeof event]) => eventBus.emit(event, message)),
+    room.onMessage(SERVER_MESSAGES[event]!, (message: GameEvents[typeof event]) => {
+      // Bloqueados: su chat y sus privados no llegan ni al ChatBox ni al globo (se cortan acá, antes
+      // del EventBus). La copia de un privado que mandaste vos (`to`) siempre pasa.
+      if (event === "chat:message" && isFromBlocked(message as GameEvents["chat:message"])) return;
+      eventBus.emit(event, message);
+    }),
   );
   // Mochila, saldo y hambre se piden recién ahora: si el server los mandara en onJoin podrían llegar
   // antes de que existan los handlers y colyseus.js los descartaría.
@@ -170,6 +176,10 @@ export function bindRoomMessages(room: CityRoom): () => void {
   room.send(MessageType.RequestWallet);
   room.send(MessageType.RequestNeeds);
   return () => unbinds.forEach((unbind) => unbind());
+}
+
+function isFromBlocked(message: GameEvents["chat:message"]): boolean {
+  return message.kind !== "system" && message.to === undefined && isBlocked(message.name);
 }
 
 /** Reordenar la mochila: lo del casillero `from` va al `to` (si hay algo, se intercambian o se juntan). */

@@ -24,7 +24,7 @@ import {
   sellPrice,
 } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
-import { PlayerSession, halt } from "../session";
+import { PlayerSession, halt, oncePerTick } from "../session";
 import { stopActivities } from "./activities";
 import type { MessageRoutes } from "./types";
 
@@ -35,7 +35,7 @@ export function shopRoutes(room: CityRoom) {
     [MessageType.RequestWallet]: (session) => room.markWallet(session),
 
     /** Clic en una tienda: si ya está al lado se abre; si no, camina hasta ella y se abre al llegar. */
-    [MessageType.ShopVisit]: (session, message) => {
+    [MessageType.ShopVisit]: oncePerTick(MessageType.ShopVisit, (session, message) => {
       const { player } = session;
       const shop = room.map.shopAt(message.x, message.y);
       if (!shop) return;
@@ -50,7 +50,7 @@ export function shopRoutes(room: CityRoom) {
       player.sitting = false;
       session.path = path;
       session.pending = { kind: "shop", shop };
-    },
+    }),
 
     /**
      * Comprar `quantity` unidades (1 si no viene): hay que estar al lado, que la tienda lo venda,

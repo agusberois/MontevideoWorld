@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PlayerClick, eventBus } from "@/lib/eventBus";
-import { useGame } from "@/lib/gameStore";
+import { toggleBlocked, useGame } from "@/lib/gameStore";
+import { nameKey } from "@montevideo-world/shared";
 import { CityRoom, sendGreet, sendTaunt, sendTradeRequest } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./players.module.css";
@@ -14,14 +15,16 @@ interface PlayerMenuProps {
 }
 
 /**
- * Menú que aparece al hacer clic sobre otro jugador: Saludar o Intercambiar. Se cierra con Esc,
- * con un clic afuera o al elegir una opción.
+ * Menú que aparece al hacer clic sobre otro jugador: Saludar, Intercambiar, Burlarse (si está preso)
+ * y Bloquear (dejás de ver su chat; sólo en tu navegador). Se cierra con Esc, con un clic afuera o
+ * al elegir una opción.
  */
 export function PlayerMenu({ room }: PlayerMenuProps) {
   /** Jugadores del barrio: si el elegido se va, el menú se cierra. */
   const players = useGame((state) => state.players);
   /** Preso vos: no te podés burlar de nadie. */
   const selfJailed = useGame((state) => state.jailLeft > 0);
+  const blocked = useGame((state) => state.blocked);
   const [target, setTarget] = useState<PlayerClick | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +77,17 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
           😜 Burlarse
         </button>
       )}
+      <button
+        type="button"
+        role="menuitem"
+        title="Dejás de ver su chat y sus mensajes (sólo vos, en este navegador)"
+        onClick={() => {
+          toggleBlocked(target.name);
+          setTarget(null);
+        }}
+      >
+        {blocked.includes(nameKey(target.name)) ? "✅ Desbloquear" : "🚫 Bloquear"}
+      </button>
     </div>
   );
 }

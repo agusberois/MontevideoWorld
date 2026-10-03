@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
-import type { InventoryMessage, MatchMode, OutfitIds } from "@montevideo-world/shared";
+import { InventoryMessage, MatchMode, OutfitIds, nameKey } from "@montevideo-world/shared";
 import { type PlayerSummary, eventBus } from "./eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
+import { loadBlocked, saveBlocked, toggleInList } from "../features/players/blockStorage";
 
 /**
  * Estado de la UI del juego que llega por el EventBus (de la red o de la escena) más qué panel está
@@ -54,6 +55,8 @@ export interface GameStoreState {
   traveling: { from: string; to: string; ambulance?: boolean } | null;
   /** Barra rápida 1–9: preferencia del navegador, sobrevive a salir y a viajar. */
   hotbar: HotbarSlots;
+  /** Jugadores bloqueados (esqueleto del nombre, `nameKey`): preferencia del navegador, como la barra. */
+  blocked: string[];
 }
 
 const INITIAL: GameStoreState = {
@@ -80,6 +83,7 @@ const INITIAL: GameStoreState = {
   trading: false,
   traveling: null,
   hotbar: emptyHotbar(),
+  blocked: [],
 };
 
 /** Lo que depende del barrio en el que estás: al viajar se borra (mochila, plata, energía… siguen). */
@@ -102,9 +106,9 @@ export const gameStore = {
   getState: (): GameStoreState => state,
   setState,
   subscribe,
-  /** Al salir del juego: todo vuelve al principio salvo la barra rápida. */
+  /** Al salir del juego: todo vuelve al principio salvo la barra rápida y los bloqueados. */
   reset() {
-    setState({ ...INITIAL, hotbar: state.hotbar });
+    setState({ ...INITIAL, hotbar: state.hotbar, blocked: state.blocked });
   },
   /** Al viajar: se borra lo del barrio (`CITY_FIELDS`); lo del jugador sigue. */
   resetCity() {
@@ -142,13 +146,25 @@ export function setHotbar(hotbar: HotbarSlots) {
   saveHotbar(hotbar);
 }
 
+/** Bloquear a un jugador (o desbloquearlo, si ya estaba). */
+export function toggleBlocked(name: string) {
+  const blocked = toggleInList(state.blocked, name);
+  setState({ blocked });
+  saveBlocked(blocked);
+}
+
+/** ¿Está bloqueado ese nombre (o uno que se ve igual)? */
+export function isBlocked(name: string): boolean {
+  return state.blocked.includes(nameKey(name));
+}
+
 /**
  * Escuchar el EventBus y volcarlo al store. Se llama una vez al montar `App` (devuelve la limpieza,
- * así StrictMode y el hot reload no duplican las suscripciones). La barra rápida se lee acá y no al
+ * así StrictMode y el hot reload no duplican las suscripciones). La barra rápida y los bloqueados se leen acá y no al
  * crear el store porque `localStorage` no existe en el server (SSR).
  */
 export function bindGameStore(): () => void {
-  setState({ hotbar: loadHotbar() });
+  setState({ hotbar: loadHotbar(), blocked: loadBlocked() });
   const offs = [
     eventBus.on("player:outfit", (outfit) => setState({ outfit })),
     eventBus.on("inventory:update", (inventory) => setState({ inventory })),

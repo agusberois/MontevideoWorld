@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, copyFileSync, readFileSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint } from "@montevideo-world/shared";
+import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint, nameKey } from "@montevideo-world/shared";
 import { round } from "./metrics";
 
 /**
@@ -22,6 +23,23 @@ export interface PlayerRecord {
   /** Mascota adoptada (id de `PETS`) y su nombre. */
   pet?: { id: string; name: string };
   updatedAt: string;
+}
+
+/**
+ * Id con el que se guarda un jugador: SHA-256 (hex) de su clave. El archivo nunca tiene las claves:
+ * si se filtra, no sirve para entrar como nadie (la clave tiene 128 bits al azar, no hace falta sal).
+ * Las primeras 8 letras son la que sale en los logs (`audit.ts`).
+ */
+export function playerId(key: string): string {
+  return createHash("sha256").update(key).digest("hex");
+}
+
+/** Formato del archivo: `{ version: 2, players: { [playerId]: PlayerRecord } }`. El viejo (sin versión) era `{ [clave]: PlayerRecord }`. */
+const FILE_VERSION = 2;
+
+interface StoreFile {
+  version: typeof FILE_VERSION;
+  players: Record<string, PlayerRecord>;
 }
 
 /** Cómo salió la última escritura del archivo (para `/health`). */
@@ -53,6 +71,9 @@ export const activeSessions = new Map<string, { owner: SessionOwner; sessionId: 
 const WRITE_DELAY_MS = 2000;
 /** Claves sin cambios en este tiempo y sin progreso (ver `isUntouched`) se borran del archivo. */
 export const INACTIVE_KEY_MS = 90 * 24 * 60 * 60 * 1000;
+/** Claves nuevas intactas (sólo en memoria): se olvidan si nadie las usa en este tiempo. */
+const EPHEMERAL_KEY_MS = 60 * 60 * 1000;
+const EPHEMERAL_SWEEP_MS = 10 * 60 * 1000;
 /** Cada cuánto se buscan claves para borrar (además de al arrancar). */
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -90,6 +111,8 @@ class PlayerStore {
   private records = new Map<string, PlayerRecord>();
   /** Lo último guardado de cada clave (sin `updatedAt`), para saber si cambió. */
   private fingerprints = new Map<string, string>();
+  /** Claves nuevas que siguen intactas: están en `records` pero no se escriben (ver `set`). */
+  private ephemeral = new Set<string>();
   private timer: NodeJS.Timeout | null = null;
   /** Escritura en curso (una a la vez) y si quedaron cambios para otra. */
   private writing: Promise<void> | null = null;
@@ -99,9 +122,23 @@ class PlayerStore {
 
   constructor() {
     try {
-      const parsed = JSON.parse(readFileSync(this.file, "utf8")) as Record<string, PlayerRecord>;
-      this.records = new Map(Object.entries(parsed));
-      for (const [key, { updatedAt: _, ...record }] of this.records) this.fingerprints.set(key, JSON.stringify(record));
+      const parsed = JSON.parse(readFileSync(this.file, "utf8")) as StoreFile | Record<string, PlayerRecord>;
+      if (parsed.version === FILE_VERSION) {
+        this.records = new Map(Object.entries((parsed as StoreFile).players));
+      } else {
+        // Formato viejo, indexado por la clave en texto plano: se pasa a ids y se reescribe ya. Antes
+        // se deja una copia (el código viejo no lee el formato nuevo: sirve para volver atrás). Tiene
+        // las claves: borrarla cuando ya no haga falta.
+        const backup = `${this.file}.v1.bak`;
+        copyFileSync(this.file, backup);
+        chmodSync(backup, 0o600);
+        const old = Object.entries(parsed as Record<string, PlayerRecord>);
+        this.records = new Map(old.map(([key, record]) => [playerId(key), record]));
+        this.dirty = true;
+        this.timer = setTimeout(() => void this.flush(), WRITE_DELAY_MS);
+        console.log(`[PlayerStore] archivo viejo: ${old.length} claves pasan a guardarse por su hash (copia del original en ${backup})`);
+      }
+      for (const [id, { updatedAt: _, ...record }] of this.records) this.fingerprints.set(id, JSON.stringify(record));
       console.log(`[PlayerStore] ${this.records.size} jugadores guardados en ${this.file}`);
       this.prune();
     } catch (error) {
@@ -109,6 +146,22 @@ class PlayerStore {
       console.log(`[PlayerStore] sin datos todavía; se van a guardar en ${this.file}`);
     }
     setInterval(() => this.prune(), PRUNE_INTERVAL_MS).unref();
+    setInterval(() => this.forgetEphemeral(), EPHEMERAL_SWEEP_MS).unref();
+  }
+
+  /** Olvida las claves sólo-en-memoria que nadie usa hace `EPHEMERAL_KEY_MS`. Devuelve cuántas. */
+  forgetEphemeral(now = Date.now()): number {
+    let removed = 0;
+    const active = activeIds();
+    for (const id of this.ephemeral) {
+      const record = this.records.get(id);
+      if (active.has(id) || (record && now - Date.parse(record.updatedAt) < EPHEMERAL_KEY_MS)) continue;
+      this.ephemeral.delete(id);
+      this.records.delete(id);
+      this.fingerprints.delete(id);
+      removed += 1;
+    }
+    return removed;
   }
 
   /**
@@ -118,54 +171,80 @@ class PlayerStore {
    */
   prune(now = Date.now()): number {
     let removed = 0;
-    for (const [key, record] of this.records) {
+    const active = activeIds();
+    for (const [id, record] of this.records) {
       const updatedAt = Date.parse(record.updatedAt);
-      if (activeSessions.has(key) || !(now - updatedAt > INACTIVE_KEY_MS) || !isUntouched(record, now)) continue;
-      this.records.delete(key);
-      this.fingerprints.delete(key);
+      if (active.has(id) || !(now - updatedAt > INACTIVE_KEY_MS) || !isUntouched(record, now)) continue;
+      this.records.delete(id);
+      this.fingerprints.delete(id);
       removed += 1;
     }
     if (removed > 0) {
-      console.log(`[PlayerStore] se borraron ${removed} claves sin actividad (quedan ${this.records.size})`);
+      console.log(`[PlayerStore] se borraron ${removed} claves sin actividad (quedan ${this.size})`);
       this.dirty = true;
       this.timer ??= setTimeout(() => void this.flush(), WRITE_DELAY_MS);
     }
     return removed;
   }
 
-  /** Cuántos jugadores hay guardados. */
+  /** Cuántos jugadores hay guardados (en el archivo; sin las claves sólo en memoria). */
   get size() {
-    return this.records.size;
+    return this.records.size - this.ephemeral.size;
   }
 
+  /** Lo guardado de la clave (se busca por su hash, `playerId`). */
   get(key: string): PlayerRecord | undefined {
-    return this.records.get(key);
+    return this.records.get(playerId(key));
   }
 
-  /** Claves de los jugadores guardados con ese nombre (sin distinguir mayúsculas ni espacios de más). */
-  keysByName(name: string): string[] {
-    const wanted = name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es");
-    const keys: string[] = [];
-    for (const [key, record] of this.records) {
-      if (record.name.trim().replace(/\s+/g, " ").toLocaleLowerCase("es") === wanted) keys.push(key);
+  /** Lo guardado de un id (`playerId`), para lo que no tiene la clave (ban a un desconectado). */
+  getById(id: string): PlayerRecord | undefined {
+    return this.records.get(id);
+  }
+
+  /** Ids (`playerId`) de los jugadores guardados con ese nombre o uno que se ve igual (`nameKey`). */
+  idsByName(name: string): string[] {
+    const wanted = nameKey(name);
+    const ids: string[] = [];
+    for (const [id, record] of this.records) {
+      if (nameKey(record.name) === wanted) ids.push(id);
     }
-    return keys;
+    return ids;
   }
 
   /** Preso hasta `until` (0 = libre) para un jugador guardado que no está conectado (`/ban`). */
-  setJailedUntil(key: string, until: number) {
-    const record = this.records.get(key);
+  setJailedUntil(id: string, until: number) {
+    const record = this.records.get(id);
     if (!record) return;
     const { updatedAt: _, ...rest } = record;
-    this.set(key, { ...rest, jailedUntil: until || undefined });
+    this.store(id, { ...rest, jailedUntil: until || undefined });
   }
 
-  /** Guarda el jugador si cambió desde la última vez; si no, no hace nada. */
+  /**
+   * Guarda el jugador si cambió desde la última vez; si no, no hace nada.
+   *
+   * Una clave nueva que sigue intacta (`isUntouched`) queda **sólo en memoria** (`ephemeral`): así
+   * viajar de barrio, `/trace` o abrir otra pestaña la encuentran (si no, llegaría con el kit y la
+   * plata de nuevo), pero entrar y salir (o un script con claves al azar) no suma registros al
+   * archivo. Se escribe recién cuando tiene algo que perder, y desde ahí siempre (aunque vuelva a
+   * quedar intacta). Las que nadie usa en `EPHEMERAL_KEY_MS` se olvidan (`forgetEphemeral`).
+   */
   set(key: string, record: Omit<PlayerRecord, "updatedAt">) {
+    this.store(playerId(key), record);
+  }
+
+  private store(key: string, record: Omit<PlayerRecord, "updatedAt">) {
     const fingerprint = JSON.stringify(record);
     if (this.fingerprints.get(key) === fingerprint) return;
     this.fingerprints.set(key, fingerprint);
-    this.records.set(key, { ...record, updatedAt: new Date().toISOString() });
+    const onlyInMemory = !this.records.has(key) || this.ephemeral.has(key);
+    const stored = { ...record, updatedAt: new Date().toISOString() };
+    this.records.set(key, stored);
+    if (onlyInMemory && isUntouched(stored)) {
+      this.ephemeral.add(key);
+      return;
+    }
+    this.ephemeral.delete(key);
     this.dirty = true;
     this.timer ??= setTimeout(() => void this.flush(), WRITE_DELAY_MS);
   }
@@ -186,14 +265,18 @@ class PlayerStore {
 
   private async write() {
     const started = performance.now();
-    const json = JSON.stringify(Object.fromEntries(this.records));
+    const file: StoreFile = {
+      version: FILE_VERSION,
+      players: Object.fromEntries([...this.records].filter(([id]) => !this.ephemeral.has(id))),
+    };
+    const json = JSON.stringify(file);
     const serializedMs = performance.now() - started;
     const stats = (ok: boolean): FlushStats => ({
       at: new Date().toISOString(),
       serializeMs: round(serializedMs),
       totalMs: round(performance.now() - started),
       bytes: Buffer.byteLength(json),
-      players: this.records.size,
+      players: this.size,
       ok,
     });
     try {
@@ -214,7 +297,7 @@ class PlayerStore {
     }
     this.lastFlush = stats(true);
     if (serializedMs > 50) {
-      console.warn(`[PlayerStore] armar el archivo (${this.records.size} jugadores) frenó el server ${Math.round(serializedMs)} ms`);
+      console.warn(`[PlayerStore] armar el archivo (${this.size} jugadores) frenó el server ${Math.round(serializedMs)} ms`);
     }
   }
 }
@@ -253,4 +336,9 @@ export function issueTravelTicket(
     if (ticket.expiresAt < now) travelTickets.delete(other);
   }
   travelTickets.set(key, { cityId, expiresAt, ...place });
+}
+
+/** Ids (`playerId`) de las claves que están conectadas ahora: no se borran ni se olvidan. */
+function activeIds(): Set<string> {
+  return new Set([...activeSessions.keys()].map(playerId));
 }
