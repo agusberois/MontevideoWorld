@@ -7,15 +7,20 @@ import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import {
+  CARTS,
   DEFAULT_PORT,
   MAX_FOOD_SHARE,
+  RODS,
   ROOM_NAME,
+  WEATHERS,
+  cartInWeather,
   foodCostPerHour,
   foodTooExpensiveFor,
   formatMoney,
   formatPercent,
   hourlyIncome,
   lifetimeValue,
+  rodInWeather,
   unprofitableTools,
 } from "@montevideo-world/shared";
 import { liveRooms, tickMetrics } from "./metrics";
@@ -31,10 +36,21 @@ for (const tool of unprofitableTools()) {
 }
 // Comer tiene que costar una parte chica de lo que se gana: con ninguna herramienta la comida de una
 // hora de trabajo puede pasar de MAX_FOOD_SHARE de lo que deja (ver `needsBalance.ts`).
-for (const { tool, share } of foodTooExpensiveFor()) {
+// Se mide con el clima que más hambre da (el calor): es el peor caso.
+const worstHunger = Math.max(...Object.values(WEATHERS).map((weather) => weather.hungerFactor));
+for (const { tool, share } of foodTooExpensiveFor(worstHunger)) {
   console.warn(
-    `[Balance] Con ${tool.name} comer se lleva ${formatPercent(share)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(foodCostPerHour()))}/h de comida contra ~${formatMoney(Math.round(hourlyIncome(tool)))}/h.`,
+    `[Balance] Con ${tool.name} comer se lleva ${formatPercent(share)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(foodCostPerHour(worstHunger)))}/h de comida contra ~${formatMoney(Math.round(hourlyIncome(tool)))}/h.`,
   );
+}
+// El clima empeora la pesca (pampero) o la venta (lluvia): con cualquiera, cada herramienta se tiene que seguir pagando sola.
+for (const weather of Object.values(WEATHERS)) {
+  for (const tool of [...RODS.map((rod) => rodInWeather(rod, weather)), ...CARTS.map((cart) => cartInWeather(cart, weather))]) {
+    if (lifetimeValue(tool) > tool.price) continue;
+    console.warn(
+      `[Balance] Con ${weather.name.toLowerCase()}, ${tool.name} no es rentable: deja ~${formatMoney(Math.floor(lifetimeValue(tool)))} en ${tool.maxUses} usos y cuesta ${formatMoney(tool.price)}.`,
+    );
+  }
 }
 
 const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);

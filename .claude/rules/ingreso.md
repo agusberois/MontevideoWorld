@@ -51,7 +51,7 @@ combinante seguida (lo mismo los nombres de mascota; el chat igual pero conserva
 emojis compuestos). Para comparar nombres se usa `nameKey` (esqueleto: sin mayúsculas, tildes,
 espacios ni signos, letras cirílicas/griegas parecidas → latinas, 0→o, 1/I→l, rn→m): lo usan los
 nombres únicos y reservados, `/mensaje`, `/plata`, `/ban`, `/trace`, los bans por nombre y
-`keysByName`. En `onJoin`: un nombre reservado (`isReservedName`: Admin, Sistema, Moderador
+`idsByName`. En `onJoin`: un nombre reservado (`isReservedName`: Admin, Sistema, Moderador
 —también adentro de otro—, Mod, Staff… y el de `ADMIN_NAME`, salvo para el admin) pasa a
 `Invitado####`, y si ya hay alguien conectado con el mismo esqueleto se le suma un número
 (`juan2`; la sesión que esa clave reemplaza no cuenta). Se le avisa con un `notice` a los 1,5 s (antes

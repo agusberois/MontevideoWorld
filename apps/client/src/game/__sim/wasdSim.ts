@@ -123,7 +123,6 @@ export function run(name: string, start: TilePoint, events: KeyEvent[], latency:
       inFlight.push({ at: lastUp, fn: () => server.move(target, copy) });
     },
     now: clock,
-    canWalk: () => true,
   });
   mover.setAvatar(avatar, start);
   if (process.env.TRACE) {

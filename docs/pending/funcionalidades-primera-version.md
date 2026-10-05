@@ -81,7 +81,7 @@ sos?").
 - Moderación: el admin puede renombrar o disolver una barra; las siglas pasan por los nombres
   reservados (nada de `[ADM]` o `[MOD]`).
 
-### 2.3 Primeros pasos: "Bienvenido a Montevideo" — S/M
+### 2.3 Primeros pasos: "Bienvenido a Montevideo" — S/M ✅ hecho (2026-10-04, ver `.claude/rules/primeros-pasos.md`)
 
 Hoy el jugador cae en la Plaza Independencia con $100 y una caña, y tiene que descubrir todo solo.
 Una guía corta, con cartelitos y una flecha en el mapa, que lo lleve por lo que hace único al juego:
@@ -198,7 +198,7 @@ Por orden de lo que aportan al juego:
 picudos", "estuviste preso" (con humor). Se muestran en el perfil y algunos dan un título debajo del
 nombre (que convive con la sigla de la barra).
 
-### 3.5 Clima — S
+### 3.5 Clima — S ✅ hecho (2026-10-03, ver `.claude/rules/clima.md`)
 
 **Lluvia** (menos gente en la calle: menos ventas, pero pican más), **viento pampero** (más difícil
 pescar), **calor de enero** (más hambre, más venta de refrescos). Se ve en el cielo y en el piso

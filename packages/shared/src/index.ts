@@ -20,3 +20,5 @@ export * from "./jail";
 export * from "./pets";
 export * from "./needsBalance";
 export * from "./weevils";
+export * from "./weather";
+export * from "./tutorial";

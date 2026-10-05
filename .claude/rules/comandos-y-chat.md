@@ -33,7 +33,8 @@ caminar). En otra sala emite un pase (`issueTravelTicket` con `near` = el jugado
 con `roomId`: el cliente entra con `joinById` a esa copia y `onJoin` lo pone al lado (`tileNear`).
 `playerDirectory` guarda `cityId` y la sala (`mailbox.roomId`, `tileOf`, `jail`)) y
 `/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y
-`/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier
+`/guia` (todos: vuelve a abrir la guía de bienvenida, sin premios si ya la había empezado; ver
+`primeros-pasos.md`), `/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier
 barrio vía `mailbox.mute`; 0 = levantarlo: `mutes.ts`, por id la condena entera y por nombre como
 mucho 1 h, sólo en memoria. Silenciado no sale su chat, `/mensaje`, saludo ni burla; los demás
 comandos sí) y `/curar [jugador]` (admin:

@@ -1,8 +1,9 @@
-import { Bench, EXHAUSTED_RECOVERY, MAX_ROUTE_LENGTH, MessageType, TilePoint, WALK_ENERGY_COST, WALK_HUNGER_COST, WEEVIL_REWARD } from "@montevideo-world/shared";
+import { Bench, MAX_ROUTE_LENGTH, MessageType, TIRED_STEP_TICKS, TilePoint, WALK_HUNGER_COST, WEEVIL_REWARD } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, isWalking, oncePerTick } from "../session";
 import { stopActivities } from "./activities";
 import { openShop } from "./shops";
+import { checkTutorialReach } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Caminar, sentarse, sacudir palmeras y patear picudos; el paso de cada tick (`stepPlayers`). */
@@ -11,7 +12,6 @@ export function movementRoutes(room: CityRoom) {
     [MessageType.Move]: oncePerTick(MessageType.Move, (session, message) => {
       const { player } = session;
       if (!room.map.isWalkable(message.x, message.y)) return;
-      if (!session.needs.hasEnergy(WALK_ENERGY_COST)) return notifyExhausted(room, session);
       // Cualquier otra acción recoge la línea (o deja de vender).
       stopActivities(session);
 
@@ -94,10 +94,6 @@ export function isBenchTaken(room: CityRoom, bench: Bench, except: PlayerSession
   return false;
 }
 
-export function notifyExhausted(room: CityRoom, session: PlayerSession) {
-  room.notice(session, `Estás agotado: descansá hasta recuperar ${EXHAUSTED_RECOVERY} de energía (sentado en un banco es mucho más rápido).`);
-}
-
 /** Lleva al jugador a `tile` de golpe: corta lo que estaba haciendo (caminar, sentarse, pescar…). */
 export function teleport(session: PlayerSession, tile: TilePoint) {
   stopActivities(session);
@@ -141,15 +137,18 @@ export function stepPlayers(room: CityRoom) {
 
   for (const session of room.sessions.values()) {
     if (!isWalking(session)) continue;
-    // Cada paso gasta energía: agotado, se frena donde está (y no llega a banco ni tienda).
-    if (!session.needs.spendEnergy(WALK_ENERGY_COST)) {
-      halt(session);
-      notifyExhausted(room, session);
+    // Cansado: un tile cada `TIRED_STEP_TICKS` ticks (camina más lento, pero llega al banco).
+    if (session.stepWait > 0) {
+      session.stepWait -= 1;
       continue;
     }
+    if (session.player.tired) session.stepWait = TIRED_STEP_TICKS - 1;
+    // Cada paso gasta un poco de energía, pero nunca deja agotado (`walkStep`): siempre se puede caminar.
+    session.needs.walkStep();
     session.needs.drainHunger(WALK_HUNGER_COST);
     const next = session.path.shift()!;
     session.player.x = next.x;
     session.player.y = next.y;
+    checkTutorialReach(room, session);
   }
 }

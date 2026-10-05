@@ -32,6 +32,7 @@ import {
   sanitizeName,
   truncate,
   sanitizePetName,
+  sanitizeTutorial,
 } from "@montevideo-world/shared";
 import { getCityMap } from "@montevideo-world/shared/cities";
 import { GameState, Player } from "@montevideo-world/shared/schema";
@@ -46,6 +47,7 @@ import { Inventory } from "../inventory";
 import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
 import { Needs } from "../needs";
 import { SessionOwner, activeSessions, playerStore, travelTickets } from "../playerStore";
+import { weather } from "../weather";
 import { RateLimiter, UNKNOWN_MESSAGE_TYPE } from "../rateLimit";
 import { TradeManager } from "../trades";
 import { Wallet } from "../wallet";
@@ -59,6 +61,7 @@ import { shopRoutes } from "./systems/shops";
 import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes } from "./systems/social";
 import { cancelTrade, revalidateTrade, tradeRoutes } from "./systems/trading";
 import { jail, travelRoutes, updateJail } from "./systems/travel";
+import { tutorialRoutes } from "./systems/tutorial";
 import type { MessageRoutes } from "./systems/types";
 
 /** Cada cuánto se mueven los picudos (más seguido que los jugadores: se arrastran de a poco). */
@@ -206,6 +209,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
 
     this.state = new GameState();
     this.state.copy = takeCopyNumber(map.city.id);
+    // Vacío hasta el primer `syncClock`, que copia el clima sin anunciarlo.
+    this.state.weather = "";
     this.label = `${map.city.id}#${this.state.copy} (${this.roomId})`;
     liveRooms.add(this);
     openRooms.add(this);
@@ -221,6 +226,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       ...socialRoutes(this),
       ...adminRoutes(this),
       ...travelRoutes(this),
+      ...tutorialRoutes(this),
     };
     for (const type of Object.keys(routes) as Array<keyof MessageRoutes>) this.route(type, routes[type]);
     // Tipos sin handler (cliente modificado): se cuentan contra el límite y se descartan sin loguear.
@@ -372,6 +378,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     player.energy = needs.energy;
 
     const session = createSession(client, player, inventory, wallet, needs, key);
+    // Guía de bienvenida: sin guardado (o uno de antes de que existiera), desde el principio.
+    session.tutorial = sanitizeTutorial(saved?.tutorial);
     session.ip = auth?.ip ?? "?";
     this.sessions.set(client.sessionId, session);
     connectionOpened(session.ip);
@@ -432,6 +440,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       jailedUntil: bans.savedUntil(key),
       pet: player.pet ? { id: player.pet, name: player.petName } : undefined,
       needs: session.needs.snapshot(),
+      tutorial: session.tutorial,
     });
   }
 
@@ -621,6 +630,14 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const mode = gameClock.getMatchMode();
     if (this.state.matchMode !== mode) this.state.matchMode = mode;
     this.announceMatch(match || null);
+    const { id: weatherId, announce } = weather.current();
+    const weatherMode = weather.getMode();
+    if (this.state.weatherMode !== weatherMode) this.state.weatherMode = weatherMode;
+    if (this.state.weather !== weatherId) {
+      // Al abrir la sala no se anuncia (nadie estaba para verlo cambiar).
+      if (this.state.weather !== "") this.broadcastSystem(announce);
+      this.state.weather = weatherId;
+    }
     updateJail(this);
   }
 

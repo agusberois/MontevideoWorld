@@ -18,10 +18,13 @@ exports.MessageType = {
     RequestWallet: "wallet:get",
     /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
     RequestNeeds: "needs:get",
+    RequestTutorial: "tutorial:get",
+    TutorialSkip: "tutorial:skip",
     /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
     Wallet: "wallet",
     /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
     Needs: "needs",
+    Tutorial: "tutorial",
     /** Servidor → Cliente: te desmayaste (salud en 0). */
     Faint: "faint",
     /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
@@ -69,6 +72,7 @@ exports.MessageType = {
     AdminGive: "admin:give",
     /** Cliente (admin) → Servidor: forzar (o no) el partido en el Centenario, en todos los barrios. */
     AdminMatch: "admin:match",
+    AdminWeather: "admin:weather",
     /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
     Announcement: "announcement",
     /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */

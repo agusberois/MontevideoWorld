@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LOW_USES, VEND_ENERGY_COST, VendResultMessage, bestCart, cartPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
+import { LOW_USES, VEND_ENERGY_COST, VendResultMessage, WEATHERS, bestCart, cartPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { toggleVending } from "@/lib/gameActions";
 import { useGame } from "@/lib/gameStore";
@@ -38,6 +38,8 @@ export function VendingWidget({ room }: VendingWidgetProps) {
   const uses = cartStack ? stackUses(cartStack) : 0;
   /** El partido que se está jugando en el Centenario, si hay (se vende el doble; lo dice el server). */
   const match = useGame((state) => state.match);
+  /** Lo que cambia el clima de ahora en la venta ("" = nada). */
+  const weatherHint = useGame((state) => WEATHERS[state.weather].vendingHint);
   const onToggle = () => toggleVending(room);
   const [wait, setWait] = useState<{ id: number; durationMs: number } | null>(null);
   const [result, setResult] = useState<VendResultMessage | null>(null);
@@ -66,6 +68,7 @@ export function VendingWidget({ room }: VendingWidgetProps) {
     <div className={cx("fishing")} role="status" aria-live="polite">
       {result && <p className={cx(`fishing-result ${result.ok ? "ok" : "miss"}`)}>{result.text}</p>}
       {canVend && match && <p className={cx("vending-match")}>⚽ {match}: ¡se vende el doble!</p>}
+      {canVend && weatherHint && <p className={cx("activity-weather")}>{weatherHint}</p>}
       {vending ? (
         <div className={cx("fishing-card")}>
           <span className={cx("fishing-label")} title={cart ? `Vendiendo con ${cart.name}` : undefined}>

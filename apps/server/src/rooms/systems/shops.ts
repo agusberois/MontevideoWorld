@@ -26,6 +26,7 @@ import {
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, oncePerTick } from "../session";
 import { stopActivities } from "./activities";
+import { tutorialEvent } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Tiendas (comprar, vender, regatear, carrito), ropa, mochila, cajas sorpresa, veterinaria y guardia. */
@@ -132,6 +133,7 @@ export function shopRoutes(room: CityRoom) {
         ? `Vendiste ${sold} de ${quantity} × ${item.name} por ${formatMoney(earned)}: ${stop}.`
         : `Vendiste ${what} por ${formatMoney(earned)}.`;
       shopResult(room, session, true, text, { action: "sell", itemId: item.id, quantity: sold });
+      tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category: item.category });
     },
 
     /**
@@ -162,6 +164,7 @@ export function shopRoutes(room: CityRoom) {
       room.markInventory(session);
       if (accepted) {
         shopResult(room, session, true, `🤝 ¡Aceptaron! Vendiste ${item.name} por ${formatMoney(message.price)}.`);
+        tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category: item.category });
       } else {
         shopResult(room, session, false, `🙅 No aceptaron: te quedaste sin ${item.name} y sin cobrar nada.`);
       }

@@ -12,7 +12,7 @@
  * Las lleva el servidor (y las guarda con el progreso); el cliente sólo las muestra.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
+exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.TIRED_RECOVERY = exports.TIRED_STEP_TICKS = exports.WALK_ENERGY_FLOOR = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
 exports.hungerLevel = hungerLevel;
 exports.energyRegenFactor = energyRegenFactor;
 exports.faintFee = faintFee;
@@ -20,8 +20,23 @@ exports.hospitalPrice = hospitalPrice;
 exports.energyCap = energyCap;
 exports.sanitizeNeeds = sanitizeNeeds;
 exports.MAX_ENERGY = 100;
-/** Gasto por cada tile caminado (con el tanque lleno alcanza para ~165 pasos). */
-exports.WALK_ENERGY_COST = 0.6;
+/**
+ * Gasto por cada tile caminado (de 100 a `WALK_ENERGY_FLOOR` son ~530 pasos, más de 2 minutos
+ * caminando sin parar). Caminar nunca deja agotado: ver `WALK_ENERGY_FLOOR`.
+ */
+exports.WALK_ENERGY_COST = 0.15;
+/**
+ * Caminar no baja la energía de acá: con menos, se camina gratis. Así siempre se puede ir hasta un
+ * banco o una tienda; la energía sólo frena el trabajo (pescar, vender).
+ */
+exports.WALK_ENERGY_FLOOR = 20;
+/**
+ * Cansado (`Player.tired`): con `WALK_ENERGY_FLOOR` o menos se camina `TIRED_STEP_TICKS` veces más
+ * lento (un tile cada tantos ticks), hasta recuperar `TIRED_RECOVERY`. El margen hace que no alcance
+ * con frenar un segundo: hay que descansar (sentado en un banco, en un segundo y medio).
+ */
+exports.TIRED_STEP_TICKS = 3;
+exports.TIRED_RECOVERY = 35;
 /** Gasto por cada vez que se tira la línea en la escollera. */
 exports.FISH_ENERGY_COST = 10;
 /** Gasto por cada vez que se ofrece la mercadería en la explanada del Centenario. */

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORK_HUNGER_PER_HOUR = exports.MAX_FOOD_SHARE = void 0;
+exports.MAX_FOOD_SHARE = void 0;
+exports.workHungerPerHour = workHungerPerHour;
 exports.cheapestFood = cheapestFood;
 exports.foodCostPerHour = foodCostPerHour;
 exports.hourlyIncome = hourlyIncome;
@@ -18,15 +19,20 @@ const tools_1 = require("./tools");
  * ventas por la hora de hambre "de esfuerzo", y el resto del tiempo usando la herramienta.
  */
 exports.MAX_FOOD_SHARE = 0.15;
-/** Saciedad que se gasta en una hora trabajando: la del tiempo más la del esfuerzo. */
-exports.WORK_HUNGER_PER_HOUR = needs_1.HUNGER_PER_SECOND * 3600 + 300 * needs_1.WALK_HUNGER_COST + 30 * needs_1.FISH_HUNGER_COST;
+/**
+ * Saciedad que se gasta en una hora trabajando: la del tiempo (por `hungerFactor`, el del clima:
+ * con calor da más hambre) más la del esfuerzo.
+ */
+function workHungerPerHour(hungerFactor = 1) {
+    return needs_1.HUNGER_PER_SECOND * 3600 * hungerFactor + 300 * needs_1.WALK_HUNGER_COST + 30 * needs_1.FISH_HUNGER_COST;
+}
 /** La comida que llena más barato (pesos por punto de saciedad). */
 function cheapestFood() {
     return items_1.FOODS.map((food) => ({ food, costPerPoint: food.price / food.hunger })).reduce((best, next) => next.costPerPoint < best.costPerPoint ? next : best);
 }
 /** Lo que cuesta comer una hora de trabajo, con la comida más barata. */
-function foodCostPerHour() {
-    return exports.WORK_HUNGER_PER_HOUR * cheapestFood().costPerPoint;
+function foodCostPerHour(hungerFactor = 1) {
+    return workHungerPerHour(hungerFactor) * cheapestFood().costPerPoint;
 }
 /**
  * Segundos promedio de un intento (tirada o venta, ver `fishing.ts` / `vending.ts` del server: una
@@ -42,9 +48,12 @@ function hourlyIncome(tool) {
     const net = (0, tools_1.valuePerUse)(tool) - tool.price / tool.maxUses;
     return (net * 3600) / secondsPerUse(tool);
 }
-/** Herramientas con las que comer se lleva más de `MAX_FOOD_SHARE` de lo que se gana. Tiene que estar vacía. */
-function foodTooExpensiveFor() {
-    const cost = foodCostPerHour();
+/**
+ * Herramientas con las que comer se lleva más de `MAX_FOOD_SHARE` de lo que se gana. Tiene que estar
+ * vacía. Se mide con el clima que más hambre da (`hungerFactor`), que es el peor caso.
+ */
+function foodTooExpensiveFor(hungerFactor = 1) {
+    const cost = foodCostPerHour(hungerFactor);
     return [...items_1.RODS, ...items_1.CARTS]
         .map((tool) => ({ tool, share: cost / hourlyIncome(tool) }))
         .filter(({ share }) => !(share > 0 && share <= exports.MAX_FOOD_SHARE));

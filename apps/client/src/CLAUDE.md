@@ -9,10 +9,15 @@ hoja) está en `app/globals.css`; los ajustes de cada componente, en su CSS Modu
   `interactiveWidget: "overlays-content"`: el teclado tapa la página sin achicarla (el canvas no se
   redimensiona). `lib/viewport.ts` mide cuánto tapa con `visualViewport` → `--keyboard-inset`.
   Alturas con `dvh` (descuentan la barra del navegador).
+- **Escritorio**: el HUD son dos paneles arriba (`.hud-info` a la izquierda: nombre, barrio,
+  hora/clima, plata; `.hud-actions` a la derecha: menús con ícono, nombre abajo y la tecla como
+  insignia; el nombre se oculta por debajo de 1100 px) y el botón de la cámara debajo de los menús.
+  Energía, hambre y salud son otro componente (`ui/Vitals.tsx`), abajo a la izquierda (con 1280 px o
+  menos, encima de la barra rápida, que ahí se corre a la izquierda). Los avisos usan `--hud-height`.
 - **Modo compacto** = `(max-width: 760px), (max-height: 500px)` (mismo corte que `isSmallScreen()`):
-  HUD de punta a punta en dos filas (datos arriba; acciones sólo con ícono, el texto queda para
-  lectores de pantalla en `.hud-label`); todo lo de abajo va en `.dock` (en App: pesca / venta, barra
-  rápida, chat), que en escritorio es `display: contents` y en compacto una columna fija que sube con
+  HUD de punta a punta en dos filas (datos arriba; acciones sólo con ícono, que se reparten el ancho
+  y nunca se salen de la pantalla, el texto queda para lectores de pantalla en `.hud-label`); todo
+  lo de abajo va en `.dock` (en App: pesca / venta, `Vitals` en una fila, barra rápida, chat), que en escritorio es `display: contents` y en compacto una columna fija que sube con
   el teclado. El chat arranca compacto (dos mensajes) y se expande al escribir o tocar el historial
   (`expanded` en `ChatBox`); expandido, esconde lo demás del dock. Avisos y anuncios se ubican con
   `--hud-height`. Celular parado: los paneles salen desde abajo como hoja. Acostado: HUD en una fila

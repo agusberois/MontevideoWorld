@@ -21,8 +21,13 @@ import { valuePerUse } from "./tools";
 
 export const MAX_FOOD_SHARE = 0.15;
 
-/** Saciedad que se gasta en una hora trabajando: la del tiempo más la del esfuerzo. */
-export const WORK_HUNGER_PER_HOUR = HUNGER_PER_SECOND * 3600 + 300 * WALK_HUNGER_COST + 30 * FISH_HUNGER_COST;
+/**
+ * Saciedad que se gasta en una hora trabajando: la del tiempo (por `hungerFactor`, el del clima:
+ * con calor da más hambre) más la del esfuerzo.
+ */
+export function workHungerPerHour(hungerFactor = 1): number {
+  return HUNGER_PER_SECOND * 3600 * hungerFactor + 300 * WALK_HUNGER_COST + 30 * FISH_HUNGER_COST;
+}
 
 /** La comida que llena más barato (pesos por punto de saciedad). */
 export function cheapestFood(): { food: FoodItem; costPerPoint: number } {
@@ -32,8 +37,8 @@ export function cheapestFood(): { food: FoodItem; costPerPoint: number } {
 }
 
 /** Lo que cuesta comer una hora de trabajo, con la comida más barata. */
-export function foodCostPerHour(): number {
-  return WORK_HUNGER_PER_HOUR * cheapestFood().costPerPoint;
+export function foodCostPerHour(hungerFactor = 1): number {
+  return workHungerPerHour(hungerFactor) * cheapestFood().costPerPoint;
 }
 
 /**
@@ -52,9 +57,12 @@ export function hourlyIncome(tool: ToolItem): number {
   return (net * 3600) / secondsPerUse(tool);
 }
 
-/** Herramientas con las que comer se lleva más de `MAX_FOOD_SHARE` de lo que se gana. Tiene que estar vacía. */
-export function foodTooExpensiveFor(): Array<{ tool: ToolItem; share: number }> {
-  const cost = foodCostPerHour();
+/**
+ * Herramientas con las que comer se lleva más de `MAX_FOOD_SHARE` de lo que se gana. Tiene que estar
+ * vacía. Se mide con el clima que más hambre da (`hungerFactor`), que es el peor caso.
+ */
+export function foodTooExpensiveFor(hungerFactor = 1): Array<{ tool: ToolItem; share: number }> {
+  const cost = foodCostPerHour(hungerFactor);
   return [...RODS, ...CARTS]
     .map((tool) => ({ tool, share: cost / hourlyIncome(tool) }))
     .filter(({ share }) => !(share > 0 && share <= MAX_FOOD_SHARE));

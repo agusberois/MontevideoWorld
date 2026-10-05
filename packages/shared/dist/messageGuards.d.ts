@@ -1,4 +1,4 @@
-import { AdminGiveMessage, AdminMatchMessage, AdminSetTimeMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
+import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
 import { TradeOffer } from "./trade";
 /** Un tile (x, y enteros): mover, sentarse, visitar una tienda, sacudir una palmera. */
 export declare function isTileMessage(message: unknown): message is SitMessage;
@@ -19,6 +19,7 @@ export declare function isItemIdMessage(message: unknown): message is FoodEatMes
 export declare function isAdminSetTimeMessage(message: unknown): message is AdminSetTimeMessage;
 export declare function isAdminGiveMessage(message: unknown): message is AdminGiveMessage;
 export declare function isAdminMatchMessage(message: unknown): message is AdminMatchMessage;
+export declare function isAdminWeatherMessage(message: unknown): message is AdminWeatherMessage;
 export declare function isTravelMessage(message: unknown): message is TravelMessage;
 export declare function isWeevilKickMessage(message: unknown): message is WeevilKickMessage;
 export declare function isTargetPlayerMessage(message: unknown): message is TargetPlayerMessage;

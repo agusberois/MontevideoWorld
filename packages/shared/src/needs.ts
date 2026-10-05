@@ -13,8 +13,25 @@
 
 export const MAX_ENERGY = 100;
 
-/** Gasto por cada tile caminado (con el tanque lleno alcanza para ~165 pasos). */
-export const WALK_ENERGY_COST = 0.6;
+/**
+ * Gasto por cada tile caminado (de 100 a `WALK_ENERGY_FLOOR` son ~530 pasos, más de 2 minutos
+ * caminando sin parar). Caminar nunca deja agotado: ver `WALK_ENERGY_FLOOR`.
+ */
+export const WALK_ENERGY_COST = 0.15;
+
+/**
+ * Caminar no baja la energía de acá: con menos, se camina gratis. Así siempre se puede ir hasta un
+ * banco o una tienda; la energía sólo frena el trabajo (pescar, vender).
+ */
+export const WALK_ENERGY_FLOOR = 20;
+
+/**
+ * Cansado (`Player.tired`): con `WALK_ENERGY_FLOOR` o menos se camina `TIRED_STEP_TICKS` veces más
+ * lento (un tile cada tantos ticks), hasta recuperar `TIRED_RECOVERY`. El margen hace que no alcance
+ * con frenar un segundo: hay que descansar (sentado en un banco, en un segundo y medio).
+ */
+export const TIRED_STEP_TICKS = 3;
+export const TIRED_RECOVERY = 35;
 
 /** Gasto por cada vez que se tira la línea en la escollera. */
 export const FISH_ENERGY_COST = 10;

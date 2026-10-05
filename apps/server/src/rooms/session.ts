@@ -1,5 +1,5 @@
 import type { Client, Delayed } from "@colyseus/core";
-import type { Bench, NeedsMessage, Shop, TilePoint } from "@montevideo-world/shared";
+import { type Bench, type NeedsMessage, type Shop, type TilePoint, type TutorialState, NEW_TUTORIAL } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import type { Inventory } from "../inventory";
 import type { Needs } from "../needs";
@@ -27,8 +27,12 @@ export interface PlayerSession {
   readonly needs: Needs;
   /** Clave secreta (con ella se guarda el progreso, `playerStore`); null sin clave o después de cerrarla por duplicada. */
   key: string | null;
+  /** Guía de bienvenida (se guarda con el progreso; ver `systems/tutorial.ts`). */
+  tutorial: TutorialState;
   /** Tiles que le quedan por caminar (vacío = quieto). */
   path: TilePoint[];
+  /** Cansado (`player.tired`): ticks que faltan para el próximo paso. */
+  stepWait: number;
   pending: PendingAction | null;
   /** Línea en el agua: resuelve la pesca. */
   fishingTimer: Delayed | null;
@@ -65,7 +69,9 @@ export function createSession(client: Client, player: Player, inventory: Invento
     wallet,
     needs,
     key,
+    tutorial: { ...NEW_TUTORIAL },
     path: [],
+    stepWait: 0,
     pending: null,
     fishingTimer: null,
     vendingTimer: null,
@@ -90,6 +96,7 @@ export function isWalking(session: PlayerSession): boolean {
 /** Frena: sin camino ni nada pendiente para cuando llegue. */
 export function halt(session: PlayerSession) {
   session.path = [];
+  session.stepWait = 0;
   session.pending = null;
   session.queuedSearch = null;
 }

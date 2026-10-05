@@ -41,6 +41,8 @@ export class Player extends Schema {
   @type("uint16") kicks = 0;
   /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
   @type("uint8") energy = 100;
+  /** Cansado: camina `TIRED_STEP_TICKS` veces más lento (lo decide el server; todos lo ven así). */
+  @type("boolean") tired = false;
   /** Donador: aporta plata al proyecto. Se muestra un distintivo arriba del nombre (lo pone el admin con /donador). */
   @type("boolean") donor = false;
   /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */

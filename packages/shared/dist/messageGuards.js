@@ -14,6 +14,7 @@ exports.isItemIdMessage = isItemIdMessage;
 exports.isAdminSetTimeMessage = isAdminSetTimeMessage;
 exports.isAdminGiveMessage = isAdminGiveMessage;
 exports.isAdminMatchMessage = isAdminMatchMessage;
+exports.isAdminWeatherMessage = isAdminWeatherMessage;
 exports.isTravelMessage = isTravelMessage;
 exports.isWeevilKickMessage = isWeevilKickMessage;
 exports.isTargetPlayerMessage = isTargetPlayerMessage;
@@ -22,6 +23,7 @@ exports.isPetRenameMessage = isPetRenameMessage;
 exports.isTradeRespondMessage = isTradeRespondMessage;
 exports.isTradeOfferMessage = isTradeOfferMessage;
 const items_1 = require("./items");
+const weather_1 = require("./weather");
 const messages_1 = require("./messages");
 const time_1 = require("./time");
 const trade_1 = require("./trade");
@@ -92,6 +94,9 @@ function isAdminGiveMessage(message) {
 function isAdminMatchMessage(message) {
     return isObject(message) && vending_1.MATCH_MODES.includes(message.mode) && (message.name === undefined || typeof message.name === "string");
 }
+function isAdminWeatherMessage(message) {
+    return isObject(message) && (0, weather_1.isWeatherMode)(message.mode);
+}
 function isTravelMessage(message) {
     return isObject(message) && typeof message.cityId === "string";
 }
@@ -128,6 +133,8 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.InventoryMove]: isInventoryMoveMessage,
     [messages_1.MessageType.RequestWallet]: noPayload,
     [messages_1.MessageType.RequestNeeds]: noPayload,
+    [messages_1.MessageType.RequestTutorial]: noPayload,
+    [messages_1.MessageType.TutorialSkip]: noPayload,
     [messages_1.MessageType.HospitalHeal]: isShopIdMessage,
     [messages_1.MessageType.ShopVisit]: isTileMessage,
     [messages_1.MessageType.ShopBuy]: isShopTradeMessage,
@@ -143,6 +150,7 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.AdminNearbyRequest]: noPayload,
     [messages_1.MessageType.AdminGive]: isAdminGiveMessage,
     [messages_1.MessageType.AdminMatch]: isAdminMatchMessage,
+    [messages_1.MessageType.AdminWeather]: isAdminWeatherMessage,
     [messages_1.MessageType.BoxOpen]: isItemIdMessage,
     [messages_1.MessageType.TravelRequest]: isTravelMessage,
     [messages_1.MessageType.CitiesRequest]: noPayload,

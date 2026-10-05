@@ -66,6 +66,12 @@ exports.COMMANDS = [
         role: "admin",
     },
     {
+        name: "guia",
+        usage: "/guia",
+        description: "Vuelve a abrir la guía de bienvenida (repetirla no da premios).",
+        role: "user",
+    },
+    {
         name: "donador",
         usage: "/donador <si|no> [jugador]",
         description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).",

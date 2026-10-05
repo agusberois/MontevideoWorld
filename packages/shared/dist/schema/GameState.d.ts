@@ -15,6 +15,10 @@ export declare class GameState extends Schema {
     match: string;
     /** Si el admin forzó el partido (`MatchMode`): para su panel. */
     matchMode: string;
+    /** Clima de ahora (`WeatherId`), global como la hora: la escena dibuja lluvia o viento y el HUD lo muestra. */
+    weather: string;
+    /** Si el admin dejó el clima fijo (`WeatherMode`): para su panel. */
+    weatherMode: string;
     /** Picudos rojos sueltos en el barrio. Clave = id del picudo. */
     weevils: MapSchema<Weevil, string>;
 }

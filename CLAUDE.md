@@ -30,7 +30,7 @@ El árbol sale del código (`ls`, y cada archivo explica arriba qué hace). Lo q
 - `apps/client/AGENTS.md` / `apps/client/CLAUDE.md` los genera `next dev` (reglas de Next 16 para agentes): commitearlos.
 - Documentación que se carga sola según lo que toques: `.claude/rules/*.md` (un archivo por sistema:
   ingreso y guardado, movimiento, mochila y dinero, tiendas, pesca y venta, necesidades, admin,
-  intercambio, comandos y chat, picudos, mascotas, cárcel, interacción con F, barrios, entorno),
+  intercambio, comandos y chat, picudos, mascotas, cárcel, interacción con F, barrios, clima, guía de bienvenida, entorno),
   `apps/client/src/CLAUDE.md` (celulares) y `apps/client/src/game/CLAUDE.md` (cámara). Skills:
   `recetas` (agregar mensajes, paneles, categorías de ítem, comandos) y `despliegue`.
 

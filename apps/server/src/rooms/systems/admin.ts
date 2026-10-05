@@ -1,11 +1,12 @@
-import { AdminNearbyMessage, MAKER_RANGE, MessageType, formatClock, getItem } from "@montevideo-world/shared";
+import { AdminNearbyMessage, MAKER_RANGE, MessageType, WEATHERS, formatClock, getItem } from "@montevideo-world/shared";
 import { auditAdmin, logText } from "../../audit";
 import { gameClock } from "../../gameClock";
+import { weather } from "../../weather";
 import type { CityRoom } from "../CityRoom";
 import type { PlayerSession } from "../session";
 import type { MessageRoutes } from "./types";
 
-/** Sólo admins: reloj del juego, partido del Centenario y el maker. Los demás se ignoran. */
+/** Sólo admins: reloj del juego, partido del Centenario, clima y el maker. Los demás se ignoran. */
 export function adminRoutes(room: CityRoom) {
   return {
     /** Mover el reloj del juego; desde ahí sigue solo y lo ven todos (Schema). */
@@ -31,6 +32,16 @@ export function adminRoutes(room: CityRoom) {
             ? "suspendió los partidos"
             : "dejó los partidos según el horario";
       room.broadcastSystem(`⚽ ${session.player.name} ${text}`);
+      room.syncClock();
+    },
+
+    /** Dejar el clima fijo o que vuelva a cambiar solo: para todos los barrios, como el partido. */
+    [MessageType.AdminWeather]: (session, message) => {
+      auditAdmin(session, room.label, `admin:weather ${message.mode}`, session.player.admin);
+      if (!session.player.admin) return;
+      weather.force(message.mode);
+      const text = message.mode === "auto" ? "dejó que el clima cambie solo" : `puso el clima en ${WEATHERS[message.mode].name.toLowerCase()}`;
+      room.broadcastSystem(`🌦️ ${session.player.name} ${text}`);
       room.syncClock();
     },
 

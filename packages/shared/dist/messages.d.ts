@@ -2,7 +2,9 @@ import type { Appearance } from "./appearance";
 import type { InventoryStack, ItemSlot } from "./items";
 import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
+import type { TutorialState } from "./tutorial";
 import type { MatchMode } from "./vending";
+import type { WeatherMode } from "./weather";
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 export declare const MessageType: {
     readonly Move: "move";
@@ -19,10 +21,13 @@ export declare const MessageType: {
     readonly RequestWallet: "wallet:get";
     /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
     readonly RequestNeeds: "needs:get";
+    readonly RequestTutorial: "tutorial:get";
+    readonly TutorialSkip: "tutorial:skip";
     /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
     readonly Wallet: "wallet";
     /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
     readonly Needs: "needs";
+    readonly Tutorial: "tutorial";
     /** Servidor → Cliente: te desmayaste (salud en 0). */
     readonly Faint: "faint";
     /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
@@ -70,6 +75,7 @@ export declare const MessageType: {
     readonly AdminGive: "admin:give";
     /** Cliente (admin) → Servidor: forzar (o no) el partido en el Centenario, en todos los barrios. */
     readonly AdminMatch: "admin:match";
+    readonly AdminWeather: "admin:weather";
     /** Servidor → Todos (todos los barrios): anuncio del admin en el medio de la pantalla. */
     readonly Announcement: "announcement";
     /** Cliente → Servidor: abrir una caja sorpresa de la mochila. */
@@ -201,6 +207,18 @@ export interface InventoryMessage {
 }
 /** Servidor → Cliente: el saldo del jugador (privado, no viaja en el Schema). */
 /** Servidor → Cliente: hambre (saciedad) y salud, 0–100 redondeadas. Privadas: no van en el Schema. */
+/**
+ * Servidor → Cliente (sólo al dueño): cómo va su guía de bienvenida (ver `tutorial.ts`). Lo pide el
+ * cliente al entrar (`tutorial:get`) y llega de nuevo con cada paso cumplido. `completed`: el paso
+ * que se acaba de cumplir y lo que pagó (para el aviso).
+ */
+export interface TutorialMessage extends TutorialState {
+    completed?: {
+        step: number;
+        reward: number;
+        gift?: string;
+    };
+}
 export interface NeedsMessage {
     hunger: number;
     health: number;
@@ -315,6 +333,10 @@ export interface AdminMatchMessage {
     mode: MatchMode;
     name?: string;
 }
+/** Cliente (admin) → Servidor: dejar el clima fijo en uno (`WeatherId`) o volver a que cambie solo ("auto"). */
+export interface AdminWeatherMessage {
+    mode: WeatherMode;
+}
 export interface AdminGiveMessage {
     itemId: string;
     quantity: number;
@@ -409,6 +431,8 @@ export interface ClientToServerMessages {
     [MessageType.InventoryMove]: InventoryMoveMessage;
     [MessageType.RequestWallet]: undefined;
     [MessageType.RequestNeeds]: undefined;
+    [MessageType.RequestTutorial]: undefined;
+    [MessageType.TutorialSkip]: undefined;
     [MessageType.HospitalHeal]: {
         shopId: string;
     };
@@ -426,6 +450,7 @@ export interface ClientToServerMessages {
     [MessageType.AdminNearbyRequest]: undefined;
     [MessageType.AdminGive]: AdminGiveMessage;
     [MessageType.AdminMatch]: AdminMatchMessage;
+    [MessageType.AdminWeather]: AdminWeatherMessage;
     [MessageType.BoxOpen]: BoxOpenMessage;
     [MessageType.TravelRequest]: TravelMessage;
     [MessageType.CitiesRequest]: undefined;
@@ -452,6 +477,7 @@ export interface ServerToClientMessages {
     [MessageType.Inventory]: InventoryMessage;
     [MessageType.Wallet]: WalletMessage;
     [MessageType.Needs]: NeedsMessage;
+    [MessageType.Tutorial]: TutorialMessage;
     [MessageType.Faint]: FaintMessage;
     [MessageType.ShopOpen]: ShopOpenMessage;
     [MessageType.ShopResult]: ShopResultMessage;

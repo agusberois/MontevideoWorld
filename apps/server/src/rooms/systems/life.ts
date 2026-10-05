@@ -6,8 +6,10 @@ import {
   MessageType,
   NeedsMessage,
   STEP_MS,
+  TIRED_RECOVERY,
   TRAVEL_TICKET_MS,
   TilePoint,
+  WALK_ENERGY_FLOOR,
   WEAK_ENERGY_CAP,
   faintFee,
   formatMoney,
@@ -17,6 +19,7 @@ import { getCityMap } from "@montevideo-world/shared/cities";
 import { issueTravelTicket } from "../../playerStore";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, isWalking } from "../session";
+import { weather } from "../../weather";
 import { stopActivities } from "./activities";
 import { teleport } from "./movement";
 import { cancelTrade } from "./trading";
@@ -36,14 +39,22 @@ export function lifeRoutes(room: CityRoom) {
  */
 export function tickNeeds(room: CityRoom) {
   const seconds = STEP_MS / 1000;
+  const { hungerFactor } = weather.current();
   for (const session of room.sessions.values()) {
     const { player, needs } = session;
     needs.tick(seconds, {
       resting: !isWalking(session) && !player.fishing && !player.vending,
       sitting: player.sitting,
       jailed: player.jailLeft > 0,
+      hungerFactor,
     });
     if (player.energy !== needs.energy) player.energy = needs.energy;
+    // Cansado al llegar al piso de caminar; se le pasa recién con `TIRED_RECOVERY` (ver `needs.ts` de shared).
+    const tired = player.tired ? needs.energy < TIRED_RECOVERY : needs.energy <= WALK_ENERGY_FLOOR;
+    if (tired !== player.tired) {
+      player.tired = tired;
+      if (tired) room.notice(session, "Estás cansado: caminás más despacio. Descansá un rato (sentado en un banco es mucho más rápido).");
+    }
     if (needs.fainted) {
       faint(room, session);
       continue;

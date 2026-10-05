@@ -9,7 +9,7 @@ const cx = moduleClasses(styles);
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "horizon" | "megaphone" | "terminal";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal";
 
 const PATHS: Record<UiIconName, ReactNode> = {
   user: (
@@ -109,6 +109,19 @@ const PATHS: Record<UiIconName, ReactNode> = {
     </>
   ),
   moon: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />,
+  rain: (
+    <>
+      <path d="M7 15a4.5 4.5 0 0 1-.6-9 5.5 5.5 0 0 1 10.6 1.5A3.75 3.75 0 0 1 17 15z" />
+      <path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3" />
+    </>
+  ),
+  wind: <path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8" />,
+  heat: (
+    <>
+      <path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0z" />
+      <path d="M12 9v7M18 4l1.5-1.5M18 9h2M18 14l1.5 1.5" />
+    </>
+  ),
   megaphone: (
     <>
       <path d="M3 10v4a1 1 0 0 0 1 1h3l7 4V5L7 9H4a1 1 0 0 0-1 1z" />

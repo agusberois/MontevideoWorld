@@ -16,7 +16,8 @@ de una interfaz `PlayerRepository` con dos implementaciones (JSON y Supabase), a
 atrás cambiando una variable.
 
 > Plan, no implementación: nada de esto está hecho. Los nombres de archivos, funciones y campos del
-> "Estado actual" están verificados contra el código del 2026-10-03.
+> "Estado actual" están verificados contra el código del 2026-10-03 (segunda revisión: después del
+> paso a `playerId`, `nameKey` con confusables, `/silenciar` y los límites de `onAuth`).
 
 ## Decisiones tomadas (2026-10-03)
 
@@ -61,9 +62,17 @@ cliente genera y guarda en `localStorage` (`mw:playerKey`, `apps/client/src/lib/
 | `pet?` | `{ id, name }` | `player.pet` / `player.petName` |
 | `updatedAt` | ISO, lo pone `set` | — |
 
-**No** se guarda hoy: el aspecto (`gender/skin/hairColor/hairStyle/color` viaja en cada
-`JoinOptions.appearance` y se recuerda en `localStorage` `mw:appearance`), la barra rápida
-(`features/inventory/hotbarStorage.ts`, `localStorage`) ni la posición.
+**No** se guarda hoy en el server: el nombre ni el aspecto (`Appearance`: `gender/skin/hairColor/
+hairStyle/eyeColor/facialHair/glasses/color`) viajan en cada `JoinOptions` y se recuerdan en
+`localStorage` (`mw:name`, `mw:appearance`); la barra rápida (`features/inventory/hotbarStorage.ts`,
+`montevideo-world:hotbar`), los bloqueados (`features/players/blockStorage.ts`,
+`montevideo-world:blocked`, por `nameKey`) y la cámara (`mw:camera`) también son del navegador; la
+posición no se guarda. (`record.name` existe, pero al entrar se usa el nombre que manda el cliente.)
+
+**Claves nuevas intactas** (`isUntouched`) quedan **sólo en memoria** (`ephemeral`): sirven para
+viajar, `/trace` u otra pestaña, no se escriben al archivo hasta que tengan algo que perder y se
+olvidan a la hora sin uso (`EPHEMERAL_KEY_MS`). Con la base esto desaparece: el personaje existe
+desde `create_character`.
 
 Al cargar (`CityRoom.onJoin`) todo se revalida: `Inventory.restore` (ítems existentes, cantidades,
 usos, casilleros; separa cañas viejas apiladas), `getClothing` por lugar del cuerpo, `getPet` +
@@ -80,20 +89,25 @@ qué ítems existen (el catálogo vive en código, `ITEMS`).
 - **Inmediato** (igual pasa por `set`, que sólo marca y agenda): al salir (`onLeave`), al cerrar por
   sesión duplicada (`evictDuplicate`), al viajar (`TravelRequest` en `systems/travel.ts`), en
   `/trace` y desmayo con ambulancia (`systems/social.ts`, `systems/life.ts`), al ir preso
-  (`jail` en `systems/travel.ts`), al adoptar / renombrar / despedir mascota (`systems/shops.ts`) y
-  al marcar donador (`setDonor` en `createCommandHost`).
+  (`jail` en `systems/travel.ts`), al **aceptar un intercambio** (los dos lados, `systems/trading.ts`),
+  al adoptar / renombrar / despedir mascota (`systems/shops.ts`) y al marcar donador (`setDonor` en
+  `createCommandHost`).
 - La escritura real es **diferida y agrupada**: `WRITE_DELAY_MS` = 2 s, una a la vez, todo el
   archivo, a un `.tmp` + `rename` (atómico). Si falla, queda `dirty` y reintenta en la próxima.
 - **Al apagar**: `gameServer.onShutdown(() => playerStore.flush())` en `apps/server/src/index.ts`.
+- **Al caerse** (`uncaughtException` / `unhandledRejection`, `crash` en `index.ts`): `saveEveryone()`
+  (todas las salas) + `playerStore.flush()` con tope de 5 s (`CRASH_FLUSH_TIMEOUT_MS`) y `exit(1)`
+  para que PM2 lo levante.
 - **Limpieza**: `prune` (al arrancar y cada 24 h) borra claves sin cambios hace 90 días
   (`INACTIVE_KEY_MS`) que cumplen `isUntouched` (plata ≤ inicial, sólo ítems del kit, sin mascota,
   no donador, no preso) y que no estén en `activeSessions`.
 - `/health/full` muestra `store: { players, lastFlush, travelTickets }`.
 
-Ojo: compras, ventas, intercambios, pesca, venta en el Centenario, picudos, cajas y comandos de
-admin (`/plata`, `admin:give`, `/box`) **no** guardan en el acto: tocan `Wallet` / `Inventory` en
-memoria y quedan para el guardado de 15 s (o el de salida). Si el proceso se corta, se pierde hasta
-15 s de progreso; es una decisión aceptada y el plan la mantiene (con una excepción: intercambios).
+Ojo: compras, ventas, pesca, venta en el Centenario, picudos, cajas y comandos de admin (`/plata`,
+`admin:give`, `/box`) **no** guardan en el acto: tocan `Wallet` / `Inventory` en memoria y quedan
+para el guardado de 15 s (o el de salida). Si el proceso se corta, se pierde hasta 15 s de progreso;
+es una decisión aceptada y el plan la mantiene. Los intercambios ya se guardan en el acto (los dos
+lados); con la base además tienen que ir **en la misma transacción** (§4.3).
 
 ### Estado global en memoria que hoy depende del JSON
 
@@ -102,11 +116,28 @@ memoria y quedan para el guardado de 15 s (o el de salida). Si el proceso se cor
   que su `onLeave` no pise lo de la nueva.
 - `travelTickets` (`playerStore.ts`, `issueTravelTicket`): pase por clave para entrar a otro barrio
   (vence en `TRAVEL_TICKET_MS` = 30 s; `near` para `/trace`, `at` para la ambulancia).
-- `bans` (`bans.ts`): `byKey` y `byName` en memoria; `until` y `savedUntil` leen además
-  `playerStore.get(key)?.jailedUntil` **de forma sincrónica**. `/ban` a alguien desconectado usa
-  `playerStore.keysByName` + `setJailedUntil` (`createCommandHost.jail` en `systems/social.ts`).
+- `bans` (`bans.ts`): `byId` (por `playerId`) y `byName` (por `nameKey`) en memoria; `until` y
+  `savedUntil` leen además `playerStore.getById(id)?.jailedUntil` **de forma sincrónica**. El ban
+  por nombre vence a lo sumo a la hora (`NAME_BAN_MAX_MS`): la condena entera va por id. `/ban` a
+  alguien desconectado usa `playerStore.idsByName` + `bans.set(id, …)` + `setJailedUntil`
+  (`createCommandHost.jail` en `systems/social.ts`; puede tocar a varios guardados con el mismo
+  `nameKey`).
+- `mutes` (`mutes.ts`, `/silenciar`): igual que `bans` (por id y por nombre con el mismo tope), pero
+  **sólo en memoria** a propósito: reiniciar el server los levanta.
 - Admin: `isAdminName(player.name)` (`env.ts`, `ADMIN_NAME`) en `onJoin` → `player.admin`. Los
-  comandos chequean el rol contra `player.admin` (`commands/index.ts`).
+  comandos chequean el rol contra `player.admin` (`commands/index.ts`). `ADMIN_NAME` también entra
+  en `isReservedName` (nadie más puede usar un nombre parecido).
+- Nombres: hoy no son únicos en el archivo. En `onJoin`, uno reservado pasa a `Invitado####` y, si
+  ya hay alguien **conectado** con el mismo `nameKey` (`playerDirectory`), se le suma un número
+  (`uniqueName`) y se le avisa con un `notice`.
+- `CityRoom.onAuth` **ya existe** (es `static`, corre en el pedido HTTP antes de reservar el
+  asiento): chequea el `Origin` (`isOriginAllowed`), el balde de entradas por IP (`admitJoin`) y,
+  para claves sin guardado, el tope de 20 claves nuevas por IP y hora (`admitNewKey`). Devuelve
+  `JoinAuth { ip }`.
+- `session.key` (la clave en texto plano) se usa en: `savePlayer`, `evictDuplicate`
+  (`session.key = null`), `activeSessions`, `issueTravelTicket` (viaje, `/trace`, ambulancia),
+  `jail` (`playerId(session.key)`), `mutes.set`, `audit.ts` (`keyTag`) y `setDonor` (devuelve si
+  quedó guardado).
 
 ### Qué es efímero y no va a la base
 
@@ -117,6 +148,7 @@ memoria y quedan para el guardado de 15 s (o el de salida). Si el proceso se cor
 | Picudos (`state.weevils`, `WeevilManager`) | Schema | Viven segundos. |
 | Intercambios e invitaciones (`TradeManager`) | Sala | Sólo importa el **resultado**, que va al snapshot (y al libro de economía). |
 | Chat, globos, anuncios (`/post`), mensajes privados (`/mensaje`) | Mensajes Colyseus | Sin historial por diseño. Si algún día hace falta moderación, sería otra tabla aparte. |
+| Silenciados (`/silenciar`, `mutes.ts`) | Memoria | Sanción corta; que un reinicio la levante es a propósito. Pasa a indexarse por `playerId` del personaje. |
 | Reloj del juego, partido (`gameClock`) | Memoria | Sale de la hora real; el forzado del admin es efímero a propósito. |
 | `activeSessions`, `playerDirectory`, `openCopies`, rate limits | Memoria del proceso | Con una instancia alcanza; con varias, Redis (ver `docs/finished/escalabilidad-servidor.md`), no Postgres. |
 | `travelTickets` | Memoria | Vencen en 30 s y se consumen en el mismo proceso. Se queda en memoria (ver §4.6). |
@@ -141,33 +173,39 @@ client.auth.token = session.access_token   (colyseus.js lo manda como options._a
 joinOrCreate("city", { cityId, characterId })
       │
       ▼  server
-CityRoom.onAuth(client, options, context)   ← context.token = el JWT
+static CityRoom.onAuth(token, options, context)   ← token = el JWT (= context.token)
+   0. lo de hoy: Origin, balde de entradas por IP (admitJoin)
    1. verifica el JWT (firma con JWKS, iss, aud = "authenticated", exp)
-   2. abre la sesión del personaje (repo.openSession): que exista y sea de esa cuenta
-   3. chequea cárcel y boleto
-   4. devuelve { playerId, userId, role, record, epoch }  → client.auth
+   2. si la cuenta ya tiene una sesión abierta: la cierra y la guarda (await) antes de seguir (§4.5)
+   3. abre la sesión del personaje (repo.openSession): que exista y sea de esa cuenta
+   4. chequea cárcel y boleto
+   5. devuelve { ip, playerId, userId, role, record, epoch }  → client.auth
 CityRoom.onJoin(client, options, auth)  ← arma Player + PlayerSession desde auth.record (sincrónico, como hoy)
 ```
 
-Verificado en el código instalado: `@colyseus/core` 0.16 tiene `onAuth(client, options, context:
-AuthContext)` con `context.token`, `headers` e `ip`, y puede ser `async`; `colyseus.js` 0.16 tiene
-`client.auth.token` y lo agrega como `_authToken` en la petición de matchmaking. El tiempo que
-tarde `onAuth` cuenta contra la reserva del asiento (15 s por defecto): sobra.
+Verificado en el código instalado: `@colyseus/core` 0.16 usa el `onAuth` **estático**
+(`static onAuth(token, options, context: AuthContext)`, con `context.token`, `headers` e `ip`; uno
+de instancia se ignora con un aviso) y puede ser `async`; `CityRoom` ya lo tiene. `colyseus.js` 0.16
+tiene `client.auth.token` y lo agrega como `_authToken` en la petición de matchmaking. El tiempo que
+tarde `onAuth` cuenta contra la reserva del asiento (15 s por defecto): sobra. Como corre antes de
+que exista el `Client`, no hay `sessionId` todavía: lo que necesite la sala va en lo que devuelve.
 
-**Cliente** (`apps/client`, archivos nuevos; `lib/` lo está tocando otra sesión, coordinar):
+**Cliente** (`apps/client`, archivos nuevos):
 
 - `lib/supabase.ts`: `createClient(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true } })`. Sólo en el
   navegador (el juego es todo cliente; no hace falta `@supabase/ssr` porque Next no renderiza nada
   autenticado en el server). La sesión de Supabase queda en `localStorage` del origen `app.`: son
   tokens, no progreso, así que no rompe la regla de "en el navegador sólo la clave".
-- `LoginScreen`: el botón llama a `signInWithOAuth({ provider: "google", options: { redirectTo:
+- `LoginScreen` (`features/join/LoginScreen.tsx`, **ya existe** con el botón de Google sin efecto:
+  hoy sólo pasa a `JoinScreen`): el botón llama a `signInWithOAuth({ provider: "google", options: { redirectTo:
   window.location.origin + window.location.pathname } })`. Si ya hay sesión al cargar
   (`getSession`), salta directo a la pantalla de personajes. Sin sesión no se puede jugar.
 - Pantalla de **personajes** (reemplaza a `JoinScreen`): lista los de la cuenta (hasta 3), crea uno
   (nombre + creador de aspecto actual) e importa el progreso viejo del navegador si hay. Todo por la
   API del server, nunca leyendo la base desde el navegador.
-- `network.ts` → `joinCity` / `travelTo`: antes de **cada** join (`joinOrCreate` y `joinById`),
+- `network.ts` → `joinCity` / `travelTo` y el reingreso al COMCAR cuando el server rechaza con
+  `JAILED_JOIN_CODE`: antes de **cada** join (`joinOrCreate` y `joinById`),
   `const { data } = await supabase.auth.getSession()` (refresca si venció) y `getClient().auth.token
   = data.session?.access_token ?? ""`. Manda `characterId`; el nombre y el aspecto ya no viajan en
   el join (son del personaje, en la base).
@@ -193,9 +231,13 @@ tarde `onAuth` cuenta contra la reserva del asiento (15 s por defecto): sobra.
   `GET /api/characters`, `POST /api/characters { name, appearance }` y `POST /api/characters/import
   { playerKey }`, todas con `Authorization: Bearer <JWT>` verificado con `verifyAccessToken`, con su
   propio límite de frecuencia por IP y por cuenta, y validando con lo mismo de hoy (`sanitizeName`,
-  `sanitizeAppearance`). Llaman a las RPC `list_characters`, `create_character` y
+  `isReservedName`, `sanitizeAppearance`); el server calcula `nameKey(name)` y lo manda a la RPC
+  (§3). Llaman a las RPC `list_characters`, `create_character` y
   `import_legacy_character` (§3). El nombre ocupado se responde como error claro ("Ese nombre ya
   existe").
+- `admitNewKey` (20 claves nuevas por IP y hora) deja de tener sentido en el join: su reemplazo es
+  el límite de `POST /api/characters` (y el tope de 3 por cuenta). `admitJoin` y el chequeo de
+  `Origin` quedan como están.
 
 ### Progreso viejo del navegador (importar)
 
@@ -203,8 +245,9 @@ Sin invitados, la clave del navegador (`lib/playerKey.ts`) deja de servir para j
 es **importar** el progreso que hoy está en `players.json`:
 
 - El script de migración (§5) sube cada clave como un personaje **sin dueño** (`user_id = null`),
-  con la clave **hasheada** (`legacy_key_hash = sha256(playerKey)`, hex: es un secreto al portador y
-  hoy está en texto plano en el JSON).
+  con la clave **hasheada** (`legacy_key_hash = sha256(playerKey)`, hex: es un secreto al portador).
+  El JSON ya está indexado por ese hash (`playerId`), así que se copia tal cual; la API recibe la
+  clave del navegador y la hashea con `playerId` antes de llamar a la RPC.
 - En la pantalla de personajes, si el navegador tiene una clave con progreso sin reclamar, aparece
   "Importar el progreso de este navegador". `import_legacy_character` lo pasa a la cuenta como uno de
   sus personajes, si le queda lugar (máximo 3). Es un `update … where user_id is null`: si dos
@@ -217,7 +260,7 @@ es **importar** el progreso que hoy está en `players.json`:
 
 ### Admin por rol
 
-- `players.role` (`app_role`: `user` | `admin`) en la base. `onJoin` pone `player.admin = auth.role
+- `accounts.role` (`app_role`: `user` | `admin`) en la base. `onJoin` pone `player.admin = auth.role
   === "admin"` en vez de `isAdminName(player.name)`. Los comandos y `systems/admin.ts` no cambian:
   siguen mirando `player.admin`.
 - El rol es de la **cuenta** (`accounts.role`): sus 3 personajes son admin o ninguno.
@@ -225,14 +268,22 @@ es **importar** el progreso que hoy está en `players.json`:
   = …`). No hay comando para darse admin desde el juego.
 - `ADMIN_NAME` queda **sólo para desarrollo local** con el store JSON (`PLAYER_STORE=json`); con
   `PLAYER_STORE=supabase` se ignora y el server avisa al arrancar si está definida. Así se cierra el
-  agujero que marca `entorno.md` ("cualquiera que entre con ese nombre es admin").
+  agujero que marca `entorno.md` ("cualquiera que entre con ese nombre es admin"). `isReservedName`
+  deja de recibir `adminName()` en ese modo (los nombres de admin se reservan por ser únicos).
 
 ### Nombre
 
 Hoy el nombre se elige en cada ingreso. Con cuentas: se elige **una vez, al crear el personaje**, y
-**no se cambia**. Es **único** entre todos los personajes con cuenta (sin distinguir mayúsculas ni
-espacios de más: `name_key`, la misma normalización que `normalizeName` de `bans.ts`). Pasa por
-`sanitizeName` como hoy. El snapshot ya no escribe `name` (no hay forma de cambiarlo desde el juego).
+**no se cambia**. Es **único** entre todos los personajes con cuenta según `nameKey` (shared,
+`sanitize.ts`): el mismo "esqueleto" que ya usan los nombres únicos de los conectados, los bans y
+`/mensaje` (sin mayúsculas, tildes, espacios ni signos, confusables cirílicas/griegas → latinas,
+0→o, 1/I→l, rn→m). Esa normalización **no se puede repetir en SQL**, así que `players.name_key` es
+una columna común que llena el server (§3). Pasa por `sanitizeName` e `isReservedName` como hoy. El
+snapshot ya no escribe `name` (no hay forma de cambiarlo desde el juego), y desaparecen
+`uniqueName`, el `Invitado####` y el aviso de "entraste como…" de `onJoin`.
+
+Ojo: si `nameKey` cambia (más confusables), los `name_key` guardados quedan viejos; hace falta una
+migración que los recalcule desde el server (y que avise de los choques nuevos).
 
 ## 3. Esquema de base de datos
 
@@ -276,8 +327,8 @@ create table public.players (
   legacy_key_hash  text unique check (legacy_key_hash ~ '^[0-9a-f]{64}$'),
   -- Único entre los personajes con cuenta y fijo: se elige al crear y no se cambia.
   name             text not null check (char_length(name) between 1 and 16),   -- NAME_MAX_LENGTH
-  -- Igual que normalizeName (bans.ts) / keysByName: sin mayúsculas ni espacios de más.
-  name_key         text generated always as (lower(regexp_replace(btrim(name), '\s+', ' ', 'g'))) stored,
+  -- nameKey(name) de shared (esqueleto con confusables): lo calcula el server, no se puede en SQL.
+  name_key         text not null check (char_length(name_key) between 1 and 64),
   appearance       jsonb,                                                       -- Appearance (validado con sanitizeAppearance)
   money            bigint not null default 100 check (money between 0 and 1000000000),  -- STARTING_MONEY / MAX_MONEY
   energy           real not null default 100 check (energy between 0 and 100),
@@ -439,7 +490,7 @@ $$;
 
 -- Crea un personaje en el primer slot libre. Errores: 'full' (ya tiene 3), 'name_taken'.
 -- El kit inicial lo pone el server en el primer snapshot (record vacío = nuevo, como hoy).
-create or replace function public.create_character(p_user_id uuid, p_name text, p_appearance jsonb)
+create or replace function public.create_character(p_user_id uuid, p_name text, p_name_key text, p_appearance jsonb)
 returns jsonb
 language plpgsql
 set search_path = public
@@ -455,7 +506,7 @@ begin
     where not exists (select 1 from players where user_id = p_user_id and slot = s);
   if v_slot is null then return jsonb_build_object('error', 'full'); end if;
   begin
-    insert into players (user_id, slot, name, appearance) values (p_user_id, v_slot, p_name, p_appearance)
+    insert into players (user_id, slot, name, name_key, appearance) values (p_user_id, v_slot, p_name, p_name_key, p_appearance)
       returning * into v_player;
   exception when unique_violation then
     return jsonb_build_object('error', 'name_taken');
@@ -464,8 +515,8 @@ begin
 end $$;
 
 -- Pasa el progreso viejo de una clave (players.json) a la cuenta, en el primer slot libre.
--- p_name: sólo si el nombre viejo ya está tomado. Errores: 'not_found', 'full', 'name_taken'.
-create or replace function public.import_legacy_character(p_user_id uuid, p_key_hash text, p_name text default null)
+-- p_name / p_name_key: sólo si el nombre viejo ya está tomado. Errores: 'not_found', 'full', 'name_taken'.
+create or replace function public.import_legacy_character(p_user_id uuid, p_key_hash text, p_name text default null, p_name_key text default null)
 returns jsonb
 language plpgsql
 set search_path = public
@@ -481,7 +532,8 @@ begin
     where not exists (select 1 from players where user_id = p_user_id and slot = s);
   if v_slot is null then return jsonb_build_object('error', 'full'); end if;
   begin
-    update players set user_id = p_user_id, slot = v_slot, name = coalesce(p_name, name), updated_at = now()
+    update players set user_id = p_user_id, slot = v_slot, name = coalesce(p_name, name),
+                       name_key = coalesce(p_name_key, name_key), updated_at = now()
       where legacy_key_hash = p_key_hash and user_id is null
       returning * into v_player;
   exception when unique_violation then
@@ -538,8 +590,7 @@ declare
 begin
   for rec in select value from jsonb_array_elements(p_players) loop
     pid := (rec->>'id')::uuid;
-    update players set
-      appearance = rec->'appearance',                     -- el nombre no se cambia
+    update players set                                    -- ni el nombre ni el aspecto se cambian en el juego
       money = (rec->>'money')::bigint,
       energy = (rec->>'energy')::real, hunger = (rec->>'hunger')::real, health = (rec->>'health')::real,
       hat = rec->>'hat', top = rec->>'top', bottom = rec->>'bottom', shoes = rec->>'shoes',
@@ -576,14 +627,15 @@ begin
   return stale;
 end $$;
 
--- /ban a alguien que no está conectado (hoy: playerStore.keysByName + setJailedUntil + bans.byName).
-create or replace function public.ban_by_name(p_name text, p_until timestamptz, p_admin uuid)
+-- /ban a alguien que no está conectado (hoy: playerStore.idsByName + setJailedUntil + bans.byName).
+-- p_name_key: nameKey(nombre), calculado por el server. Con nombres únicos toca a uno solo.
+create or replace function public.ban_by_name(p_name_key text, p_until timestamptz, p_admin uuid)
 returns integer
 language plpgsql
 set search_path = public
 as $$
 declare
-  v_key text := lower(regexp_replace(btrim(p_name), '\s+', ' ', 'g'));
+  v_key text := p_name_key;
   v_count integer;
 begin
   update bans set lifted_at = now(), lifted_by = p_admin
@@ -599,10 +651,20 @@ begin
   return v_count;
 end $$;
 
-grant execute on function public.open_player_session(uuid, text, text) to service_role;
-grant execute on function public.save_players(jsonb, jsonb, jsonb)   to service_role;
-grant execute on function public.ban_by_name(text, timestamptz, uuid) to service_role;
+grant execute on function public.list_characters(uuid)                         to service_role;
+grant execute on function public.create_character(uuid, text, text, jsonb)     to service_role;
+grant execute on function public.import_legacy_character(uuid, text, text, text) to service_role;
+grant execute on function public.open_player_session(uuid, uuid)               to service_role;
+grant execute on function public.save_players(jsonb, jsonb, jsonb)             to service_role;
+grant execute on function public.ban_by_name(text, timestamptz, uuid)          to service_role;
 ```
+
+**Ban por nombre que vence**: hoy el ban por nombre dura a lo sumo `NAME_BAN_MAX_MS` (1 h) porque
+los nombres se repiten y frena al que borra los datos y vuelve con el mismo. Con nombres únicos y
+cuentas eso ya no hace falta para los personajes que existen (la condena va en `jailed_until`); para
+un nombre que todavía no existe, `open_player_session` debería aplicar el mismo tope sobre
+`bans.created_at` (o directamente no guardar bans de nombres inexistentes: con nombres únicos nadie
+"vuelve con el mismo nombre").
 
 ### `0005_mantenimiento.sql` (pg_cron)
 
@@ -630,7 +692,7 @@ $$);
 `apps/server/src/persistence/` (nuevo):
 
 ```ts
-/** A quién se guarda: siempre el id de la base; para el JSON, la clave hace de id. */
+/** A quién se guarda: el id de la base; para el JSON, `playerId(clave)` (el hash, como hoy). */
 export type PlayerId = string;
 
 export interface OpenedSession {
@@ -658,7 +720,8 @@ export interface PlayerRepository {
   record(entry: LedgerEntry | DailyEntry): void;
   /** Lo último que se guardó o encoló de ese jugador (ver 4.3). */
   cached(id: PlayerId): PlayerRecord | undefined;
-  banByName(name: string, until: number, adminId: PlayerId | null): Promise<void>;
+  /** Devuelve a cuántos tocó (hoy `jail` lo devuelve para el aviso al admin). */
+  banByName(name: string, until: number, adminId: PlayerId | null): Promise<number>;
   logAdmin(action: AdminAction): void;
   /** Al apagar: escribe todo lo pendiente (con reintentos acotados). */
   flush(): Promise<void>;
@@ -666,9 +729,11 @@ export interface PlayerRepository {
 }
 ```
 
-- **`JsonPlayerRepository`**: envuelve el `PlayerStore` actual sin cambiar el archivo. `openSession`
-  resuelve al toque (Promise ya resuelta), `id` = la clave, `role` = `isAdminName(name)`, `epoch`
-  siempre 0. `record` / `logAdmin` sólo loguean. Es el default (`PLAYER_STORE=json`) hasta el corte;
+- **`JsonPlayerRepository`**: envuelve el `PlayerStore` actual sin cambiar el archivo (incluidas las
+  claves efímeras). `openSession` resuelve al toque (Promise ya resuelta), `id` = `playerId(clave)`,
+  `role` = `isAdminName(name)`, `epoch` siempre 0. Ojo: la interfaz de arriba es por cuenta y
+  personaje; en modo JSON no hay `userId` ni personajes, así que necesita una entrada aparte
+  (`openSession({ playerKey, name })` o un `openLegacySession`) mientras exista. `record` / `logAdmin` sólo loguean. Es el default (`PLAYER_STORE=json`) hasta el corte;
   si se mantiene después como modo de desarrollo local es una pregunta abierta (decisión 9).
 - **`SupabasePlayerRepository`**: `@supabase/supabase-js` con la API key secreta (service role),
   sólo `rpc(...)` (`list_characters`, `create_character`, `import_legacy_character`,
@@ -677,17 +742,24 @@ export interface PlayerRepository {
 
 ### 4.2 Cambios en las salas
 
-- `CityRoom.onAuth(client, options, context)` (nuevo, `async`): verifica el JWT (obligatorio), llama a
-  `repo.openSession` con `options.characterId`, aplica la cárcel (`bans.until` con `record.jailedUntil` y `nameBanUntil`) y el
-  boleto (hoy en `onJoin`), y devuelve `OpenedSession`. Los `ServerError` que hoy tira `onJoin`
-  (cárcel, boleto) se mueven acá.
+- `static CityRoom.onAuth(token, options, context)` (ya existe, ya es `async`): después de lo de hoy
+  (Origin, `admitJoin`), verifica el JWT (obligatorio), llama a `repo.openSession` con
+  `options.characterId`, aplica la cárcel (`bans.until` con `record.jailedUntil` y `nameBanUntil`) y
+  el boleto (hoy en `onJoin`), y devuelve `JoinAuth` = `{ ip } & OpenedSession`. Los `ServerError`
+  que hoy tira `onJoin` (cárcel, boleto) se mueven acá. Sale `admitNewKey` (§2).
 - `onJoin(client, options, auth)` queda **sincrónico** y arma todo desde `auth.record` con la misma
-  validación de hoy. `PlayerSession.key: string | null` pasa a `playerId: string | null` + `epoch`.
+  validación de hoy. `PlayerSession.key: string | null` pasa a `playerId: string | null` + `epoch`;
+  hay que cambiar todos los usos de `session.key` listados en §1 (`issueTravelTicket`, `jail`,
+  `mutes.set`, `keyTag` de `audit.ts`, `setDonor`, el mensaje de `/trace` "tu navegador tiene que
+  permitir guardar datos del sitio").
 - `savePlayer(session)` → `repo.save(session.playerId, session.epoch, toRecord(session))`.
-  `saveAllPlayers` cada 15 s sigue igual.
+  `saveAllPlayers` cada 15 s sigue igual. El cierre de emergencia de `index.ts` (`crash`:
+  `saveEveryone` + `flush` con tope de 5 s) pasa a `repo.flush()` con el mismo tope y, si no llega,
+  al archivo de emergencia (4.4).
 - `bans.ts` deja de leer `playerStore.get(key)` sincrónico: la condena guardada llega en
   `OpenedSession` y se anota en `bans.byKey` al entrar; `savedUntil` usa ese valor.
-- `createCommandHost.jail` (desconectado) → `repo.banByName`. `setDonor`, `giveMoney`, `giveItem`,
+- `createCommandHost.jail` (desconectado) → `repo.banByName` (hoy es sincrónico y devuelve cuántos
+  tocó; pasa a `async`, así que `/ban` contesta cuando vuelve la RPC). `setDonor`, `giveMoney`, `giveItem`,
   `healFully`, `traceTo` y `admin:give` → `repo.logAdmin`.
 - Libro de economía: cada sistema que mueve plata o ítems llama a `repo.record(...)` en el mismo
   lugar donde hoy llama `markWallet` / `markInventory` (`systems/shops.ts`, `trading.ts`,
@@ -717,6 +789,12 @@ esperar a la base:
   que se cerró por duplicada, o de un proceso viejo que sigue vivo) se descarta en `save_players` y
   se loguea `[Store] snapshot viejo descartado`. Reemplaza el truco de `session.key = null` y además
   protege contra dos instancias.
+- **Ojo con el orden epoch / desalojo**: hoy la sesión vieja se cierra en `onJoin`
+  (`evictDuplicate`), pero el epoch sube antes, en `onAuth`. Si la pestaña vieja sigue jugando en
+  el medio (o el join nuevo nunca llega a `onJoin` porque vence el asiento), todos sus snapshots se
+  descartan en silencio. Por eso `onAuth` primero cierra y guarda (`saveNow`, esperado) la sesión
+  abierta de la cuenta y recién después llama a `openSession`; y si `save_players` devuelve como
+  viejo un id que sigue conectado en este proceso, se lo saca con `closeSession(…, 4001)`.
 - **Al apagar**: `gameServer.onShutdown(() => repo.flush())`, con tope de tiempo (p. ej. 10 s) y,
   si la base no responde, volcado al archivo de emergencia (4.4).
 
@@ -746,7 +824,8 @@ es buen lugar para eso.
 
 ### 4.6 Pases de viaje
 
-`travelTickets` se queda en memoria, indexado por `playerId` (el personaje): duran 30 s y los emite y consume el
+`travelTickets` se queda en memoria, indexado por `playerId` (el personaje; hoy por la clave en
+texto plano, `issueTravelTicket(session.key, …)`): duran 30 s y los emite y consume el
 mismo proceso. Llevarlos a la base sólo tendría sentido con varias instancias (y aun así, mejor
 Redis con TTL).
 
@@ -755,19 +834,24 @@ Redis con TTL).
 Script único `apps/server/scripts/migrate-players-to-supabase.ts` (se corre con `tsx`, no se
 importa desde el server):
 
-1. Lee `PLAYER_DATA_FILE` (el mismo archivo y formato que `PlayerStore`).
-2. Por cada `[key, record]`: valida con lo mismo que `onJoin` (`Inventory.restore`, `getClothing`,
+1. Lee `PLAYER_DATA_FILE` (el mismo archivo y formato que `PlayerStore`: `{ version: 2, players }`,
+   indexado por `playerId`; si encuentra el formato viejo sin versión, lo hashea igual que el
+   constructor de `PlayerStore`).
+2. Por cada `[id, record]`: valida con lo mismo que `onJoin` (`Inventory.restore`, `getClothing`,
    `getPet`/`sanitizePetName`, `sanitizeNeeds`, rango de plata). Lo que no valida se loguea y se
    corrige igual que lo corregiría el juego.
 3. Inserta en `players` como progreso **sin reclamar** (`user_id` y `slot` null, para importarlo
-   desde la pantalla de personajes, §2) con `legacy_key_hash = sha256(key)`, `updated_at =
-   record.updatedAt`, `jailed_until` desde `jailedUntil`, y sus `inventory_slots`. Todo en lotes con
+   desde la pantalla de personajes, §2) con `legacy_key_hash = id` (ya es el SHA-256 de la clave),
+   `name` saneado con `sanitizeName` y `name_key = nameKey(name)`, `updated_at = record.updatedAt`, `jailed_until` desde `jailedUntil`, y sus `inventory_slots`. Todo en lotes con
    `on conflict (legacy_key_hash) do nothing`: se puede correr varias veces.
 4. `--dry-run` sólo cuenta y valida. Al final imprime un control: jugadores, suma de plata, cantidad
    de cada `item_id`, donadores, presos, mascotas, y los compara contra el JSON (tienen que dar igual,
    salvo lo corregido por validación, que se lista).
 
-Las claves `isUntouched` con más de 90 días se pueden saltear (el `prune` las borraría igual).
+Las claves `isUntouched` con más de 90 días se pueden saltear (el `prune` las borraría igual). Las
+claves efímeras (nuevas e intactas) nunca llegan al archivo, así que no hay nada que migrar de ellas.
+`players.json.v1.bak` (si quedó del paso a `playerId`) tiene las claves en texto plano: no se
+migra; borrarlo antes del corte.
 
 ### Plan de corte
 
@@ -780,10 +864,11 @@ Las claves `isUntouched` con más de 90 días se pueden saltear (el `prune` las 
 4. `PLAYER_STORE=supabase` en el `.env` del VPS, `pm2 start`. Probar: login con Google, importar
    una clave vieja, crear un personaje nuevo, entrar con cada uno. Desde el corte sólo se juega con
    cuenta (anunciarlo antes con `/post`: "iniciá sesión con Google e importá tu progreso").
-5. **Vuelta atrás**: `PLAYER_STORE=json` y arrancar con el JSON del backup. Lo jugado después del
-   corte se pierde, salvo que se haga el script inverso (exportar `players` → JSON con la clave… que
-   no se tiene: sólo el hash). Por eso conviene la doble escritura inversa (Supabase primario, JSON
-   secundario) durante la primera semana después del corte.
+5. **Vuelta atrás**: `PLAYER_STORE=json` y arrancar con el JSON del backup. Como el JSON ya está
+   indexado por el hash, un script inverso (`players` con `legacy_key_hash` → `{ version: 2,
+   players }`) sí puede devolver lo jugado después del corte **de los personajes importados**; los
+   creados después del corte no tienen clave y no tienen cómo entrar en modo JSON. Por eso conviene
+   igual la doble escritura inversa (Supabase primario, JSON secundario) durante la primera semana.
 
 ## 6. Variables de entorno y despliegue
 
@@ -807,7 +892,7 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
 | `SUPABASE_SECRET_KEY` | — | API key secreta / service role, la que usa `supabase-js` en el server (decisión 8). **Sólo en el VPS.** Nunca con prefijo `NEXT_PUBLIC_`, nunca en Vercel ni en el repo. |
 | `SUPABASE_JWT_SECRET` | — | Sólo si el proyecto todavía firma con HS256 (legado). Preferir JWKS. |
 | `PLAYER_FALLBACK_FILE` | `apps/server/data/players-fallback.json` | Volcado de emergencia si la base no responde (4.4). |
-| `ADMIN_NAME` | — | Sólo con `PLAYER_STORE=json`. Con Supabase se ignora (aviso al arrancar). |
+| `ADMIN_NAME` | — | Sólo con `PLAYER_STORE=json` (admin y nombre reservado). Con Supabase se ignora (aviso al arrancar). |
 
 `env.ts` suma una función que valide la combinación al arrancar (p. ej. `PLAYER_STORE=supabase` sin
 `SUPABASE_URL` → no arranca, con un mensaje claro).
@@ -828,7 +913,8 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
 - **VPS**: `.env` con `SUPABASE_*` y `PLAYER_STORE`; `.env.example` documentado. Caddy no cambia
   (el WSS sigue igual). El VPS necesita salida HTTPS a Supabase.
 - La skill `despliegue` y `.claude/rules/entorno.md` / `ingreso.md` se actualizan en la fase que
-  corresponda (y `CLAUDE.md`: "Limitaciones conocidas", "Sin cuentas").
+  corresponda (y `CLAUDE.md`: "Limitaciones conocidas", "Sin cuentas", y los "Límites por IP": las
+  20 claves nuevas por hora pasan a ser el límite de la API de personajes).
 - `/health/full`: `store` pasa a mostrar `{ kind, pending, lastFlush, errors, players? }`.
 
 ## 7. Fases
@@ -836,14 +922,14 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
 | # | Fase | Hecho cuando |
 | --- | --- | --- |
 | 0 | **Preparación**: proyecto Supabase (sa-east-1), Google OAuth, variables, Supabase CLI y `supabase/migrations/` en el repo. | Un `signInWithOAuth` de prueba devuelve sesión en `app.localhost:3000`. |
-| 1 | **Refactor sin cambio de comportamiento**: `PlayerRepository` + `JsonPlayerRepository`; `onAuth` async que carga y `onJoin` sincrónico; `session.playerId` + `epoch`; `bans` sin lectura sincrónica del store; `activeSessions` por `playerId`. | `npm run typecheck`; mismo `players.json`; probado a mano: entrar, comprar, intercambiar, viajar, sesión duplicada, `/ban` desconectado, apagar y volver. Prueba con bots (80 + 5) sin cambios en los ticks. |
+| 1 | **Refactor sin cambio de comportamiento**: `PlayerRepository` + `JsonPlayerRepository`; el `onAuth` estático que ya existe pasa a cargar y `onJoin` queda sincrónico; `session.playerId` + `epoch` (y fuera `session.key` de viajes, `jail`, `mutes`, auditoría); `bans` sin lectura sincrónica del store; `activeSessions` por `playerId`; `crash` y `onShutdown` con `repo.flush`. | `npm run typecheck`; mismo `players.json`; probado a mano: entrar, comprar, intercambiar, viajar, `/trace`, ambulancia, sesión duplicada, `/ban` y `/silenciar` desconectado, apagar y volver. Prueba con bots (80 + 5) sin cambios en los ticks. |
 | 2 | **Esquema, RLS y RPC** (`0001`–`0005`). | Migraciones aplicadas en un proyecto de prueba; tests de `create_character` (4.º personaje → `full`, nombre repetido con otras mayúsculas → `name_taken`), `import_legacy_character` (dos pestañas a la vez: gana una), `open_player_session` (personaje de otra cuenta → `not_found`) y `save_players` (ida y vuelta, epoch viejo, lote con error); con la publishable key y un JWT válido no se puede leer ni escribir nada. |
 | 3 | **`SupabasePlayerRepository` en doble escritura** (JSON primario) + script de migración. | Una semana con el control de totales igual entre JSON y base; `/health` sin errores de store; latencia de `save_players` medida. |
 | 4 | **Login con Google** (cliente + verificación del JWT en `onAuth`), **pantalla y API de personajes** (crear, elegir, importar clave vieja). | Con Google: crear hasta 3 personajes (el 4.º no deja), nombre repetido rechazado, importar la clave vieja una vez; desde otro navegador la cuenta trae lo mismo; sin token no se entra; token vencido → vuelve al login. |
 | 5 | **Corte**: Supabase primario (con JSON secundario una semana). Desde acá se juega sólo con cuenta. | Corte hecho según §5; una semana sin pérdidas reportadas; se apaga la escritura del JSON. |
 | 6 | **Roles y moderación en base**: admin por `role`, fuera `ADMIN_NAME` en producción; `/ban` con historial (`bans`) y `ban_by_name`; `admin_actions`. | Entrar con el nombre del admin sin cuenta no da admin; cada comando de admin deja fila. |
 | 7 | **Libro de economía y mantenimiento**: `economy_ledger`, `economy_daily`, jobs de pg_cron. | Un intercambio deja dos filas con el mismo `ref`; la suma de `money_delta` de un día cierra contra los saldos; el borrado del progreso viejo sin reclamar corre. |
-| 8 | (Opcional) **Preferencias del personaje**: barra rápida a la base (hoy en `localStorage`), así el progreso es igual en cualquier navegador (decisión 4). | Al entrar desde otro dispositivo se ve igual. |
+| 8 | (Opcional) **Preferencias del personaje**: barra rápida y bloqueados a la base (hoy en `localStorage`), así el progreso es igual en cualquier navegador (decisión 4). | Al entrar desde otro dispositivo se ve igual. |
 | — | (A futuro) **Eliminar cuenta** (decisión 7): botón en la pantalla de personajes, `accounts.deleted_at` y borrado definitivo pasado un plazo. | Fuera de este plan. |
 
 ## Riesgos
@@ -852,6 +938,10 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
   `saveNow` antes de `TravelApproved` + caché de escritura + epoch. Es el riesgo más fácil de pasar
   por alto en el refactor.
 - **Tratar un error de la base como jugador nuevo**: pisaría progreso real. Regla explícita en 4.4.
+- **Subir el epoch antes de desalojar la sesión vieja**: la pestaña vieja perdería todo lo que haga
+  hasta que la cierren (o para siempre, si el join nuevo no llega a `onJoin`). Orden en 4.3.
+- **`nameKey` en dos lugares**: la unicidad depende de que el server calcule `name_key` siempre con
+  la misma función; un cambio de `nameKey` necesita recalcular la columna.
 - **Duplicar progreso con la clave**: una clave se importa una sola vez (`update … where user_id is
   null`) y la clave sola nunca deja entrar.
 - **Fuga de la secret key**: sólo en el `.env` del VPS (fuera del repo, `.gitignore`); rotarla si se
@@ -861,7 +951,8 @@ en la red local deja de andar (Google no redirige a `http://192.168…`): para p
 - **Supabase caído**: el juego sigue (memoria), no entra gente nueva; volcado de emergencia.
 - **OAuth y subdominios**: el login sólo funciona en el origen `app.`; jugar entrando por IP en la
   red local deja de andar (sin invitados).
-- **Nombres que chocan al migrar**: hoy los nombres se repiten; al importar, el segundo tiene que
+- **Nombres que chocan al migrar**: hoy los nombres se repiten en el archivo (sólo son únicos entre
+  conectados, y con `nameKey` "Juan", "juán" y "JUAN" chocan); al importar, el segundo tiene que
   elegir otro. Avisarlo antes del corte.
 - **Tamaño del libro de economía**: por eso pesca/venta/picudos van agregados por día.
 - **Plan gratis de Supabase** pausa proyectos inactivos: producción en Pro.

@@ -12,6 +12,10 @@ import type {
   VendStartedMessage,
   InventoryMessage,
   MatchMode,
+  TileRect,
+  TutorialMessage,
+  WeatherId,
+  WeatherMode,
   NeedsMessage,
   FaintMessage,
   NoticeMessage,
@@ -61,6 +65,12 @@ export interface GameEvents {
   "player:energy": number;
   /** Red → React: necesidades privadas del jugador (hambre). */
   "needs:update": NeedsMessage;
+  /** Servidor → React: cómo va la guía de bienvenida (y, si se cumplió un paso, cuál y qué pagó). */
+  "tutorial:update": TutorialMessage;
+  /** React → Phaser: adónde apunta la flecha de la guía (un área de un barrio), o null para sacarla. */
+  "tutorial:target": { cityId: string; area: TileRect } | null;
+  /** Phaser → React: la escena (nueva, p. ej. al viajar) pide adónde apunta la guía ahora. */
+  "tutorial:target:request": null;
   /** Red → React: te desmayaste (pantalla negra con el texto). */
   faint: FaintMessage;
   /** Phaser → React: segundos de condena que le quedan al avatar propio en el COMCAR (0 = libre). */
@@ -81,6 +91,8 @@ export interface GameEvents {
   "city:copy": number;
   /** Phaser → React: partido en el Centenario ("" = ninguno) y si el admin lo forzó (`GameState`). */
   "city:match": { name: string; mode: MatchMode };
+  /** Phaser → React: clima de ahora y si el admin lo dejó fijo (`GameState.weather` / `weatherMode`). */
+  "city:weather": { id: WeatherId; mode: WeatherMode };
   /** Phaser → React (admin): el modo coordenadas (tecla G) quedó prendido o apagado. */
   "admin:coords": boolean;
   /** React → Phaser (admin): botón del panel de admin para prender / apagar el modo coordenadas. */

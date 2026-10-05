@@ -19,6 +19,7 @@ import type { PlayerSession } from "../session";
 import { stopActivities } from "./activities";
 import { teleport } from "./movement";
 import { cancelTrade } from "./trading";
+import { tutorialEvent } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Viajes entre barrios (con boleto STM) y la cárcel (`/ban`). */
@@ -42,6 +43,8 @@ export function travelRoutes(room: CityRoom) {
         return room.notice(session, `🚌 Necesitás un boleto STM para viajar. Se compran en ${whereToBuy(TICKET_ID)}.`);
       }
       room.markInventory(session);
+      // Guía: el último paso es tomarse el ómnibus (paga y guarda antes del viaje).
+      tutorialEvent(room, session, { kind: "travel" });
       room.savePlayer(session);
       issueTravelTicket(session.key, destination.id, Date.now() + TRAVEL_TICKET_MS);
       room.sendTo(session, MessageType.TravelApproved, { cityId: destination.id });

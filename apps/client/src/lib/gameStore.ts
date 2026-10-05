@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { InventoryMessage, MatchMode, OutfitIds, nameKey } from "@montevideo-world/shared";
+import { InventoryMessage, MatchMode, OutfitIds, TutorialMessage, WeatherId, WeatherMode, nameKey } from "@montevideo-world/shared";
 import { type PlayerSummary, eventBus } from "./eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
 import { loadBlocked, saveBlocked, toggleInList } from "../features/players/blockStorage";
@@ -31,6 +31,9 @@ export interface GameStoreState {
   /** Partido en el Centenario ahora ("" = ninguno) y si el admin lo forzó (lo manda el server). */
   match: string;
   matchMode: MatchMode;
+  /** Clima de ahora (global, lo manda el server) y si el admin lo dejó fijo. */
+  weather: WeatherId;
+  weatherMode: WeatherMode;
   players: PlayerSummary[];
   fishing: { canFish: boolean; fishing: boolean };
   vending: { canVend: boolean; vending: boolean };
@@ -49,6 +52,8 @@ export interface GameStoreState {
   outfit: OutfitIds | null;
   /** Mochila según el server; null hasta que llega. */
   inventory: InventoryMessage | null;
+  /** Guía de bienvenida (del jugador: sigue al viajar). null hasta que llega. */
+  tutorial: TutorialMessage | null;
   /** Saldo según el server; null hasta que llega. */
   money: number | null;
   /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
@@ -71,6 +76,8 @@ const INITIAL: GameStoreState = {
   cityCopy: 1,
   match: "",
   matchMode: "auto",
+  weather: "clear",
+  weatherMode: "auto",
   players: [],
   fishing: { canFish: false, fishing: false },
   vending: { canVend: false, vending: false },
@@ -82,6 +89,7 @@ const INITIAL: GameStoreState = {
   health: null,
   outfit: null,
   inventory: null,
+  tutorial: null,
   money: null,
   trading: false,
   traveling: null,
@@ -176,6 +184,7 @@ export function bindGameStore(): () => void {
   const offs = [
     eventBus.on("player:outfit", (outfit) => setState({ outfit })),
     eventBus.on("inventory:update", (inventory) => setState({ inventory })),
+    eventBus.on("tutorial:update", (tutorial) => setState({ tutorial })),
     eventBus.on("wallet:update", ({ balance }) => setState({ money: balance })),
     eventBus.on("players:list", (players) => setState({ players })),
     eventBus.on("fishing:status", (fishing) => setState({ fishing })),
@@ -190,6 +199,7 @@ export function bindGameStore(): () => void {
     eventBus.on("city:clock", (clock) => setState({ clock })),
     eventBus.on("city:copy", (cityCopy) => setState({ cityCopy })),
     eventBus.on("city:match", ({ name, mode }) => setState({ match: name, matchMode: mode })),
+    eventBus.on("city:weather", ({ id, mode }) => setState({ weather: id, weatherMode: mode })),
     // El server avisa cuando llegaste a la tienda que clickeaste.
     eventBus.on("shop:open", ({ shopId }) => setState({ shopId, panel: "shop" })),
     eventBus.on("trade:state", () => setState({ trading: true, panel: null })),

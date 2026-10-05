@@ -18,7 +18,7 @@
   /* Separación de los bordes de la pantalla. */
   --edge: 12px;
   /* Alto del HUD: los avisos y anuncios van debajo. En modo compacto es más alto (dos filas). */
-  --hud-height: 48px;
+  --hud-height: 52px;
 }
 
 * {
@@ -428,7 +428,7 @@ button,
 
 .announcement {
   position: fixed;
-  top: 64px;
+  top: calc(var(--edge) + var(--safe-top) + var(--hud-height) + 10px);
   /* left/right + margin auto centran el banner sin desbordar en pantallas angostas. */
   right: 12px;
   left: 12px;
@@ -625,7 +625,7 @@ button,
 
 @media (max-height: 500px) and (min-width: 561px) {
   :root {
-    --hud-height: 50px;
+    --hud-height: 60px;
   
   }
 

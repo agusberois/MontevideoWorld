@@ -189,6 +189,8 @@ const fish = (items: CatalogEntry<FishItem>[]): FishItem[] => items.map((item) =
 
 export const CLOTHING: readonly ClothingItem[] = clothing([
   { id: "gorra-azul", name: "Gorra azul", slot: "hat", style: "cap", color: "#1d4fa0", price: 20 },
+  // Regalo de la guía de bienvenida (`TUTORIAL_GIFT_ID`): ninguna tienda la vende.
+  { id: "gorra-celeste", name: "Gorra celeste", slot: "hat", style: "cap", color: "#6cace4", price: 25 },
   { id: "gorro-lana", name: "Gorro de lana", slot: "hat", style: "beanie", color: "#b5651d", price: 18 },
   { id: "boina-negra", name: "Boina negra", slot: "hat", style: "beret", color: "#26262b", price: 25 },
   { id: "remera-blanca", name: "Remera blanca", slot: "top", style: "tshirt", color: "#f1f1f1", price: 20 },

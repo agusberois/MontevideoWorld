@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FISH_ENERGY_COST, FishResultMessage, LOW_USES, bestRod, rodPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
+import { FISH_ENERGY_COST, FishResultMessage, LOW_USES, WEATHERS, bestRod, rodPerks, stackUses, usesLabel, wornestStack } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { toggleFishing } from "@/lib/gameActions";
 import { useGame } from "@/lib/gameStore";
@@ -27,6 +27,8 @@ export function FishingWidget({ room }: FishingWidgetProps) {
   const { canFish, fishing } = useGame((state) => state.fishing);
   const energy = useGame((state) => state.energy);
   const inventory = useGame((state) => state.inventory);
+  /** Lo que cambia el clima de ahora en la pesca ("" = nada). */
+  const weatherHint = useGame((state) => WEATHERS[state.weather].fishingHint);
   /** Mostrar la tecla F (no, si F ahora interactúa con algo que está al lado: ver `InteractPrompt`). */
   const hasInteraction = useGame((state) => state.interaction !== null);
   const keyHint = fishing || !hasInteraction;
@@ -63,6 +65,7 @@ export function FishingWidget({ room }: FishingWidgetProps) {
   return (
     <div className={cx("fishing")} role="status" aria-live="polite">
       {result && <p className={cx(`fishing-result ${result.ok ? "ok" : "miss"}`)}>{result.text}</p>}
+      {canFish && weatherHint && <p className={cx("activity-weather")}>{weatherHint}</p>}
       {fishing ? (
         <div className={cx("fishing-card")}>
           {/* El nombre de la caña va en el tooltip: en el texto no entra junto a la barra de espera. */}

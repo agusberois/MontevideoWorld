@@ -8,6 +8,8 @@ import {
   FoodEatMessage,
   EquipMessage,
   AdminMatchMessage,
+  AdminWeatherMessage,
+  WeatherMode,
   AdminSetTimeMessage,
   MatchMode,
   AdminGiveMessage,
@@ -138,6 +140,7 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "inventory:update": MessageType.Inventory,
   "wallet:update": MessageType.Wallet,
   "needs:update": MessageType.Needs,
+  "tutorial:update": MessageType.Tutorial,
   faint: MessageType.Faint,
   "shop:open": MessageType.ShopOpen,
   "shop:result": MessageType.ShopResult,
@@ -170,11 +173,12 @@ export function bindRoomMessages(room: CityRoom): () => void {
       eventBus.emit(event, message);
     }),
   );
-  // Mochila, saldo y hambre se piden recién ahora: si el server los mandara en onJoin podrían llegar
+  // Mochila, saldo, hambre y guía se piden recién ahora: si el server los mandara en onJoin podrían llegar
   // antes de que existan los handlers y colyseus.js los descartaría.
   room.send(MessageType.RequestInventory);
   room.send(MessageType.RequestWallet);
   room.send(MessageType.RequestNeeds);
+  room.send(MessageType.RequestTutorial);
   return () => unbinds.forEach((unbind) => unbind());
 }
 
@@ -258,6 +262,15 @@ export function sendFoodEat(room: CityRoom, itemId: string) {
 export function sendAdminMatch(room: CityRoom, mode: MatchMode, name?: string) {
   const message: AdminMatchMessage = { mode, name };
   room.send(MessageType.AdminMatch, message);
+}
+
+export function sendTutorialSkip(room: CityRoom) {
+  room.send(MessageType.TutorialSkip);
+}
+
+export function sendAdminWeather(room: CityRoom, mode: WeatherMode) {
+  const message: AdminWeatherMessage = { mode };
+  room.send(MessageType.AdminWeather, message);
 }
 
 export function sendAdminSetTime(room: CityRoom, minuteOfDay: number) {

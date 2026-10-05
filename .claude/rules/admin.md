@@ -22,6 +22,8 @@ coincide con `ADMIN_NAME`, `player.admin = true` (nombre con ★ en naranja y bo
 **Partido** (panel de Admin): `admin:match { mode, name? }` (`MatchMode`: `on` juega ya el partido
 `name` de `MATCHES` hasta cambiar de modo, `off` no deja que haya ninguno, `auto` vuelve al
 horario). Es global como el reloj (`gameClock.forceMatch`); el modo va en `state.matchMode`.
+**Clima** (panel de Admin): `admin:weather { mode }` lo deja fijo o vuelve a "Que cambie solo"
+(ver `.claude/rules/clima.md`).
 **Coordenadas** (sólo admin, tecla **G** o botón en el panel de Admin → `game/AdminCoords.ts`): grilla
 sobre el piso con "x,y" cada 5 tiles y, junto al mouse, la coordenada y qué hay en ese tile
 (`describeTile`); **Shift + clic** la copia al portapapeles ("39,21") para pedir dónde edificar. Es

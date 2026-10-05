@@ -36,4 +36,6 @@ __exportStar(require("./jail"), exports);
 __exportStar(require("./pets"), exports);
 __exportStar(require("./needsBalance"), exports);
 __exportStar(require("./weevils"), exports);
+__exportStar(require("./weather"), exports);
+__exportStar(require("./tutorial"), exports);
 //# sourceMappingURL=index.js.map

@@ -103,6 +103,20 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
+/* Lo que cambia el clima (lluvia, pampero, calor): como el aviso del partido, en celeste. */
+.activity-weather {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(142, 202, 255, 0.5);
+  background: var(--panel);
+  color: #b9dcff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
 .fishing-cast:disabled {
   background: rgba(255, 255, 255, 0.15);
   color: var(--muted);

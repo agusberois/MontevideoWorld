@@ -46,8 +46,6 @@ export interface MoverHost {
   sendMove(target: TilePoint, route: TilePoint[]): void;
   /** Reloj (ms). */
   now(): number;
-  /** ¿Tiene energía para caminar? (si no, el server no lo mueve y no se predice nada) */
-  canWalk(): boolean;
 }
 
 interface Prediction {
@@ -160,8 +158,6 @@ export class LocalMover {
     // de más por el recorrido anterior, queda al lado y vuelve por ahí (`followRoute`).
     this.host.sendMove(steps.length > 0 ? target : end, server ? [server, ...route] : route);
     if (!avatar || !server) return;
-    // Sin energía el server no lo va a mover: no se adelanta nada.
-    if (!this.host.canWalk()) return;
 
     const previous = this.prediction;
     const heading = avatar.headingTile();

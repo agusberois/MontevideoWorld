@@ -3,12 +3,15 @@
 import { ReactNode, useEffect, useState } from "react";
 import { eventBus } from "@/lib/eventBus";
 import { openPanel, useGame } from "@/lib/gameStore";
-import { LOW_ENERGY, LOW_HEALTH, MAX_ENERGY, MAX_HEALTH, MAX_HUNGER, STARVING, darknessAt, formatClock, formatMoney } from "@montevideo-world/shared";
+import { WEATHERS, WeatherId, darknessAt, formatClock, formatMoney } from "@montevideo-world/shared";
 import { UiIcon, UiIconName } from "./UiIcon";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./Hud.module.css";
 
 const cx = moduleClasses(styles);
+
+/** Ícono del reloj según el clima; despejado, el sol o la luna según la hora. */
+const WEATHER_ICONS: Record<Exclude<WeatherId, "clear">, UiIconName> = { rain: "rain", pampero: "wind", heat: "heat" };
 
 interface HudProps {
   cityName: string;
@@ -19,9 +22,7 @@ export function Hud({ cityName, onExit }: HudProps) {
   const [self, setSelf] = useState<{ name: string; color: string } | null>(null);
   const money = useGame((state) => state.money);
   const clock = useGame((state) => state.clock);
-  const energy = useGame((state) => state.energy);
-  const hunger = useGame((state) => state.hunger);
-  const health = useGame((state) => state.health);
+  const weather = useGame((state) => state.weather);
   const playerCount = useGame((state) => state.players.length);
   const isAdmin = useGame((state) => state.isAdmin);
   const cityCopy = useGame((state) => state.cityCopy);
@@ -32,7 +33,11 @@ export function Hud({ cityName, onExit }: HudProps) {
 
   return (
     <div className={cx("hud")}>
-      {/* Datos (arriba en celulares) y acciones (abajo, sólo íconos). En escritorio, una sola fila. */}
+      {/*
+        Datos (quién y dónde: nombre, barrio, hora, plata) y acciones (menús). En escritorio, cada
+        grupo es un panel en su esquina de arriba; en celulares, dos filas de punta a punta. Energía,
+        hambre y salud van aparte, abajo (`Vitals`).
+      */}
       <div className={cx("hud-info")}>
         <strong className={cx("hud-item hud-name")} style={self ? { color: self.color } : undefined} title="Tu personaje">
           <UiIcon name="user" />
@@ -48,41 +53,14 @@ export function Hud({ cityName, onExit }: HudProps) {
             {cityCopy > 1 && ` · ${cityCopy}`}
           </span>
         </span>
-        <span className={cx("hud-item hud-clock")} title="Hora del juego">
-          <UiIcon name={clock !== null && darknessAt(clock) > 0.5 ? "moon" : "sun"} />
+        <span className={cx("hud-item hud-clock")} title={`Hora del juego · ${WEATHERS[weather].name}`}>
+          <UiIcon name={weather !== "clear" ? WEATHER_ICONS[weather] : clock !== null && darknessAt(clock) > 0.5 ? "moon" : "sun"} />
           {clock === null ? "--:--" : formatClock(clock)}
         </span>
         <span className={cx("hud-item hud-money")} title="Tu dinero">
           <UiIcon name="moneyBag" className={cx("hud-money-icon")} />
           {money === null ? "$…" : formatMoney(money)}
         </span>
-        <NeedMeter
-          kind="energy"
-          label="Energía"
-          icon="zap"
-          title="Energía: caminar, pescar y vender la gastan; quedarte quieto o sentarte en un banco la recupera (con hambre, más lento)"
-          value={energy}
-          max={MAX_ENERGY}
-          low={LOW_ENERGY}
-        />
-        <NeedMeter
-          kind="hunger"
-          label="Hambre"
-          icon="food"
-          title="Hambre: baja con el tiempo y el esfuerzo. Comé algo (kioscos, Mercado del Puerto o un pescado) para llenarla"
-          value={hunger}
-          max={MAX_HUNGER}
-          low={STARVING}
-        />
-        <NeedMeter
-          kind="health"
-          label="Salud"
-          icon="heart"
-          title="Salud: la bajan los picudos, pasar hambre y el pescado crudo. Vuelve comiendo bien y descansando, o en la guardia del Sanatorio Americano. En 0 te desmayás"
-          value={health}
-          max={MAX_HEALTH}
-          low={LOW_HEALTH}
-        />
       </div>
       <div className={cx("hud-actions")}>
         <HudButton icon="users" label="online" onClick={() => openPanel("players")} title="Jugadores en el barrio" shortcut="Tab">
@@ -118,45 +96,12 @@ interface HudButtonProps {
 function HudButton({ icon, label, title, shortcut, admin, onClick, children }: HudButtonProps) {
   return (
     <button type="button" className={cx(`hud-item hud-button${admin ? " hud-admin" : ""}`)} onClick={onClick} title={title} aria-label={title}>
-      <UiIcon name={icon} />
-      {children}
+      <span className={cx("hud-button-icon")}>
+        <UiIcon name={icon} />
+        {children}
+      </span>
       <span className={cx("hud-label")}>{label}</span>
       {shortcut && <kbd>{shortcut}</kbd>}
     </button>
-  );
-}
-
-interface NeedMeterProps {
-  /** Clase (colores): `hud-energy`, `hud-hunger`, `hud-health`. */
-  kind: "energy" | "hunger" | "health";
-  label: string;
-  icon: UiIconName;
-  title: string;
-  value: number | null;
-  max: number;
-  /** Por debajo, en rojo (y el ícono titila); por debajo de la mitad, amarillo. */
-  low: number;
-}
-
-/** Barra de una necesidad (energía, hambre): llena = bien, amarilla por la mitad, roja cuando queda poca. */
-function NeedMeter({ kind, label, icon, title, value, max, low }: NeedMeterProps) {
-  const shown = value ?? max;
-  const level = shown <= low ? "low" : shown <= max / 2 ? "mid" : "high";
-  return (
-    <span
-      className={cx(`hud-item hud-need hud-${kind} ${level}`)}
-      title={title}
-      role="meter"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={max}
-      aria-valuenow={shown}
-    >
-      <UiIcon name={icon} />
-      <span className={cx("hud-need-bar")}>
-        <span style={{ width: `${(shown / max) * 100}%` }} />
-      </span>
-      <span className={cx("hud-need-value")}>{value === null ? "…" : shown}</span>
-    </span>
   );
 }

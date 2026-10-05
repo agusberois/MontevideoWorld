@@ -15,6 +15,8 @@ import {
   SIT_HEALTH_REGEN,
   STARVE_HEALTH_PER_SECOND,
   SavedNeeds,
+  WALK_ENERGY_COST,
+  WALK_ENERGY_FLOOR,
   energyCap,
   energyRegenFactor,
   sanitizeNeeds,
@@ -28,6 +30,8 @@ export interface NeedsTick {
   sitting: boolean;
   /** Preso en el COMCAR: el hambre queda congelada (y no hace daño). */
   jailed: boolean;
+  /** Del clima (`Weather.hungerFactor`): con calor el hambre baja más rápido. */
+  hungerFactor?: number;
 }
 
 /**
@@ -80,6 +84,12 @@ export class Needs {
 
   hasEnergy(cost: number): boolean {
     return !this.exhausted && this.energyAmount >= cost;
+  }
+
+  /** Un paso: gasta `WALK_ENERGY_COST`, pero nunca la baja de `WALK_ENERGY_FLOOR` (caminar no agota). */
+  walkStep() {
+    const spend = Math.min(WALK_ENERGY_COST, Math.max(0, this.energyAmount - WALK_ENERGY_FLOOR));
+    this.energyAmount -= spend;
   }
 
   /** Gasta `cost` si alcanza; si no, queda agotado, no cambia nada y devuelve false. */
@@ -162,13 +172,13 @@ export class Needs {
   }
 
   /**
-   * Lo que pasa solo cada `seconds`: baja el hambre (salvo preso) y, en 0, la salud; quieto, se
+   * Lo que pasa solo cada `seconds`: baja el hambre (salvo preso; más rápido con calor) y, en 0, la salud; quieto, se
    * recupera energía (más rápido sentado y más lento cuanto más hambre, `energyRegenFactor`) y, con
    * la panza llena, también salud.
    */
-  tick(seconds: number, { resting, sitting, jailed }: NeedsTick) {
+  tick(seconds: number, { resting, sitting, jailed, hungerFactor = 1 }: NeedsTick) {
     if (!jailed) {
-      this.drainHunger(HUNGER_PER_SECOND * seconds);
+      this.drainHunger(HUNGER_PER_SECOND * hungerFactor * seconds);
       if (this.hungerAmount <= 0) this.hurt(STARVE_HEALTH_PER_SECOND * seconds);
     }
     if (resting) {

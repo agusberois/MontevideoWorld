@@ -1,9 +1,9 @@
 "use client";
 
-import { CLOCK_PRESETS, MATCHES, formatClock, getCityInfo } from "@montevideo-world/shared";
+import { CLOCK_PRESETS, MATCHES, WEATHERS, WEATHER_IDS, WeatherId, formatClock, getCityInfo } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { useGame } from "@/lib/gameStore";
-import { sendAdminMatch, sendAdminSetTime, sendChat } from "@/lib/network";
+import { sendAdminMatch, sendAdminSetTime, sendAdminWeather, sendChat } from "@/lib/network";
 import type { PanelProps } from "../../shell/panels";
 import { UiIcon, UiIconName } from "../../ui/UiIcon";
 import { moduleClasses } from "@/lib/cx";
@@ -18,6 +18,8 @@ const PHASE_ICONS: Record<(typeof CLOCK_PRESETS)[number]["phase"], UiIconName> =
   night: "moon",
 };
 
+const WEATHER_ICONS: Record<WeatherId, UiIconName> = { clear: "sun", rain: "rain", pampero: "wind", heat: "heat" };
+
 /**
  * Controles de admin (tecla P). Sólo se muestra a quien entró con el nombre de admin; igual el
  * server valida cada pedido. Mover el reloj afecta a todos los barrios: desde ahí sigue solo.
@@ -27,6 +29,8 @@ export function AdminPanel({ room, cityId, onClose }: PanelProps) {
   const coords = useGame((state) => state.adminCoords);
   const match = useGame((state) => state.match);
   const matchMode = useGame((state) => state.matchMode);
+  const weather = useGame((state) => state.weather);
+  const weatherMode = useGame((state) => state.weatherMode);
   const cityName = getCityInfo(cityId)?.name ?? cityId;
   return (
     <div className={cx("modal-backdrop")} onClick={onClose}>
@@ -93,6 +97,26 @@ export function AdminPanel({ room, cityId, onClose }: PanelProps) {
           <p className={cx("admin-hint")}>
             Forzar un partido lo juega ya y sigue hasta que elijas otro modo (en todos los barrios): se vende el
             doble y los hinchas compran más. &quot;Según el horario&quot; vuelve a los partidos de cada día.
+          </p>
+          <h3>
+            Clima <span className={cx("admin-clock")}>{WEATHERS[weather].name}</span>
+          </h3>
+          <div className={cx("admin-presets")}>
+            {WEATHER_IDS.map((id) => (
+              <button key={id} type="button" aria-pressed={weatherMode === id} onClick={() => sendAdminWeather(room, id)}>
+                <UiIcon name={WEATHER_ICONS[id]} />
+                <span>{WEATHERS[id].name}</span>
+              </button>
+            ))}
+            <button type="button" aria-pressed={weatherMode === "auto"} onClick={() => sendAdminWeather(room, "auto")}>
+              <UiIcon name="horizon" />
+              <span>Que cambie solo</span>
+            </button>
+          </div>
+          <p className={cx("admin-hint")}>
+            El clima es el mismo en todos los barrios. Elegir uno lo deja fijo hasta que vuelvas a &quot;Que cambie
+            solo&quot;. Con lluvia pican más los peces y pasa menos gente; con pampero cuesta pescar; con calor da más
+            hambre y los refrescos se venden mejor.
           </p>
           <h3>Necesidades</h3>
           <div className={cx("admin-presets")}>

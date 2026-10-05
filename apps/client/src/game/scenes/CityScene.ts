@@ -11,7 +11,6 @@ import {
   ShopVisitMessage,
   SitMessage,
   TilePoint,
-  WALK_ENERGY_COST,
   WEEVIL_BITE_ENERGY,
   WEEVIL_KICK_RANGE,
   WeevilKickMessage,
@@ -20,6 +19,8 @@ import {
   CustomerState,
   getPet,
   MatchMode,
+  WeatherMode,
+  getWeather,
   getItem,
   isCart,
   HAIR_STYLES,
@@ -37,6 +38,8 @@ import { AdminCoords } from "../AdminCoords";
 import { LocalMover, WASD_KEYS } from "../movement";
 import { CityRenderer, FLOOR_DEPTH, LOGO_TEXTURE } from "../city/CityRenderer";
 import { DayNight } from "../city/DayNight";
+import { WeatherFx } from "../city/WeatherFx";
+import { TutorialPointer } from "../objects/TutorialPointer";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
 import { Avatar } from "../objects/Avatar";
 import { Customers } from "../objects/Customers";
@@ -101,6 +104,8 @@ export class CityScene extends Phaser.Scene {
   private map!: CityMap;
   private city!: CityRenderer;
   private dayNight!: DayNight;
+  private weatherFx!: WeatherFx;
+  private tutorialPointer!: TutorialPointer;
   private localAvatar: Avatar | null = null;
   private avatars = new Map<string, Avatar>();
   private weevils = new Map<string, Weevil>();
@@ -181,6 +186,15 @@ export class CityScene extends Phaser.Scene {
     this.city = new CityRenderer(this, this.map);
     this.city.build();
     this.dayNight = new DayNight(this, this.city.nightLights());
+    this.weatherFx = new WeatherFx(this);
+    // Guía de bienvenida: React dice adónde apuntar (sólo si es en este barrio).
+    this.tutorialPointer = new TutorialPointer(this, () => this.arrowInset());
+    this.disposers.push(
+      eventBus.on("tutorial:target", (target) => {
+        this.tutorialPointer.setTarget(target && target.cityId === this.map.city.id ? target.area : null);
+      }),
+    );
+    eventBus.emit("tutorial:target:request", null);
     this.hover = this.add.graphics().setDepth(HOVER_DEPTH);
 
     const camera = this.cameras.main;
@@ -197,8 +211,6 @@ export class CityScene extends Phaser.Scene {
         this.room.send(MessageType.Move, message);
       },
       now: () => this.time.now,
-      // Sin energía el server no lo mueve: no se predice nada.
-      canWalk: () => (this.room.state.players.get(this.room.sessionId)?.energy ?? 0) >= WALK_ENERGY_COST,
     });
     this.offscreenArrow = this.add.graphics().setScrollFactor(0).setDepth(ARROW_DEPTH);
     this.bindWasd();
@@ -225,7 +237,7 @@ export class CityScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, this.dispose, this);
   }
 
-  update(_time: number, delta: number) {
+  update(time: number, delta: number) {
     this.cameraControl.update(delta);
     // WASD y predicción del avatar propio. Al empezar a caminar con WASD, la cámara vuelve a él.
     const wasWasd = this.mover.isWasdActive();
@@ -243,6 +255,8 @@ export class CityScene extends Phaser.Scene {
       if (owner) pet.follow(owner, delta);
     }
     this.dayNight.update(delta);
+    this.weatherFx.update(delta);
+    this.tutorialPointer.update(time);
     const self = this.localAvatar;
     this.city.updateOcclusion(self ? { x: self.x, y: self.y, depth: self.depth } : null, delta);
     this.updateOffscreenArrow();
@@ -460,7 +474,7 @@ export class CityScene extends Phaser.Scene {
     if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) return;
 
     // Desde el centro de la pantalla hacia el avatar, hasta el borde del rectángulo permitido.
-    const inset = window.matchMedia("(max-width: 760px), (max-height: 500px)").matches ? ARROW_INSET_SMALL : ARROW_INSET;
+    const inset = this.arrowInset();
     const cx = width / 2;
     const cy = height / 2;
     const dx = screenX - cx;
@@ -483,6 +497,11 @@ export class CityScene extends Phaser.Scene {
     arrow.fillStyle(LOCATOR_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
   }
 
+  /** Margen de las flechas del borde (la del avatar y la de la guía): no tapan el HUD ni el dock. */
+  private arrowInset() {
+    return window.matchMedia("(max-width: 760px), (max-height: 500px)").matches ? ARROW_INSET_SMALL : ARROW_INSET;
+  }
+
   /** ¿El puntero está sobre la flecha que apunta al avatar? */
   private isOnArrow(pointer: Phaser.Input.Pointer): boolean {
     const spot = this.arrowSpot;
@@ -495,6 +514,7 @@ export class CityScene extends Phaser.Scene {
 
     // Hora del juego (reloj del server): la luz del barrio la sigue. La primera vez, sin fundido.
     let firstTime = true;
+    let firstWeather = true;
     this.disposers.push(
       $(this.room.state).listen("minuteOfDay", (minute) => {
         this.dayNight.setMinute(minute, firstTime);
@@ -508,6 +528,16 @@ export class CityScene extends Phaser.Scene {
       }),
       $(this.room.state).listen("matchMode", (mode) => {
         eventBus.emit("city:match", { name: this.room.state.match, mode: mode as MatchMode });
+      }),
+      // Clima (global, como la hora): la escena dibuja lluvia o viento; React lo muestra en el HUD.
+      $(this.room.state).listen("weather", (id) => {
+        const weather = getWeather(id).id;
+        this.weatherFx.setWeather(weather, firstWeather);
+        firstWeather = false;
+        eventBus.emit("city:weather", { id: weather, mode: this.room.state.weatherMode as WeatherMode });
+      }),
+      $(this.room.state).listen("weatherMode", (mode) => {
+        eventBus.emit("city:weather", { id: getWeather(this.room.state.weather).id, mode: mode as WeatherMode });
       }),
     );
 
@@ -581,6 +611,8 @@ export class CityScene extends Phaser.Scene {
 
         this.disposers.push(
           $(player).onChange(() => {
+            // Antes del tile nuevo: el paso hacia él ya tiene que durar lo que dura cansado.
+            avatar.setTired(player.tired);
             if (isLocal) this.mover.onServerTile({ x: player.x, y: player.y });
             else avatar.pushTile(player.x, player.y);
             this.applySitting(avatar, player);
@@ -968,6 +1000,8 @@ export class CityScene extends Phaser.Scene {
     this.disposers.forEach((dispose) => dispose());
     this.disposers = [];
     this.dayNight.dispose();
+    this.weatherFx.dispose();
+    this.tutorialPointer.dispose();
     this.adminCoords?.dispose();
     this.avatars.clear();
     this.weevils.clear();

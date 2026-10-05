@@ -10,17 +10,21 @@ import {
   VEND_HUNGER_COST,
   bestCart,
   bestRod,
+  cartInWeather,
   edibleLabel,
   edibleValue,
   fishWithArticle,
   formatMoney,
   getItem,
+  rodInWeather,
 } from "@montevideo-world/shared";
 import { rollCatch } from "../../fishing";
 import { gameClock } from "../../gameClock";
 import { rollSale } from "../../vending";
+import { weather } from "../../weather";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, isWalking } from "../session";
+import { tutorialEvent, tutorialWants } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Pescar en la escollera, vender en el Centenario y comer (o tomarse un remedio). */
@@ -37,7 +41,8 @@ export function activityRoutes(room: CityRoom) {
       const item = getItem(message.itemId);
       const value = edibleValue(item);
       if (!item || !value || inventory.count(item.id) === 0) return;
-      if (!needs.canEat(value)) {
+      // La torta frita de la guía se come aunque esté lleno (un jugador nuevo arranca lleno).
+      if (!needs.canEat(value) && !tutorialWants(session, { kind: "eat", itemId: item.id })) {
         return room.notice(session, item.category === "medicine" ? "Estás sano: guardalo para cuando lo necesites." : "Estás lleno: guardalo para después.");
       }
 
@@ -49,6 +54,7 @@ export function activityRoutes(room: CityRoom) {
       if (item.category === "medicine") return room.notice(session, `💊 Te tomaste ${item.name}: ${edibleLabel(value)}.`);
       const what = item.category === "fish" ? fishWithArticle(item) : item.name.toLowerCase();
       room.notice(session, `🍽️ Te comiste ${what}: ${edibleLabel(value)}.`);
+      tutorialEvent(room, session, { kind: "eat", itemId: item.id });
     },
   } satisfies Partial<MessageRoutes>;
 }
@@ -75,7 +81,8 @@ function castLine(room: CityRoom, session: PlayerSession) {
     return fishResult(room, session, false, "Estás muy cansado para pescar. Descansá un rato: sentarte en un banco ayuda.");
   }
 
-  const { fish, durationMs } = rollCatch(rod);
+  // El clima cambia cuánto se espera y cuánto pica; el uso se le cobra a la caña de verdad.
+  const { fish, durationMs } = rollCatch(rodInWeather(rod, weather.current()));
   player.sitting = false;
   player.fishing = true;
   player.rod = rod.id;
@@ -114,6 +121,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
     `${prefix}¡Sacaste ${names(kept)}! En el Mercado del Puerto pagan ${formatMoney(total)}.${full}`,
     kept.map((f) => f.id),
   );
+  tutorialEvent(room, session, { kind: "catch" });
   const rare = kept.filter((f) => f.difficulty >= 4);
   if (rare.length > 0 || kept.length > 1) {
     room.broadcastSystem(`🎣 ${session.player.name} sacó ${names(kept)} en la Escollera Sarandí`);
@@ -123,7 +131,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
 /**
  * Ofrecer la mercadería: hay que estar parado (sin camino pendiente) en la zona de venta, no estar
  * vendiendo ni pescando, tener un carrito en la mochila (se usa el de mayor nivel) y energía. La
- * venta se sortea ahora (con partido rinde más) y se resuelve en `durationMs`; moverse antes la
+ * venta se sortea ahora (con partido rinde más; el clima también cuenta) y se resuelve en `durationMs`; moverse antes la
  * cancela. Como al pescar, energía y uso del carrito se cobran recién al terminar.
  */
 function startVending(room: CityRoom, session: PlayerSession) {
@@ -144,7 +152,7 @@ function startVending(room: CityRoom, session: PlayerSession) {
   }
 
   const match = gameClock.currentMatch();
-  const sale = rollSale(cart, Boolean(match));
+  const sale = rollSale(cartInWeather(cart, weather.current()), Boolean(match));
   player.sitting = false;
   player.vending = true;
   player.cart = cart.id;

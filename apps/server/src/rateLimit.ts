@@ -49,6 +49,7 @@ export const MESSAGE_RATE_LIMITS: Partial<Record<MessageTypeName, RateLimit>> = 
   [MessageType.TradeOffer]: UI_RATE_LIMIT,
   [MessageType.AdminGive]: UI_RATE_LIMIT,
   [MessageType.AdminMatch]: UI_RATE_LIMIT,
+  [MessageType.AdminWeather]: UI_RATE_LIMIT,
 };
 
 /** Tipo de los mensajes que no tienen handler (se cuentan juntos, con el límite por defecto). */

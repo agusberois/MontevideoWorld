@@ -1,0 +1,139 @@
+/* Vitals: energía, hambre y salud. Las clases que no están acá son globales. */
+
+/* Escritorio: panel abajo a la izquierda, una necesidad por renglón. */
+
+.vitals {
+  position: fixed;
+  bottom: calc(var(--edge) + var(--safe-bottom));
+  left: calc(var(--edge) + var(--safe-left));
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 0.8rem;
+}
+
+.need {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.need-label {
+  width: 4.6em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.need-bar {
+  flex: 1;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.need-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width 0.25s linear;
+}
+
+.need-value {
+  min-width: 2.2em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+
+.need-energy {
+  color: #06d6a0;
+}
+
+.need-hunger {
+  color: #f4a259;
+}
+
+.need-health {
+  color: #ff6b81;
+}
+
+.need.mid {
+  color: var(--system);
+}
+
+.need.low {
+  color: var(--danger);
+}
+
+.need.low :global(.ui-icon) {
+  animation: need-blink 1s steps(2, start) infinite;
+}
+
+@keyframes need-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* Hasta 1280 px la barra rápida se corre abajo a la izquierda (ver `.hotbar`): el panel va encima. */
+
+@media (max-width: 1280px) {
+  .vitals {
+    bottom: calc(var(--edge) + var(--safe-bottom) + 66px);
+  
+  }
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* Celulares: dentro del dock, una fila arriba de la barra rápida (sin nombres: el ícono alcanza). */
+
+  .vitals {
+    position: static;
+    flex-direction: row;
+    gap: 10px;
+    width: min(420px, 100%);
+    padding: 5px 10px;
+    font-size: 0.75rem;
+
+  }
+
+  .need {
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+
+  }
+
+  .need-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+
+  }
+
+  .need-value {
+    min-width: 1.8em;
+
+  }
+}
+
+@media (max-height: 500px) and (min-width: 561px) {
+  /* Celular acostado: al lado de la barra rápida, angosta. */
+
+  .vitals {
+    width: auto;
+    min-width: 220px;
+
+  }
+}

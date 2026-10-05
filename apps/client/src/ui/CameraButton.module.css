@@ -4,7 +4,8 @@
 
 .camera-button {
   position: fixed;
-  top: calc(var(--edge) + var(--safe-top));
+  /* Debajo de los menús del HUD (arriba a la derecha). */
+  top: calc(var(--edge) + var(--safe-top) + var(--hud-height) + 8px);
   right: calc(var(--edge) + var(--safe-right));
   z-index: 8;
   display: inline-flex;

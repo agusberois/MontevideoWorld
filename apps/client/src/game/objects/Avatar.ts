@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CHAT_BUBBLE_MS, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TilePoint } from "@montevideo-world/shared";
+import { CHAT_BUBBLE_MS, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import type { AvatarLook } from "./avatarLook";
@@ -142,6 +142,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   /** Paso en curso: de dónde sale (px), a qué tile va y cuánto lleva / dura (ms). */
   private segment: { fromX: number; fromY: number; to: TilePoint; elapsed: number; duration: number } | null = null;
   private walkTime = 0;
+  /** Lo que tarda un tile: `STEP_MS`, o `TIRED_STEP_TICKS` veces más cansado (como lo mueve el server). */
+  private stepMs = STEP_MS;
   private idleTime = 0;
   private blinkIn = Phaser.Math.Between(1500, 4000);
   private outfitKey = "";
@@ -258,6 +260,11 @@ export class Avatar extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
+  /** Cansado (`Player.tired`): camina más lento, con el mismo ritmo que el server. */
+  setTired(tired: boolean) {
+    this.stepMs = tired ? STEP_MS * TIRED_STEP_TICKS : STEP_MS;
+  }
+
   /** Donador o no (lo marca el admin; puede cambiar estando conectado). */
   setDonor(donor: boolean) {
     this.donorTag.setVisible(donor);
@@ -348,7 +355,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     // Atrasado (varios tiles en cola): se apura, así alcanza al server sin saltos.
     const behind = Math.max(0, this.queue.length + 1 - CATCH_UP_FROM);
     const factor = Math.min(MAX_CATCH_UP, 1 + behind * CATCH_UP_PER_TILE);
-    this.segment = { fromX: this.x, fromY: this.y, to, elapsed: carry, duration: STEP_MS / factor };
+    this.segment = { fromX: this.x, fromY: this.y, to, elapsed: carry, duration: this.stepMs / factor };
     const target = tileToWorld(to.x, to.y);
     this.face(target.x - this.x, target.y - this.y);
   }
@@ -617,7 +624,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   }
 
   private animateWalk() {
-    const phase = this.walkTime * WALK_PHASE_PER_MS;
+    // Cansado, las piernas también van más lento (si no, parece que patina).
+    const phase = this.walkTime * WALK_PHASE_PER_MS * (STEP_MS / this.stepMs);
     const swing = Math.sin(phase);
     this.legs[0].rotation = swing * LEG_SWING;
     this.legs[1].rotation = -swing * LEG_SWING;

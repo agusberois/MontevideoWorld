@@ -1,7 +1,9 @@
 import { isItemSlot } from "./items";
+import { isWeatherMode } from "./weather";
 import {
   AdminGiveMessage,
   AdminMatchMessage,
+  AdminWeatherMessage,
   AdminSetTimeMessage,
   BoxOpenMessage,
   ChatInputMessage,
@@ -118,6 +120,10 @@ export function isAdminMatchMessage(message: unknown): message is AdminMatchMess
   return isObject(message) && (MATCH_MODES as readonly unknown[]).includes(message.mode) && (message.name === undefined || typeof message.name === "string");
 }
 
+export function isAdminWeatherMessage(message: unknown): message is AdminWeatherMessage {
+  return isObject(message) && isWeatherMode(message.mode);
+}
+
 export function isTravelMessage(message: unknown): message is TravelMessage {
   return isObject(message) && typeof message.cityId === "string";
 }
@@ -164,6 +170,8 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.InventoryMove]: isInventoryMoveMessage,
   [MessageType.RequestWallet]: noPayload,
   [MessageType.RequestNeeds]: noPayload,
+  [MessageType.RequestTutorial]: noPayload,
+  [MessageType.TutorialSkip]: noPayload,
   [MessageType.HospitalHeal]: isShopIdMessage,
   [MessageType.ShopVisit]: isTileMessage,
   [MessageType.ShopBuy]: isShopTradeMessage,
@@ -179,6 +187,7 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.AdminNearbyRequest]: noPayload,
   [MessageType.AdminGive]: isAdminGiveMessage,
   [MessageType.AdminMatch]: isAdminMatchMessage,
+  [MessageType.AdminWeather]: isAdminWeatherMessage,
   [MessageType.BoxOpen]: isItemIdMessage,
   [MessageType.TravelRequest]: isTravelMessage,
   [MessageType.CitiesRequest]: noPayload,

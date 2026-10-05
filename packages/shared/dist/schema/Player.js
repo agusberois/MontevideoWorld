@@ -51,6 +51,8 @@ class Player extends schema_1.Schema {
         this.kicks = 0;
         /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
         this.energy = 100;
+        /** Cansado: camina `TIRED_STEP_TICKS` veces más lento (lo decide el server; todos lo ven así). */
+        this.tired = false;
         /** Donador: aporta plata al proyecto. Se muestra un distintivo arriba del nombre (lo pone el admin con /donador). */
         this.donor = false;
         /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
@@ -135,6 +137,9 @@ __decorate([
 __decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "energy", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "tired", void 0);
 __decorate([
     (0, schema_1.type)("boolean")
 ], Player.prototype, "donor", void 0);

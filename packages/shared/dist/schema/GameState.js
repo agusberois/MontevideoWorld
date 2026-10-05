@@ -26,6 +26,10 @@ class GameState extends schema_1.Schema {
         this.match = "";
         /** Si el admin forzó el partido (`MatchMode`): para su panel. */
         this.matchMode = "auto";
+        /** Clima de ahora (`WeatherId`), global como la hora: la escena dibuja lluvia o viento y el HUD lo muestra. */
+        this.weather = "clear";
+        /** Si el admin dejó el clima fijo (`WeatherMode`): para su panel. */
+        this.weatherMode = "auto";
         /** Picudos rojos sueltos en el barrio. Clave = id del picudo. */
         this.weevils = new schema_1.MapSchema();
     }
@@ -46,6 +50,12 @@ __decorate([
 __decorate([
     (0, schema_1.type)("string")
 ], GameState.prototype, "matchMode", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], GameState.prototype, "weather", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], GameState.prototype, "weatherMode", void 0);
 __decorate([
     (0, schema_1.type)({ map: Weevil_1.Weevil })
 ], GameState.prototype, "weevils", void 0);

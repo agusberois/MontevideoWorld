@@ -16,6 +16,8 @@ import { JailBanner } from "../features/jail/JailBanner";
 import { FaintOverlay } from "../features/health/FaintOverlay";
 import { VendingWidget } from "../features/activities/VendingWidget";
 import { CameraButton } from "../ui/CameraButton";
+import { Vitals } from "../ui/Vitals";
+import { TutorialCard } from "../features/tutorial/TutorialCard";
 import { Hotbar } from "../features/inventory/Hotbar";
 import { Hud } from "../ui/Hud";
 import { Notices } from "../ui/Notices";
@@ -176,13 +178,15 @@ export function App() {
       <PhaserGame session={session} />
       <Hud cityName={cityName(session.cityId) || session.cityId} onExit={handleExit} />
       {/*
-        Lo de abajo de la pantalla. En celulares se apila en una columna (pesca / venta, barra rápida,
-        chat) que sube con el teclado; en escritorio cada uno conserva su lugar (ver .dock en el CSS).
+        Lo de abajo de la pantalla. En celulares se apila en una columna (pesca / venta, necesidades,
+        barra rápida, chat) que sube con el teclado; en escritorio cada uno conserva su lugar (ver .dock en el CSS).
       */}
       <div className={cx("dock")}>
         <InteractPrompt />
         <FishingWidget room={room} />
         <VendingWidget room={room} />
+        <TutorialCard room={room} cityId={session.cityId} />
+        <Vitals />
         <Hotbar room={room} />
         <ChatBox room={room} />
       </div>

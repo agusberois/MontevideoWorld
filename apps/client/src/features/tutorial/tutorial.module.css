@@ -1,0 +1,176 @@
+/* Guía de bienvenida. Las clases que no están acá son globales (`primary`). */
+
+/* Escritorio: arriba a la izquierda, debajo de los datos del HUD. */
+
+.tutorial {
+  position: fixed;
+  top: calc(var(--edge) + var(--safe-top) + var(--hud-height) + 8px);
+  left: calc(var(--edge) + var(--safe-left));
+  z-index: 8;
+  width: 300px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-size: 0.82rem;
+}
+
+.tutorial header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tutorial h2 {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  color: #ffd166;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial h3 {
+  margin: 8px 0 2px;
+  font-size: 0.85rem;
+}
+
+.tutorial p {
+  margin: 4px 0 0;
+  line-height: 1.35;
+}
+
+.tutorial-badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 209, 102, 0.18);
+  color: #ffd166;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tutorial-toggle {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tutorial-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.tutorial-progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.tutorial-progress span.done {
+  background: #06d6a0;
+}
+
+.tutorial-progress span.current {
+  background: #ffd166;
+}
+
+.tutorial-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.tutorial-cheer {
+  color: #06d6a0;
+  font-weight: 700;
+  animation: cheer-in 0.3s ease-out;
+}
+
+.tutorial-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tutorial-actions span {
+  margin-right: auto;
+  color: var(--muted);
+}
+
+.tutorial-actions button {
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.tutorial-actions :global(.primary) {
+  border-color: transparent;
+}
+
+.tutorial-skip {
+  opacity: 0.75;
+}
+
+.tutorial.done {
+  border-color: rgba(6, 214, 160, 0.6);
+}
+
+.tutorial.done h2 {
+  color: #06d6a0;
+  white-space: normal;
+}
+
+@keyframes cheer-in {
+  from {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* Celulares: en el dock, arriba de las necesidades, a lo ancho. Botones cómodos para el dedo. */
+
+  .tutorial {
+    position: static;
+    width: min(420px, 100%);
+    padding: 8px 10px;
+    font-size: 0.78rem;
+
+  }
+
+  .tutorial-toggle,
+  .tutorial-actions button {
+    min-width: 40px;
+    min-height: 40px;
+
+  }
+}
+
+@media (max-height: 500px) and (min-width: 561px) {
+  /* Celular acostado: no hay lugar abajo; va arriba a la izquierda, debajo del HUD y angosta. */
+
+  .tutorial {
+    position: fixed;
+    width: 260px;
+
+  }
+}

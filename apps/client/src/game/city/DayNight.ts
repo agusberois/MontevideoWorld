@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { darknessAt } from "@montevideo-world/shared";
 
 /** Por encima de edificios y avatares, por debajo de carteles, nombres y globos. */
-const NIGHT_DEPTH = 400000;
+export const NIGHT_DEPTH = 400000;
 /** El velo pasa de un tono cálido (atardecer/amanecer) al azul de la noche cerrada. */
 const DUSK_COLOR = { r: 0x7a, g: 0x3b, b: 0x12 };
 const NIGHT_COLOR = { r: 0x0a, g: 0x15, b: 0x30 };

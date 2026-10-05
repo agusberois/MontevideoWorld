@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, copyFileSync, readFileSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint, nameKey } from "@montevideo-world/shared";
+import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint, TutorialState, nameKey } from "@montevideo-world/shared";
 import { round } from "./metrics";
 
 /**
@@ -22,6 +22,8 @@ export interface PlayerRecord {
   needs?: SavedNeeds;
   /** Mascota adoptada (id de `PETS`) y su nombre. */
   pet?: { id: string; name: string };
+  /** Guía de bienvenida (`TutorialState`). Sin el campo (guardados viejos), la ve desde el principio. */
+  tutorial?: TutorialState;
   updatedAt: string;
 }
 

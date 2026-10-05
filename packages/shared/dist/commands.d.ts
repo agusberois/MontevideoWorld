@@ -65,6 +65,11 @@ export declare const COMMANDS: readonly [{
     readonly description: "Te lleva al lado de un jugador conectado, esté en el barrio que esté (sin boleto).";
     readonly role: "admin";
 }, {
+    readonly name: "guia";
+    readonly usage: "/guia";
+    readonly description: "Vuelve a abrir la guía de bienvenida (repetirla no da premios).";
+    readonly role: "user";
+}, {
     readonly name: "donador";
     readonly usage: "/donador <si|no> [jugador]";
     readonly description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).";
