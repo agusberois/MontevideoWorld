@@ -40,6 +40,12 @@ class Player extends schema_1.Schema {
         this.vending = false;
         /** Carrito con el que está vendiendo (id de `CARTS`; "" si no vende): los demás lo ven de su color. */
         this.cart = "";
+        /** Tocando en la calle en el Centro (los demás lo ven con su instrumento y las notas). */
+        this.busking = false;
+        /** Instrumento con el que toca (id de `INSTRUMENTS`; "" si no toca). */
+        this.instrument = "";
+        /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
+        this.tips = 0;
         /** Mascota que lo sigue (id de `PETS`; "" = ninguna) y su nombre: todos la ven. */
         this.pet = "";
         this.petName = "";
@@ -124,6 +130,15 @@ __decorate([
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "cart", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "busking", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "instrument", void 0);
+__decorate([
+    (0, schema_1.type)("uint16")
+], Player.prototype, "tips", void 0);
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "pet", void 0);

@@ -37,6 +37,7 @@ export interface GameStoreState {
   players: PlayerSummary[];
   fishing: { canFish: boolean; fishing: boolean };
   vending: { canVend: boolean; vending: boolean };
+  busking: { canBusk: boolean; busking: boolean };
   /** Con qué se puede interactuar con F ahora (lo decide la escena), o null. */
   interaction: string | null;
   /** Tu mascota (id de `PETS` y nombre), o null si no tenés. */
@@ -59,7 +60,7 @@ export interface GameStoreState {
   /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
   trading: boolean;
   /** Viaje en curso (pantalla del ómnibus): de qué barrio a cuál. */
-  traveling: { from: string; to: string; ambulance?: boolean; door?: boolean } | null;
+  traveling: { from: string; to: string; ambulance?: boolean; door?: boolean; walk?: boolean } | null;
   /** Barra rápida 1–9: preferencia del navegador, sobrevive a salir y a viajar. */
   hotbar: HotbarSlots;
   /** Jugadores bloqueados (esqueleto del nombre, `nameKey`): preferencia del navegador, como la barra. */
@@ -81,6 +82,7 @@ const INITIAL: GameStoreState = {
   players: [],
   fishing: { canFish: false, fishing: false },
   vending: { canVend: false, vending: false },
+  busking: { canBusk: false, busking: false },
   interaction: null,
   jailLeft: 0,
   pet: null,
@@ -189,6 +191,7 @@ export function bindGameStore(): () => void {
     eventBus.on("players:list", (players) => setState({ players })),
     eventBus.on("fishing:status", (fishing) => setState({ fishing })),
     eventBus.on("vending:status", (vending) => setState({ vending })),
+    eventBus.on("busking:status", (busking) => setState({ busking })),
     eventBus.on("interact:prompt", (prompt) => setState({ interaction: prompt?.label ?? null })),
     eventBus.on("player:energy", (energy) => setState({ energy })),
     eventBus.on("needs:update", ({ hunger, health }) => setState({ hunger, health })),

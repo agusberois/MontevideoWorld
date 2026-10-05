@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { FishItem, FoodShape, ItemCategory, MedicineShape, ItemDefinition, ItemSlot, ItemStyle } from "@montevideo-world/shared";
+import type { FishItem, FoodShape, InstrumentKind, ItemCategory, MedicineShape, ItemDefinition, ItemSlot, ItemStyle } from "@montevideo-world/shared";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./inventory.module.css";
 
@@ -337,6 +337,59 @@ function medicineShape(kind: MedicineShape, fill: string, dark: string): ReactNo
   }
 }
 
+/** Instrumentos: armónica, guitarra criolla, bandoneón y tambor de candombe. */
+function instrumentShape(kind: InstrumentKind, fill: string, dark: string, light: string): ReactNode {
+  const outline = { stroke: dark, strokeWidth: 1.3, strokeLinejoin: "round" as const };
+  switch (kind) {
+    case "harmonica":
+      return (
+        <g transform="rotate(-20 16 16)">
+          <rect x={4} y={12} width={24} height={8} rx={1.5} fill={light} {...outline} />
+          <rect x={4} y={15} width={24} height={2} fill={fill} />
+          {[7, 10, 13, 16, 19, 22, 25].map((x) => (
+            <rect key={x} x={x - 0.8} y={12.8} width={1.6} height={1.8} fill={dark} />
+          ))}
+        </g>
+      );
+    case "guitar":
+      return (
+        <g transform="rotate(35 16 16)">
+          <rect x={14.6} y={2} width={2.8} height={14} fill="#6b3e1e" stroke={dark} strokeWidth={0.8} />
+          <rect x={13.5} y={1} width={5} height={3} rx={0.8} fill="#3d2414" />
+          <ellipse cx={16} cy={18.5} rx={6} ry={5} fill={fill} {...outline} />
+          <ellipse cx={16} cy={25} rx={7.5} ry={5.5} fill={fill} {...outline} />
+          <circle cx={16} cy={20.5} r={2.2} fill="#2b1a10" />
+          <line x1={16} y1={3} x2={16} y2={27} stroke="#f4efe3" strokeWidth={0.5} />
+        </g>
+      );
+    case "bandoneon":
+      return (
+        <>
+          <rect x={3} y={9} width={7} height={15} rx={1.5} fill={fill} {...outline} />
+          <rect x={22} y={9} width={7} height={15} rx={1.5} fill={fill} {...outline} />
+          {[11, 13.5, 16, 18.5].map((x) => (
+            <path key={x} d={`M${x} 10 L${x + 2.5} 12 L${x} 14 L${x + 2.5} 16 L${x} 18 L${x + 2.5} 20 L${x} 22`} fill="none" stroke={dark} strokeWidth={0.9} />
+          ))}
+          <rect x={10} y={10} width={12} height={13} fill="#f4efe3" opacity={0.35} />
+          {[12, 15, 18, 21].map((y) => (
+            <circle key={y} cx={6.5} cy={y} r={0.9} fill="#f4efe3" />
+          ))}
+        </>
+      );
+    case "drum":
+      return (
+        <>
+          <path d="M9 6 L23 6 L21 28 L11 28 Z" fill={fill} {...outline} />
+          <ellipse cx={16} cy={6} rx={7} ry={2.5} fill="#f2e6cf" {...outline} />
+          {[10, 14, 18, 22].map((y) => (
+            <line key={y} x1={9 + (y - 6) * 0.09} y1={y} x2={23 - (y - 6) * 0.09} y2={y} stroke={light} strokeWidth={1} />
+          ))}
+          <line x1={22} y1={2} x2={27} y2={9} stroke="#8a6a45" strokeWidth={1.6} strokeLinecap="round" />
+        </>
+      );
+  }
+}
+
 /** Caja de regalo con moño (cajas sorpresa). */
 function boxShape(fill: string, dark: string, light: string) {
   const ribbon = "#ffd166";
@@ -369,6 +422,7 @@ const CATEGORY_ICONS: { [C in ItemCategory]: (item: Extract<ItemDefinition, { ca
   medicine: (item) => medicineShape(item.shape, item.color, mix(item.color, -0.45)),
   rod: (item) => rodShape(item.color, mix(item.color, -0.45), item.tier),
   cart: (item) => cartShape(item.color, mix(item.color, -0.45), item.tier),
+  instrument: (item) => instrumentShape(item.kind, item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
   box: (item) => boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
   ticket: (item) => ticketShape(item.color, mix(item.color, -0.45)),
 };

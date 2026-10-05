@@ -10,6 +10,8 @@ exports.TRES_CRUCES_INFO = {
     id: "tres-cruces",
     name: "Tres Cruces",
     description: "El shopping y la terminal, el Bulevar Artigas y el Parque Batlle con el Estadio Centenario.",
+    // Oculto por ahora: sólo se juega en Ciudad Vieja, el Centro y el COMCAR.
+    hidden: true,
     landmarks: [
         {
             id: "shopping-tres-cruces",

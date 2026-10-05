@@ -46,6 +46,11 @@ export interface MoverHost {
   sendMove(target: TilePoint, route: TilePoint[]): void;
   /** Reloj (ms). */
   now(): number;
+  /**
+   * Cruzar la puerta `doorId` (`door:enter`): WASD contra un borde del mapa que es salida
+   * (`Door.edge`, 18 de Julio entre Ciudad Vieja y el Centro).
+   */
+  enterDoor?(doorId: string): void;
 }
 
 interface Prediction {
@@ -95,6 +100,8 @@ export class LocalMover {
    * teclas. Guarda la dirección que había, para saber cuándo cambiaron.
    */
   private wasdSuspended: TilePoint | null = null;
+  /** La salida por el borde que ya se pidió cruzar con WASD (una vez hasta soltar las teclas). */
+  private wasdDoor: string | null = null;
 
   constructor(
     private readonly map: CityMap,
@@ -317,6 +324,7 @@ export class LocalMover {
     const avatar = this.avatar;
     const from = this.serverTile;
     if (!direction || !avatar || !from) {
+      this.wasdDoor = null;
       if (this.wasdActive) {
         // Soltó: frena en el tile al que ya iba (lo predicho hasta ahí y nada más).
         this.wasdActive = false;
@@ -327,11 +335,28 @@ export class LocalMover {
     }
     this.wasdActive = true;
     const { base } = this.planningBase();
+    // Caminando contra una salida del borde del mapa: se cruza (en vez de deslizarse por el costado).
+    const exit = this.edgeDoorAhead(base, direction);
+    if (exit) {
+      if (this.wasdDoor !== exit) this.host.enterDoor?.(exit);
+      this.wasdDoor = exit;
+      return;
+    }
     const steps = this.wasdSteps(base, direction);
     const target = steps[steps.length - 1];
     if (!target || (this.wasdTarget && sameTile(this.wasdTarget, target))) return;
     this.wasdTarget = target;
     this.go(target, steps);
+  }
+
+  /** Id de la salida por el borde (`Door.edge`) pegada a `from` en esa dirección (o en uno de sus dos ejes). */
+  private edgeDoorAhead(from: TilePoint, direction: TilePoint): string | null {
+    for (const step of [direction, { x: direction.x, y: 0 }, { x: 0, y: direction.y }]) {
+      if (step.x === 0 && step.y === 0) continue;
+      const door = this.map.doorAt(from.x + step.x, from.y + step.y);
+      if (door?.edge) return door.id;
+    }
+    return null;
   }
 
   /**

@@ -9,12 +9,14 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { Encoder } from "@colyseus/schema";
 import {
   CARTS,
+  INSTRUMENTS,
   DEFAULT_PORT,
   MAX_FOOD_SHARE,
   RODS,
   ROOM_NAME,
   WEATHERS,
   cartInWeather,
+  instrumentInWeather,
   foodCostPerHour,
   foodTooExpensiveFor,
   formatMoney,
@@ -33,7 +35,7 @@ import { CityRoom, saveEveryone } from "./rooms/CityRoom";
 // vuelve a codificar todo en cada entrada. Tiene que estar antes de crear cualquier sala.
 Encoder.BUFFER_SIZE = 32 * 1024;
 
-// Cañas y carritos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
+// Cañas, carritos e instrumentos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
 // precios, usos o probabilidades y uno deja de ser rentable, se avisa al arrancar.
 for (const tool of unprofitableTools()) {
   console.warn(
@@ -49,9 +51,13 @@ for (const { tool, share } of foodTooExpensiveFor(worstHunger)) {
     `[Balance] Con ${tool.name} comer se lleva ${formatPercent(share)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(foodCostPerHour(worstHunger)))}/h de comida contra ~${formatMoney(Math.round(hourlyIncome(tool)))}/h.`,
   );
 }
-// El clima empeora la pesca (pampero) o la venta (lluvia): con cualquiera, cada herramienta se tiene que seguir pagando sola.
+// El clima empeora la pesca (pampero) o la venta y la música (lluvia): con cualquiera, cada herramienta se tiene que seguir pagando sola.
 for (const weather of Object.values(WEATHERS)) {
-  for (const tool of [...RODS.map((rod) => rodInWeather(rod, weather)), ...CARTS.map((cart) => cartInWeather(cart, weather))]) {
+  for (const tool of [
+    ...RODS.map((rod) => rodInWeather(rod, weather)),
+    ...CARTS.map((cart) => cartInWeather(cart, weather)),
+    ...INSTRUMENTS.map((instrument) => instrumentInWeather(instrument, weather)),
+  ]) {
     if (lifetimeValue(tool) > tool.price) continue;
     console.warn(
       `[Balance] Con ${weather.name.toLowerCase()}, ${tool.name} no es rentable: deja ~${formatMoney(Math.floor(lifetimeValue(tool)))} en ${tool.maxUses} usos y cuesta ${formatMoney(tool.price)}.`,

@@ -33,7 +33,7 @@ export function lifeRoutes(room: CityRoom) {
 }
 
 /**
- * Cada tick: baja el hambre (salvo preso) y, quieto (sin pescar ni vender), se recupera energía,
+ * Cada tick: baja el hambre (salvo preso) y, quieto (sin pescar, vender ni tocar), se recupera energía,
  * más rápido sentado y más lento con hambre (ver `Needs.tick`). La energía va al Schema; hambre y
  * salud al dueño si cambiaron, con un aviso al cruzar un umbral.
  */
@@ -43,7 +43,7 @@ export function tickNeeds(room: CityRoom) {
   for (const session of room.sessions.values()) {
     const { player, needs } = session;
     needs.tick(seconds, {
-      resting: !isWalking(session) && !player.fishing && !player.vending,
+      resting: !isWalking(session) && !player.fishing && !player.vending && !player.busking,
       sitting: player.sitting,
       bathing: player.bathing,
       jailed: player.jailLeft > 0,
@@ -137,6 +137,8 @@ function faint(room: CityRoom, session: PlayerSession) {
 /** Tile caminable pegado a la guardia del sanatorio, donde te deja la ambulancia (el mismo para todos). */
 function hospitalDoor(): TilePoint | undefined {
   const map = getCityMap(HOSPITAL_CITY_ID);
+  // Con Tres Cruces oculto (`CityInfo.hidden`) no hay ambulancia: te despertás en la plaza.
+  if (map?.city.hidden) return undefined;
   const shop = map?.city.shops.find((candidate) => candidate.id === HOSPITAL_SHOP_ID);
   if (!map || !shop) return undefined;
   // Del lado de la calle (sur-este del edificio), que es por donde se ve la entrada.

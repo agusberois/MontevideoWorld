@@ -10,6 +10,7 @@ import { CityDefinition, CityId, CityMap, isCityId } from "@montevideo-world/sha
  */
 const LOADERS: Record<CityId, () => Promise<CityDefinition>> = {
   "ciudad-vieja": () => import("@montevideo-world/shared/cities/ciudadVieja").then((module) => module.CIUDAD_VIEJA),
+  centro: () => import("@montevideo-world/shared/cities/centro").then((module) => module.CENTRO),
   "tres-cruces": () => import("@montevideo-world/shared/cities/tresCruces").then((module) => module.TRES_CRUCES),
   "barrio-de-los-judios": () =>
     import("@montevideo-world/shared/cities/barrioDeLosJudios").then((module) => module.BARRIO_DE_LOS_JUDIOS),

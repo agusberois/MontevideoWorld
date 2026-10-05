@@ -241,12 +241,24 @@ const casinoDoor: Door = {
   to: { cityId: "casino", at: { x: 1, y: 8 } },
 };
 
+/**
+ * 18 de Julio sigue hacia el Centro: el borde este de la avenida es una salida (se cruza caminando,
+ * sin boleto) que deja en la punta oeste de 18 de Julio del Centro.
+ */
+const centroEdge: Door = {
+  id: "centro",
+  name: "Caminar al Centro",
+  area: rect(WIDTH - 1, dieciochoDeJulio[0], 1, dieciochoDeJulio[1] - dieciochoDeJulio[0] + 1),
+  to: { cityId: "centro", at: { x: 1, y: 30 } },
+  edge: true,
+};
+
 export const CIUDAD_VIEJA: CityDefinition = {
   ...CIUDAD_VIEJA_INFO,
   layout: builder.build(),
   // Se aparece en la Plaza Independencia (la plaza entera).
   spawnArea: plazaIndependencia,
-  doors: [termasDoor, casinoDoor],
+  doors: [termasDoor, casinoDoor, centroEdge],
   fillers,
   boats,
   streetLamps,
@@ -266,7 +278,8 @@ export const CIUDAD_VIEJA: CityDefinition = {
     { name: "Río de la Plata", x: 80, y: 90 },
     { name: "Escollera Sarandí", x: 11, y: 47 },
     { name: "Escollera norte", x: 11, y: 13 },
-    { name: "18 de Julio", x: 145, y: 53.5 },
+    { name: "18 de Julio", x: 143, y: 53.5 },
+    { name: "Centro →", x: 147, y: 53.5 },
     ...Object.entries({ Piedras: rows.piedras, Cerrito: rows.cerrito, "25 de Mayo": rows.veinticincoDeMayo, Rincón: rows.rincon, "Buenos Aires": rows.buenosAires, Reconquista: rows.reconquista }).map(
       ([name, v]) => ({ name, x: 86, y: tileY(v) - 0.5 }),
     ),

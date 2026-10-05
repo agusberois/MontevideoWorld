@@ -6,7 +6,8 @@ import { stopActivities } from "./activities";
 import type { MessageRoutes } from "./types";
 
 /**
- * Puertas (las Termas del Donador: entrar desde Ciudad Vieja y salir) y el jacuzzi de adentro.
+ * Puertas (las Termas del Donador y el casino: entrar desde Ciudad Vieja y salir; los bordes de 18
+ * de Julio entre Ciudad Vieja y el Centro) y el jacuzzi de adentro.
  * Cruzar una puerta es un viaje sin boleto: se guarda, se emite el pase con el tile de llegada y el
  * cliente cambia de sala (con un fundido, no con el ómnibus).
  */
@@ -76,7 +77,7 @@ export function crossDoor(room: CityRoom, session: PlayerSession, door: Door) {
   standUp(session.player);
   room.savePlayer(session);
   issueTravelTicket(session.key, door.to.cityId, Date.now() + TRAVEL_TICKET_MS, Date.now(), { at: door.to.at });
-  room.sendTo(session, MessageType.TravelApproved, { cityId: door.to.cityId, door: true });
+  room.sendTo(session, MessageType.TravelApproved, { cityId: door.to.cityId, door: true, walk: door.edge });
 }
 
 /** Lo saca de una sala de acceso restringido (le sacaron el donador estando adentro). */

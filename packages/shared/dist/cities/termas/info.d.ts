@@ -19,7 +19,7 @@ export declare const TERMAS_INFO: {
         kind: "plant" | "pottedPalm" | "flowers";
         area: {
             x: 16 | 6 | 9 | 5 | 1 | 11 | 21 | 13 | 17;
-            y: 6 | 5 | 4 | 12 | 1 | 11 | 13 | 17;
+            y: 6 | 5 | 4 | 1 | 12 | 11 | 13 | 17;
             width: number;
             height: number;
         };

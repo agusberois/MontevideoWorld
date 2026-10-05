@@ -29,6 +29,12 @@ export declare class Player extends Schema {
     vending: boolean;
     /** Carrito con el que está vendiendo (id de `CARTS`; "" si no vende): los demás lo ven de su color. */
     cart: string;
+    /** Tocando en la calle en el Centro (los demás lo ven con su instrumento y las notas). */
+    busking: boolean;
+    /** Instrumento con el que toca (id de `INSTRUMENTS`; "" si no toca). */
+    instrument: string;
+    /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
+    tips: number;
     /** Mascota que lo sigue (id de `PETS`; "" = ninguna) y su nombre: todos la ven. */
     pet: string;
     petName: string;

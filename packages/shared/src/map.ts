@@ -112,6 +112,12 @@ export class CityMap {
     return Boolean(zone && this.isWalkable(x, y) && zone.areas.some((area) => inRect(area, x, y)));
   }
 
+  /** Se toca en la calle parado en la zona del barrio (si tiene una: el Centro). */
+  canBuskAt(x: number, y: number): boolean {
+    const zone = this.city.busking;
+    return Boolean(zone && this.isWalkable(x, y) && zone.areas.some((area) => inRect(area, x, y)));
+  }
+
   /**
    * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
    * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera

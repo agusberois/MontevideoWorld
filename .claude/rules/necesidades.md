@@ -23,7 +23,7 @@ entrar, y se reenvía cuando cambia algún valor redondeado) → `needs:update` 
 `Needs.restore`, validado con `sanitizeNeeds`; sin guardado, llenas): salir, volver a entrar o
 viajar no las llena. Todo pasa en `Needs.tick`, desde el tick de `stepPlayers` (`tickNeeds`): el
 hambre baja `HUNGER_PER_SECOND` (de lleno a vacío en 50 min), más `WALK_HUNGER_COST` por paso y
-`FISH_HUNGER_COST` / `VEND_HUNGER_COST` por tirada o venta; **no baja preso en el COMCAR**. Al
+`FISH_HUNGER_COST` / `VEND_HUNGER_COST` / `BUSK_HUNGER_COST` por tirada, venta o tema; **no baja preso en el COMCAR**. Al
 bajar de `HUNGRY` (60) o de `STARVING` (30) llega un aviso. Comer (`food:eat`: comida de la
 categoría `food`, o un pescado crudo) suma lo de `edibleValue`; con todo lo que da ya lleno no se
 puede. La comida se compra en el **Kiosco de la Plaza** (Plaza Independencia), el Kiosco del
@@ -34,7 +34,7 @@ paso gasta `WALK_ENERGY_COST` (0,15), pero **caminar nunca la baja de `WALK_ENER
 `TIRED_STEP_TICKS` (3) veces más lento (`session.stepWait` en `stepPlayers`; el cliente alarga el
 paso y el balanceo con `Avatar.setTired`) hasta recuperar `TIRED_RECOVERY` (35): frenar un segundo
 no alcanza, hay que descansar (sentado, ~1,5 s). Lo decide `tickNeeds`. Tirar la línea
-`FISH_ENERGY_COST`, ofrecer en el Centenario `VEND_ENERGY_COST`; quieto (sin camino, sin pescar ni vender) recupera `IDLE_ENERGY_REGEN`/s, sentado en un
+`FISH_ENERGY_COST`, ofrecer en el Centenario `VEND_ENERGY_COST`, tocar un tema `BUSK_ENERGY_COST`; quieto (sin camino, sin pescar, vender ni tocar) recupera `IDLE_ENERGY_REGEN`/s, sentado en un
 banco `SIT_ENERGY_REGEN`/s y en el jacuzzi de las Termas `JACUZZI_ENERGY_REGEN`/s (ver `termas.md`), por `energyRegenFactor(hambre)` (lleno ×1, con hambre ×0,5, muerto de
 hambre ×0,25).
 **Salud**: la bajan las picaduras (`WEEVIL_BITE_HEALTH`), la saciedad en 0 fuera del COMCAR

@@ -71,6 +71,16 @@ exports.MessageType = {
     VendResult: "vend:result",
     /** Servidor → Cliente (sólo al vendedor): el hincha que se acerca al carrito (`CustomerState`). */
     VendCustomer: "vend:customer",
+    /** Cliente → Servidor: tocar un tema en la calle (en la zona del Centro, con un instrumento). */
+    BuskStart: "busk:start",
+    /** Cliente → Servidor: dejar de tocar. */
+    BuskStop: "busk:stop",
+    /** Servidor → Cliente: estás tocando; en `durationMs` se sabe si dejaron propina. */
+    BuskStarted: "busk:started",
+    /** Servidor → Cliente: cómo te fue con el tema. */
+    BuskResult: "busk:result",
+    /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
+    BuskCrowd: "busk:crowd",
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     Notice: "notice",
     /** Cliente (admin) → Servidor: mover el reloj del juego. */

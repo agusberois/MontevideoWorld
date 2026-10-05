@@ -5,6 +5,7 @@ exports.isWeatherId = isWeatherId;
 exports.getWeather = getWeather;
 exports.rodInWeather = rodInWeather;
 exports.cartInWeather = cartInWeather;
+exports.instrumentInWeather = instrumentInWeather;
 exports.isWeatherMode = isWeatherMode;
 /**
  * Clima de Montevideo: global para todo el server como la hora (todos los barrios tienen el mismo).
@@ -20,12 +21,16 @@ exports.WEATHERS = {
         announce: "☀️ Se despejó: lindo día en Montevideo.",
         fishingHint: "",
         vendingHint: "",
+        buskingHint: "☀️ Con sol la gente se para a escuchar: más propina.",
         weight: 50,
         hours: [4, 10],
         fishWaitFactor: 1,
         fishNothingFactor: 1,
         vendWaitFactor: 1,
         vendNoSaleFactor: 1,
+        buskWaitFactor: 1,
+        buskNoTipFactor: 0.85,
+        buskTipFactor: 1.15,
         hungerFactor: 1,
     },
     rain: {
@@ -34,12 +39,16 @@ exports.WEATHERS = {
         announce: "🌧️ Se largó a llover: hay menos gente en la calle, pero los peces pican más.",
         fishingHint: "🌧️ Con lluvia pican más rápido.",
         vendingHint: "🌧️ Con lluvia pasa menos gente.",
+        buskingHint: "🌧️ Con lluvia nadie se para: menos propinas y más espera.",
         weight: 25,
         hours: [2, 6],
         fishWaitFactor: 0.8,
         fishNothingFactor: 0.6,
         vendWaitFactor: 1.3,
         vendNoSaleFactor: 1.6,
+        buskWaitFactor: 1.3,
+        buskNoTipFactor: 1.6,
+        buskTipFactor: 0.8,
         hungerFactor: 1,
     },
     pampero: {
@@ -48,12 +57,16 @@ exports.WEATHERS = {
         announce: "🌬️ Entró el pampero: con este viento cuesta pescar.",
         fishingHint: "🌬️ Con el pampero cuesta que pique.",
         vendingHint: "",
+        buskingHint: "🌬️ Con el pampero casi no se te escucha: cuesta que dejen algo.",
         weight: 12,
         hours: [2, 4],
         fishWaitFactor: 1.25,
         fishNothingFactor: 1.6,
         vendWaitFactor: 1,
         vendNoSaleFactor: 1,
+        buskWaitFactor: 1.15,
+        buskNoTipFactor: 1.4,
+        buskTipFactor: 0.9,
         hungerFactor: 1,
     },
     heat: {
@@ -62,12 +75,16 @@ exports.WEATHERS = {
         announce: "🥵 ¡Qué calor! Da más hambre y todos quieren un refresco.",
         fishingHint: "",
         vendingHint: "🥵 Con este calor los refrescos se venden más y más caros.",
+        buskingHint: "🥵 Con el calor de enero el Centro se llena de turistas: dejan más.",
         weight: 13,
         hours: [3, 6],
         fishWaitFactor: 1,
         fishNothingFactor: 1,
         vendWaitFactor: 1,
         vendNoSaleFactor: 1,
+        buskWaitFactor: 0.9,
+        buskNoTipFactor: 0.9,
+        buskTipFactor: 1.25,
         hungerFactor: 1.3,
     },
 };
@@ -100,6 +117,16 @@ function cartInWeather(cart, weather) {
         noSaleChance: Math.min(MAX_FAIL_CHANCE, cart.noSaleChance * weather.vendNoSaleFactor * (cold ? exports.HEAT_COLD_NO_SALE_FACTOR : 1)),
         saleMin: cold ? Math.round(cart.saleMin * exports.HEAT_COLD_SALE_MULTIPLIER) : cart.saleMin,
         saleMax: cold ? Math.round(cart.saleMax * exports.HEAT_COLD_SALE_MULTIPLIER) : cart.saleMax,
+    };
+}
+/** El instrumento como rinde con este clima: espera, "nadie deja nada" y la propina (`busk*Factor`). */
+function instrumentInWeather(instrument, weather) {
+    return {
+        ...instrument,
+        waitFactor: instrument.waitFactor * weather.buskWaitFactor,
+        noTipChance: Math.min(MAX_FAIL_CHANCE, instrument.noTipChance * weather.buskNoTipFactor),
+        tipMin: Math.max(1, Math.round(instrument.tipMin * weather.buskTipFactor)),
+        tipMax: Math.max(1, Math.round(instrument.tipMax * weather.buskTipFactor)),
     };
 }
 function isWeatherMode(value) {

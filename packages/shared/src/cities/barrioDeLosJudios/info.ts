@@ -24,6 +24,8 @@ export const BARRIO_DE_LOS_JUDIOS_INFO = {
   id: "barrio-de-los-judios",
   name: "Barrio de los Judíos",
   description: "Villa Muñoz: el shopping a cielo abierto de Montevideo, con mayoristas de ropa por todos lados y las casas de colores de Reus al Norte.",
+  // Oculto por ahora: sólo se juega en Ciudad Vieja, el Centro y el COMCAR.
+  hidden: true,
   landmarks: [
     {
       id: "reus-oeste-norte",

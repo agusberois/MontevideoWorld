@@ -545,6 +545,92 @@ const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
       }
     },
   },
+  // Café (el Facal): tazas sobre el mostrador (pares) y medialunas apiladas (impares), toldo bordó.
+  cafe: {
+    facade: 0xefe2c8,
+    trim: 0x6d1f2a,
+    glass: 0xf2dcb3,
+    awning: 0xf4efe3,
+    showcase: (p, face, u, i) => {
+      p.faceRect(face, u - 0.09, u + 0.09, 7, 9, 0x5a3a24);
+      if (i % 2 === 0) {
+        p.faceRect(face, u - 0.05, u + 0.05, 9, 14, 0xf8f4ea);
+        p.faceRect(face, u - 0.05, u + 0.05, 13, 14, 0x6b3e1e);
+        p.faceRect(face, u + 0.05, u + 0.08, 10.5, 12.5, 0xf8f4ea);
+        return;
+      }
+      for (const dz of [9, 12, 15]) {
+        const center = p.facePoint(face, u, dz + 1);
+        p.g.fillStyle(0xd99a4e, 1);
+        p.g.fillEllipse(center.x, center.y, 6, 2.6);
+      }
+    },
+  },
+  // Mercado de los Artesanos: mates con bombilla (pares) y ponchos y gorros tejidos colgados (impares).
+  crafts: {
+    facade: 0xe7d3b3,
+    trim: 0x2f5d4a,
+    glass: 0xe9dcc0,
+    awning: 0xc1440e,
+    showcase: (p, face, u, i) => {
+      if (i % 2 === 0) {
+        const cup = p.facePoint(face, u, 11);
+        p.g.fillStyle(0x7a5230, 1);
+        p.g.fillEllipse(cup.x, cup.y, 7, 8);
+        p.line(p.facePoint(face, u + 0.01, 13), p.facePoint(face, u + 0.05, 20), 0xc9c9cf, 1.2);
+        return;
+      }
+      const color = WHOLESALE_COLORS[i % WHOLESALE_COLORS.length];
+      p.facePoly(
+        face,
+        [
+          [u - 0.09, 21],
+          [u + 0.09, 21],
+          [u + 0.07, 10],
+          [u, 8],
+          [u - 0.07, 10],
+        ],
+        color,
+      );
+      for (const z of [13, 17]) p.faceRect(face, u - 0.08, u + 0.08, z, z + 1, shade(color, 40));
+    },
+  },
+  // Casa de Música: guitarras colgadas (pares) y bandoneones / tambores (impares) en la vidriera.
+  music: {
+    facade: 0xe3e0ea,
+    trim: 0x3b2f6b,
+    glass: 0xd8eef5,
+    awning: 0xf2c94c,
+    showcase: (p, face, u, i) => {
+      if (i % 2 === 0) {
+        p.faceRect(face, u - 0.012, u + 0.012, 15, 23, 0x5a3b1e);
+        const body = p.facePoint(face, u, 11);
+        p.g.fillStyle(0xb5651d, 1);
+        p.g.fillEllipse(body.x, body.y, 7, 8);
+        p.g.fillEllipse(body.x, body.y - 4.5, 5.5, 5);
+        p.g.fillStyle(0x2b1a10, 1);
+        p.g.fillCircle(body.x, body.y - 3, 1.2);
+        return;
+      }
+      if (i % 4 === 1) {
+        p.faceRect(face, u - 0.08, u - 0.04, 9, 17, 0x2b2b30);
+        p.faceRect(face, u + 0.04, u + 0.08, 9, 17, 0x2b2b30);
+        for (let k = 0; k < 4; k++) p.faceRect(face, u - 0.04 + k * 0.02, u - 0.03 + k * 0.02, 9.5, 16.5, 0xf4efe3);
+        return;
+      }
+      p.facePoly(
+        face,
+        [
+          [u - 0.06, 7],
+          [u + 0.06, 7],
+          [u + 0.07, 18],
+          [u - 0.07, 18],
+        ],
+        0xc0392b,
+      );
+      p.faceRect(face, u - 0.07, u + 0.07, 17.5, 19, 0xf2e6cf);
+    },
+  },
   clothing: {
     facade: 0xe9dcc0,
     trim: 0x2f6f5e,
@@ -1016,6 +1102,77 @@ export function streetLampSpec(): PieceSpec {
       g.fillStyle(0xfff3b0, 1).fillRect(top.x - 3, top.y - 11, 6, 9);
       g.lineStyle(1, 0x1f1f22, 1).strokeRect(top.x - 3, top.y - 11, 6, 9);
       g.fillStyle(0x1f1f22, 1).fillTriangle(top.x - 5, top.y - 11, top.x + 5, top.y - 11, top.x, top.y - 16);
+    },
+  };
+}
+
+/** Piedra clara de los pilares (la de la Puerta de la Ciudadela y los edificios del 900) y hierro forjado. */
+const ARCH_STONE = 0xd8cdb8;
+const ARCH_IRON = 0x262626;
+const ARCH_PLATE = 0x1d4f8a;
+const ARCH_LANTERN = 0xffe7a8;
+/** Altura del arco de hierro (la luz de abajo deja pasar holgado a un avatar). */
+const ARCH_BEAM_Z = 118;
+
+/**
+ * El arco de la salida por el borde del mapa (`Door.edge`: 18 de Julio entre Ciudad Vieja y el
+ * Centro), en piezas de 1 × 1 a lo largo del borde (eje y): en las puntas (`start` al norte, `end` al
+ * sur) un **pilar** de piedra clara con basamento, cornisa y un farol de hierro arriba; en el medio,
+ * sobre la calle, el **arco de hierro forjado** con volutas y, al centro, la chapa azul del cartel.
+ */
+export function portalSpec(role: "start" | "curtain" | "end"): PieceSpec {
+  // El arco va hacia adentro desde cada pilar (no sobresale afuera).
+  const [beam0, beam1] = role === "start" ? [0, 0.5] : role === "end" ? [-0.5, 0] : [-0.5, 0.5];
+  return {
+    key: `street-arch-${role}`,
+    width: 1,
+    height: 1,
+    maxZ: role === "curtain" ? 150 : 178,
+    draw: (p) => {
+      const east: Face = { side: "east", x: 0.04 };
+      // Arco de hierro: dos barras con volutas entre medio (y, en el medio, la curva hacia arriba).
+      const rise = (u: number) => (role === "curtain" ? 10 * Math.cos(u * Math.PI * 0.9) : 0);
+      p.box(-0.04, beam0, 0.04, beam1, ARCH_BEAM_Z, ARCH_BEAM_Z + 3, boxColors(ARCH_IRON), false);
+      const steps = 10;
+      for (let i = 0; i < steps; i++) {
+        const u0 = beam0 + ((beam1 - beam0) * i) / steps;
+        const u1 = beam0 + ((beam1 - beam0) * (i + 1)) / steps;
+        p.line(p.facePoint(east, u0, ARCH_BEAM_Z + 14 + rise(u0)), p.facePoint(east, u1, ARCH_BEAM_Z + 14 + rise(u1)), ARCH_IRON, 2.2);
+      }
+      for (let u = beam0 + 0.1; u < beam1 - 0.05; u += 0.2) {
+        const c = p.facePoint(east, u, ARCH_BEAM_Z + 7 + rise(u) / 2);
+        p.g.lineStyle(1.2, ARCH_IRON, 1);
+        p.g.strokeCircle(c.x, c.y, 3);
+      }
+      if (role === "curtain") {
+        // La chapa del cartel colgada al medio del arco: azul con borde y letras blancas (en bloques).
+        p.faceRect(east, -0.34, 0.34, ARCH_BEAM_Z + 18, ARCH_BEAM_Z + 30, 0xf4f1ea);
+        p.faceRect(east, -0.31, 0.31, ARCH_BEAM_Z + 19.5, ARCH_BEAM_Z + 28.5, ARCH_PLATE);
+        for (let u = -0.24; u < 0.25; u += 0.08) p.faceRect(east, u, u + 0.05, ARCH_BEAM_Z + 22, ARCH_BEAM_Z + 26, 0xf4f1ea);
+        return;
+      }
+      // Pilar de piedra: basamento más ancho, fuste con almohadillado, cornisa y el farol arriba.
+      p.box(-0.32, -0.32, 0.32, 0.32, 0, 14, boxColors(shade(ARCH_STONE, -12)));
+      p.box(-0.24, -0.24, 0.24, 0.24, 14, 132, boxColors(ARCH_STONE));
+      for (const face of [
+        { side: "south", y: 0.24 },
+        { side: "east", x: 0.24 },
+      ] as const) {
+        for (let z = 30; z < 130; z += 16) p.line(p.facePoint(face, -0.24, z), p.facePoint(face, 0.24, z), 0x000000, 1, 0.12);
+        p.faceRect(face, -0.1, 0.1, 50, 90, shade(ARCH_STONE, -8));
+      }
+      p.box(-0.3, -0.3, 0.3, 0.3, 132, 140, boxColors(shade(ARCH_STONE, 12)));
+      // Farol de hierro: poste corto, el vidrio con luz cálida y el sombrerito.
+      p.spire(0, 0, 140, 152, ARCH_IRON, 2.5);
+      p.box(-0.1, -0.1, 0.1, 0.1, 152, 168, boxColors(ARCH_LANTERN), false);
+      for (const face of [
+        { side: "south", y: 0.1 },
+        { side: "east", x: 0.1 },
+      ] as const) {
+        p.faceRect(face, -0.1, -0.08, 152, 168, ARCH_IRON);
+        p.faceRect(face, 0.08, 0.1, 152, 168, ARCH_IRON);
+      }
+      p.pyramid(-0.13, -0.13, 0.13, 0.13, 168, 178, ARCH_IRON, shade(ARCH_IRON, -10));
     },
   };
 }

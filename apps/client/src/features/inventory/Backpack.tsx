@@ -18,11 +18,15 @@ import {
   getItem,
   RodItem,
   CartItem,
+  InstrumentItem,
   FishItem,
   bestCart,
+  bestInstrument,
   bestRod,
   cartPerks,
   cartStars,
+  instrumentPerks,
+  instrumentStars,
   maxStack,
   stackUses,
   usesLabel,
@@ -130,6 +134,8 @@ export function Backpack({ room, onClose }: PanelProps) {
   const rodInUse = bestRodItem && wornestStack(stacks, bestRodItem.id);
   const bestCartItem = bestCart(stacks.map((stack) => stack.itemId));
   const cartInUse = bestCartItem && wornestStack(stacks, bestCartItem.id);
+  const bestInstrumentItem = bestInstrument(stacks.map((stack) => stack.itemId));
+  const instrumentInUse = bestInstrumentItem && wornestStack(stacks, bestInstrumentItem.id);
 
   /**
    * Qué hace cada casillero según la categoría del ítem: ropa → ponérsela; caja → abrirla; caña,
@@ -172,6 +178,17 @@ export function Backpack({ room, onClose }: PanelProps) {
           inUse,
           onClick: () => setDetail(text),
           title: `${text}. Arrastralo a la barra 1–9 para vender con un atajo.`,
+        };
+      }
+      case "instrument": {
+        const inUse = stack === instrumentInUse;
+        const text = instrumentTitle(item, inUse, stackUses(stack));
+        return {
+          className: inUse ? "rod-in-use" : undefined,
+          showsDetail: true,
+          inUse,
+          onClick: () => setDetail(text),
+          title: `${text}. Arrastralo a la barra 1–9 para tocar con un atajo.`,
         };
       }
       case "ticket": {
@@ -382,6 +399,12 @@ function rodTitle(rod: RodItem, inUse: boolean, uses: number): string {
 function cartTitle(cart: CartItem, inUse: boolean, uses: number): string {
   const use = inUse ? "es el que usás al vender" : "vendés con tu mejor carrito (y el más gastado), no con este";
   return `${cart.name} ${cartStars(cart.tier)} (${usesLabel(cart, uses)}) — ${use}. ${cartPerks(cart).join(" · ")}`;
+}
+
+/** "Bandoneón ★★★☆ (90/110 usos) — es el que usás al tocar. Propina: $9–$15 · …" */
+function instrumentTitle(instrument: InstrumentItem, inUse: boolean, uses: number): string {
+  const use = inUse ? "es el que usás al tocar" : "tocás con tu mejor instrumento (y el más gastado), no con este";
+  return `${instrument.name} ${instrumentStars(instrument.tier)} (${usesLabel(instrument, uses)}) — ${use}. ${instrumentPerks(instrument).join(" · ")}`;
 }
 
 /** "Corvina negra ★★★★★ — en el Mercado del Puerto lo pagan $60. Comerlo da +30 de energía." */

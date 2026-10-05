@@ -35,6 +35,7 @@ __exportStar(require("./time"), exports);
 __exportStar(require("./tools"), exports);
 __exportStar(require("./trade"), exports);
 __exportStar(require("./vending"), exports);
+__exportStar(require("./busking"), exports);
 __exportStar(require("./jail"), exports);
 __exportStar(require("./pets"), exports);
 __exportStar(require("./needsBalance"), exports);

@@ -39,6 +39,9 @@ export const FISH_ENERGY_COST = 10;
 /** Gasto por cada vez que se ofrece la mercadería en la explanada del Centenario. */
 export const VEND_ENERGY_COST = 6;
 
+/** Gasto por cada tema que se toca en la calle (el Centro). */
+export const BUSK_ENERGY_COST = 6;
+
 /** Recuperación por segundo quieto (parado, sin pescar). */
 export const IDLE_ENERGY_REGEN = 2;
 
@@ -67,6 +70,7 @@ export const HUNGER_PER_SECOND = 1 / 30;
 export const WALK_HUNGER_COST = 0.05;
 export const FISH_HUNGER_COST = 0.5;
 export const VEND_HUNGER_COST = 0.5;
+export const BUSK_HUNGER_COST = 0.5;
 
 /** Por debajo de esto "tenés hambre" y la energía se recupera a la mitad. */
 export const HUNGRY = 60;

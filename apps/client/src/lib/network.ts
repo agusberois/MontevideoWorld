@@ -171,6 +171,9 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "vending:started": MessageType.VendStarted,
   "vending:result": MessageType.VendResult,
   "vending:customer": MessageType.VendCustomer,
+  "busking:started": MessageType.BuskStarted,
+  "busking:result": MessageType.BuskResult,
+  "busking:crowd": MessageType.BuskCrowd,
   "gesture:invite": MessageType.GesturePairInvite,
   "casino:result": MessageType.CasinoResult,
   "admin:nearby": MessageType.AdminNearby,
@@ -304,6 +307,11 @@ export function sendFishing(room: CityRoom, action: "cast" | "stop") {
 /** Ofrecer la mercadería (`start`) o dejar de vender (`stop`). */
 export function sendVending(room: CityRoom, action: "start" | "stop") {
   room.send(action === "start" ? MessageType.VendStart : MessageType.VendStop);
+}
+
+/** Tocar un tema en la calle (en el Centro, con el mejor instrumento de la mochila) o dejar de tocar. */
+export function sendBusking(room: CityRoom, action: "start" | "stop") {
+  room.send(action === "start" ? MessageType.BuskStart : MessageType.BuskStop);
 }
 
 /** Comerse un pescado de la mochila (recupera energía). */

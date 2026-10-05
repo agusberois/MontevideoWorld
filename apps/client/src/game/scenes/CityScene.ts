@@ -23,6 +23,7 @@ import {
   getWeather,
   getItem,
   isCart,
+  isInstrument,
   HAIR_STYLES,
   HairStyle,
   FACIAL_HAIR,
@@ -47,6 +48,7 @@ import { TutorialPointer } from "../objects/TutorialPointer";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
 import { Avatar } from "../objects/Avatar";
 import { Customers } from "../objects/Customers";
+import { Audience } from "../objects/Audience";
 import { Pet } from "../objects/Pet";
 import { Weevil } from "../objects/Weevil";
 import { lookFromAppearance } from "../objects/avatarLook";
@@ -120,12 +122,14 @@ export class CityScene extends Phaser.Scene {
   private weevils = new Map<string, Weevil>();
   /** Hinchas que se acercan a los carritos del Centenario (sólo dibujo). */
   private customers!: Customers;
+  private audience!: Audience;
   /** Mascota de cada jugador que tiene una (sessionId → mascota). */
   private pets = new Map<string, Pet>();
   /** Último estado de pesca avisado a React, para emitir sólo cuando cambia. */
   private fishingStatus = "";
   /** Último estado de venta avisado a React. */
   private vendingStatus = "";
+  private buskingStatus = "";
   private lastEnergy = -1;
   /**
    * Parada a la que está caminando el avatar propio y el tile donde va a quedar: al llegar se abre
@@ -170,10 +174,12 @@ export class CityScene extends Phaser.Scene {
     this.avatars = new Map();
     this.weevils = new Map();
     this.customers = new Customers(this, map, (id) => this.avatars.get(id));
+    this.audience = new Audience(this, map, (id) => this.avatars.get(id));
     this.pets = new Map();
     this.roster = new Map();
     this.fishingStatus = "";
     this.vendingStatus = "";
+    this.buskingStatus = "";
     this.lastEnergy = -1;
     this.pendingBusStop = null;
     this.disposers = [];
@@ -220,6 +226,7 @@ export class CityScene extends Phaser.Scene {
         this.room.send(MessageType.Move, message);
       },
       now: () => this.time.now,
+      enterDoor: (doorId) => this.enterDoor(doorId),
     });
     this.offscreenArrow = this.add.graphics().setScrollFactor(0).setDepth(ARROW_DEPTH);
     this.bindWasd();
@@ -259,6 +266,11 @@ export class CityScene extends Phaser.Scene {
         const self = this.room.state.players.get(this.room.sessionId);
         if (self) this.customers.update(this.room.sessionId, state, { x: self.x, y: self.y }, cartId);
       }),
+      // La gente que se arrima a escuchar al músico: llega, aplaude y deja plata o se va.
+      eventBus.on("busking:crowd", ({ state }) => {
+        const self = this.room.state.players.get(this.room.sessionId);
+        if (self) this.audience.update(this.room.sessionId, state, { x: self.x, y: self.y });
+      }),
     );
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
@@ -278,6 +290,7 @@ export class CityScene extends Phaser.Scene {
     this.updateLocator();
     for (const weevil of this.weevils.values()) weevil.tick(delta);
     this.customers.tick(delta);
+    this.audience.tick(delta);
     for (const [sessionId, pet] of this.pets) {
       const owner = this.avatars.get(sessionId);
       if (owner) pet.follow(owner, delta);
@@ -602,6 +615,7 @@ export class CityScene extends Phaser.Scene {
         this.applySitting(avatar, player);
         this.applyFishing(avatar, player, isLocal);
         this.applyVending(avatar, player, isLocal);
+        this.applyBusking(avatar, player, isLocal);
         this.avatars.set(sessionId, avatar);
         if (isLocal) {
           this.localAvatar = avatar;
@@ -666,6 +680,19 @@ export class CityScene extends Phaser.Scene {
           }),
         );
 
+        // Músico: anuncia el tema al empezar y muestra la propina cuando le dejan (lo ven todos).
+        this.disposers.push(
+          $(player).listen("instrument", (instrumentId, previous) => {
+            if (previous === undefined || !instrumentId) return;
+            const instrument = getItem(instrumentId);
+            if (isInstrument(instrument)) this.floatText(avatar.x, avatar.y - 100, instrument.song, "#ffffff");
+          }),
+          $(player).listen("tips", (tips, previous) => {
+            if (previous === undefined || tips <= previous) return;
+            this.floatText(avatar.x + 30, avatar.y - 50, "🪙 ¡Propina!", "#ffd166");
+          }),
+        );
+
         this.disposers.push(
           $(player).onChange(() => {
             // Antes del tile nuevo: el paso hacia él ya tiene que durar lo que dura cansado.
@@ -675,6 +702,7 @@ export class CityScene extends Phaser.Scene {
             this.applySitting(avatar, player);
             this.applyFishing(avatar, player, isLocal);
             this.applyVending(avatar, player, isLocal);
+            this.applyBusking(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
             if (isLocal) this.emitEnergy(player.energy);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));
@@ -742,6 +770,7 @@ export class CityScene extends Phaser.Scene {
         this.pets.get(sessionId)?.destroy();
         this.pets.delete(sessionId);
         this.customers.remove(sessionId);
+        this.audience.remove(sessionId);
         this.avatars.delete(sessionId);
         this.roster.delete(sessionId);
         this.emitRoster();
@@ -824,6 +853,19 @@ export class CityScene extends Phaser.Scene {
     if (key === this.vendingStatus) return;
     this.vendingStatus = key;
     eventBus.emit("vending:status", status);
+  }
+
+  /** Instrumento en las manos mientras toca; al avatar propio además le avisa a React si puede tocar. */
+  private applyBusking(avatar: Avatar, player: Player, isLocal: boolean) {
+    const instrument = getItem(player.instrument);
+    const playing = player.busking && isInstrument(instrument);
+    avatar.setBusking(playing ? instrument.kind : null, playing ? Phaser.Display.Color.HexStringToColor(instrument.color).color : undefined);
+    if (!isLocal) return;
+    const status = { canBusk: this.map.canBuskAt(player.x, player.y), busking: player.busking };
+    const key = `${status.canBusk}|${status.busking}`;
+    if (key === this.buskingStatus) return;
+    this.buskingStatus = key;
+    eventBus.emit("busking:status", status);
   }
 
   private emitEnergy(energy: number) {
@@ -1074,6 +1116,7 @@ export class CityScene extends Phaser.Scene {
     this.avatars.clear();
     this.weevils.clear();
     this.customers.dispose();
+    this.audience.dispose();
     this.pets.clear();
     this.roster.clear();
     this.localAvatar = null;
@@ -1092,6 +1135,7 @@ function summarize(sessionId: string, player: Player, isSelf: boolean): PlayerSu
   let activity: PlayerActivity | null = null;
   if (player.fishing) activity = { kind: "fishing", rod: player.rod };
   else if (player.vending) activity = { kind: "vending", cart: player.cart };
+  else if (player.busking) activity = { kind: "busking", instrument: player.instrument };
   else if (player.sitting) activity = { kind: "sitting" };
   return {
     sessionId,

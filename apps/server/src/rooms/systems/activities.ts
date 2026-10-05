@@ -1,5 +1,10 @@
 import {
+  BUSK_ENERGY_COST,
+  BUSK_HUNGER_COST,
+  BUSK_LISTEN_RADIUS,
+  CROWD_ARRIVE_MS,
   CUSTOMER_LEAD_MS,
+  CrowdState,
   CustomerState,
   FISH_ENERGY_COST,
   FISH_HUNGER_COST,
@@ -8,8 +13,11 @@ import {
   ToolItem,
   VEND_ENERGY_COST,
   VEND_HUNGER_COST,
+  BuskCrowdMessage,
   VendCustomerMessage,
   bestCart,
+  bestInstrument,
+  buskMultiplier,
   bestRod,
   cartInWeather,
   edibleLabel,
@@ -17,8 +25,10 @@ import {
   fishWithArticle,
   formatMoney,
   getItem,
+  instrumentInWeather,
   rodInWeather,
 } from "@montevideo-world/shared";
+import { rollTip } from "../../busking";
 import { rollCatch } from "../../fishing";
 import { gameClock } from "../../gameClock";
 import { rollSale } from "../../vending";
@@ -28,13 +38,15 @@ import { PlayerSession, isWalking, standUp } from "../session";
 import { tutorialEvent, tutorialWants } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
-/** Pescar en la escollera, vender en el Centenario y comer (o tomarse un remedio). */
+/** Pescar en la escollera, vender en el Centenario, tocar en la calle y comer (o tomarse un remedio). */
 export function activityRoutes(room: CityRoom) {
   return {
     [MessageType.FishCast]: (session) => castLine(room, session),
     [MessageType.FishStop]: (session) => stopFishing(session),
     [MessageType.VendStart]: (session) => startVending(room, session),
     [MessageType.VendStop]: (session) => stopVending(session),
+    [MessageType.BuskStart]: (session) => startBusking(room, session),
+    [MessageType.BuskStop]: (session) => stopBusking(session),
 
     /** Comer algo de la mochila (comida, pescado crudo o un remedio): da lo de `edibleValue`. */
     [MessageType.FoodEat]: (session, message) => {
@@ -68,7 +80,7 @@ export function activityRoutes(room: CityRoom) {
  */
 function castLine(room: CityRoom, session: PlayerSession) {
   const { player, inventory } = session;
-  if (player.fishing || player.vending || isWalking(session)) return;
+  if (player.fishing || player.vending || player.busking || isWalking(session)) return;
   // Pescar gasta la caña: con un intercambio abierto cambiaría algo que quizás está ofrecido.
   if (room.trades.get(session.client.sessionId)) return fishResult(room, session, false, "Terminá el intercambio antes de pescar.");
   if (!room.map.canFishAt(player.x, player.y)) {
@@ -139,7 +151,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
 function startVending(room: CityRoom, session: PlayerSession) {
   const { player, inventory } = session;
   const zone = room.map.city.vending;
-  if (player.vending || player.fishing || isWalking(session)) return;
+  if (player.vending || player.fishing || player.busking || isWalking(session)) return;
   // Vender gasta el carrito: con un intercambio abierto cambiaría algo que quizás está ofrecido.
   if (room.trades.get(session.client.sessionId)) return vendResult(room, session, false, "Terminá el intercambio antes de vender.");
   if (!zone || !room.map.canVendAt(player.x, player.y)) {
@@ -214,6 +226,100 @@ function resolveSale(room: CityRoom, session: PlayerSession, product: string, ea
 }
 
 /**
+ * Tocar un tema: hay que estar parado (sin camino pendiente) en la zona del barrio (18 de Julio y
+ * las plazas del Centro), no estar haciendo otra cosa, tener un instrumento (el de mayor nivel) y
+ * energía. La propina base se sortea ahora (el clima cuenta) y al terminar se multiplica por el
+ * público y la comparsa de ese momento (`buskMultiplier`). Como al pescar, energía y uso se cobran
+ * recién al terminar.
+ */
+function startBusking(room: CityRoom, session: PlayerSession) {
+  const { player, inventory } = session;
+  const zone = room.map.city.busking;
+  if (player.busking || player.fishing || player.vending || isWalking(session)) return;
+  // Tocar gasta el instrumento: con un intercambio abierto cambiaría algo que quizás está ofrecido.
+  if (room.trades.get(session.client.sessionId)) return buskResult(room, session, false, "Terminá el intercambio antes de tocar.");
+  if (!zone || !room.map.canBuskAt(player.x, player.y)) {
+    return buskResult(room, session, false, "Para tocar tenés que estar sobre 18 de Julio o en una plaza del Centro.");
+  }
+  const instrument = bestInstrument(inventory.snapshot().map((stack) => stack.itemId));
+  if (!instrument) {
+    return buskResult(room, session, false, "Necesitás un instrumento para tocar. Comprá uno en la Casa de Música, sobre 18 de Julio.");
+  }
+  if (!session.needs.hasEnergy(BUSK_ENERGY_COST)) {
+    return buskResult(room, session, false, "Estás muy cansado para tocar. Descansá un rato: sentarte en un banco ayuda.");
+  }
+
+  const { tip, durationMs } = rollTip(instrumentInWeather(instrument, weather.current()));
+  standUp(player);
+  player.busking = true;
+  player.instrument = instrument.id;
+  session.pending = null;
+  room.sendTo(session, MessageType.BuskStarted, { durationMs });
+
+  // La gente de mentira se arrima a escuchar al rato de empezar. Sólo la ve el músico (es dibujo).
+  session.crowdTimer = room.clock.setTimeout(() => {
+    session.crowdTimer = null;
+    session.crowdOut = true;
+    room.sendTo(session, MessageType.BuskCrowd, { state: CrowdState.Arriving });
+  }, CROWD_ARRIVE_MS);
+
+  session.buskingTimer = room.clock.setTimeout(() => {
+    session.buskingTimer = null;
+    session.crowdTimer?.clear();
+    session.crowdTimer = null;
+    // El público y la comparsa se cuentan al terminar el tema (los que se quedaron a escuchar).
+    const { listeners, partners } = audience(room, session);
+    player.busking = false;
+    player.instrument = "";
+    const finished = finishAttempt(room, session, instrument, BUSK_ENERGY_COST, BUSK_HUNGER_COST, "En la Casa de Música, sobre 18 de Julio, venden instrumentos.");
+    const earned = finished ? Math.round(tip * buskMultiplier(listeners, partners)) : 0;
+    const paid = finished ? resolveTip(room, session, earned, listeners, partners) : false;
+    if (!finished) buskResult(room, session, false, "Ya no tenés ese instrumento: el tema no cuenta.");
+    if (session.crowdOut) {
+      session.crowdOut = false;
+      room.sendTo(session, MessageType.BuskCrowd, { state: paid ? CrowdState.Tipped : CrowdState.Left });
+    }
+  }, durationMs);
+}
+
+/**
+ * Quiénes están cerca (a `BUSK_LISTEN_RADIUS` tiles o menos): los que tocan son la comparsa y el
+ * resto, el público. No cuenta uno mismo.
+ */
+function audience(room: CityRoom, session: PlayerSession): { listeners: number; partners: number } {
+  const { x, y } = session.player;
+  let listeners = 0;
+  let partners = 0;
+  for (const other of room.sessions.values()) {
+    if (other === session || other.closed) continue;
+    const near = Math.max(Math.abs(other.player.x - x), Math.abs(other.player.y - y)) <= BUSK_LISTEN_RADIUS;
+    if (!near) continue;
+    if (other.player.busking) partners += 1;
+    else listeners += 1;
+  }
+  return { listeners, partners };
+}
+
+/** Se cobra la propina (si hubo) y se le cuenta al músico cuánta gente lo escuchaba. Devuelve si le dejaron plata. */
+function resolveTip(room: CityRoom, session: PlayerSession, earned: number, listeners: number, partners: number): boolean {
+  const crowd = [listeners > 0 && `${listeners} escuchando`, partners > 0 && `${partners} más tocando`].filter(Boolean).join(", ");
+  const withCrowd = crowd ? ` (${crowd})` : "";
+  if (earned === 0) {
+    const misses = ["Terminaste el tema y nadie dejó nada.", "Aplaudieron, pero el estuche quedó vacío.", "La gente pasó apurada: probá con otro tema."];
+    buskResult(room, session, false, misses[Math.floor(Math.random() * misses.length)] + withCrowd, 0, listeners, partners);
+    return false;
+  }
+  if (!session.wallet.credit(earned)) {
+    buskResult(room, session, false, "No podés tener más plata.", 0, listeners, partners);
+    return false;
+  }
+  session.player.tips += 1;
+  room.markWallet(session);
+  buskResult(room, session, true, `¡Te dejaron ${formatMoney(earned)} en el estuche!${withCrowd}`, earned, listeners, partners);
+  return true;
+}
+
+/**
  * Cobra una tirada / un intento que llegó al final: un uso de la herramienta (si se rompe, avisa
  * dónde comprar otra) y la energía. Lo que se corta antes (moverse, salir…) no llega acá y no cuesta
  * nada. Devuelve false si la herramienta ya no está (se intercambió mientras tanto): entonces no
@@ -255,14 +361,35 @@ export function stopVending(session: PlayerSession) {
   }
 }
 
-/** Cortar lo que esté haciendo el jugador (pescar o vender): moverse, sentarse, ir a una tienda, salir. */
+/** Dejar de tocar (moverse, sentarse, ir a una tienda, salir o cancelar a mano): el tema no se cobra. */
+export function stopBusking(session: PlayerSession) {
+  session.buskingTimer?.clear();
+  session.buskingTimer = null;
+  session.crowdTimer?.clear();
+  session.crowdTimer = null;
+  session.player.busking = false;
+  session.player.instrument = "";
+  // Si el público estaba escuchando, se va. Es sólo dibujo: va directo al socket (como el hincha).
+  if (session.crowdOut) {
+    session.crowdOut = false;
+    const message: BuskCrowdMessage = { state: CrowdState.None };
+    session.client.send(MessageType.BuskCrowd, message);
+  }
+}
+
+/** Cortar lo que esté haciendo el jugador (pescar, vender o tocar): moverse, sentarse, ir a una tienda, salir. */
 export function stopActivities(session: PlayerSession) {
   stopFishing(session);
   stopVending(session);
+  stopBusking(session);
 }
 
 function vendResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, earned = 0, giftId?: string) {
   room.sendTo(session, MessageType.VendResult, { ok, text, earned, giftId });
+}
+
+function buskResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, earned = 0, listeners = 0, partners = 0) {
+  room.sendTo(session, MessageType.BuskResult, { ok, text, earned, listeners, partners });
 }
 
 /** `hooked`: lo que picó (el cliente lo anima saliendo del agua, `Avatar.reelIn`). */

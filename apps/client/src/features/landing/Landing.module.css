@@ -168,8 +168,100 @@
   transform: rotate(-1deg);
 }
 
-.heroShot img,
-.highlight img,
+/* El carrusel de la portada: las fotos apiladas, se cruzan con un fundido. */
+.slides {
+  position: relative;
+  aspect-ratio: 1600 / 790;
+  background: var(--panel);
+}
+
+.slides img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.slides img.slideActive {
+  opacity: 1;
+}
+
+.slideArrow {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: rgba(18, 21, 31, 0.72);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.slidePrev {
+  left: 12px;
+}
+
+.slideNext {
+  right: 12px;
+}
+
+.heroShot:hover .slideArrow,
+.slideArrow:focus-visible {
+  opacity: 1;
+}
+
+.slideArrow:hover {
+  border-color: var(--accent);
+}
+
+.slideCaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.slideDots {
+  display: flex;
+  gap: 6px;
+}
+
+.slideDots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--panel-border);
+  cursor: pointer;
+}
+
+.slideDots button.slideDotActive {
+  background: var(--accent);
+}
+
+.slideArrow:focus-visible,
+.slideDots button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.job img,
 .cityCard img {
   display: block;
   width: 100%;
@@ -262,28 +354,88 @@
   font-size: 1.4rem;
 }
 
-.highlight {
+/* ---------- Changas ---------- */
+
+.jobs {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 32px;
-  margin-top: 32px;
-  padding: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.job {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   background: var(--panel);
 }
 
-.highlight img {
-  border-radius: 10px;
+.job img {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.highlight h3 {
-  margin: 0 0 10px;
+.jobBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 20px 22px 22px;
+}
+
+.jobBody h3 {
+  margin: 4px 0 8px;
   font-size: 1.4rem;
 }
 
-.highlight p {
+.jobBody p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.place {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.tools {
+  align-self: flex-start;
+  margin: auto 0 0 !important;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 209, 102, 0.1);
+  color: var(--system) !important;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* El clima: una nota corta (sin números ni comparaciones). */
+.weather {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  padding: 20px 22px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.weather > span {
+  font-size: 2rem;
+}
+
+.weather h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+}
+
+.weather p {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
@@ -291,13 +443,51 @@
 
 /* ---------- Barrios ---------- */
 
-.cities {
+/* Los barrios en el orden en que se recorren, unidos por 18 de Julio (la flecha entre tarjetas). */
+.route {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 44px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.route > li {
+  position: relative;
+}
+
+.route > li + li::before {
+  content: "⇄";
+  position: absolute;
+  top: 90px;
+  left: -36px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #0b0d14;
+  font-weight: 800;
+}
+
+/* El Centro no tiene captura todavía: el perfil de 18 de Julio, con la torre de la Intendencia. */
+.skyline {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  aspect-ratio: 16 / 9;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, #24304a, #3a3f5c 60%, #d9a46c);
+}
+
+.skyline span {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #e6dcc8, #b9ab8f);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 .cityCard {
@@ -326,6 +516,28 @@
   margin: 0 0 14px;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.92rem;
+}
+
+.shopCount {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.soon {
+  margin: 24px 0 0;
+  color: var(--system);
+  font-weight: 600;
 }
 
 .tags {
@@ -453,10 +665,16 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .highlight,
-  .cities,
+  .jobs,
+  .route,
   .steps {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .route > li + li::before {
+    content: "⇅";
+    top: -36px;
+    left: calc(50% - 14px);
   }
 }
 
@@ -469,7 +687,8 @@
     justify-content: space-between;
   }
 
-  .features {
+  .features,
+  .highlights {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -482,9 +701,19 @@
   }
 }
 
+@media (hover: none) {
+  .slideArrow {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page {
     scroll-behavior: auto;
+  }
+
+  .slides img {
+    transition: none;
   }
 
   .button,

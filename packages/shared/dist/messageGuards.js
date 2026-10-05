@@ -192,6 +192,8 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.FoodEat]: isItemIdMessage,
     [messages_1.MessageType.VendStart]: noPayload,
     [messages_1.MessageType.VendStop]: noPayload,
+    [messages_1.MessageType.BuskStart]: noPayload,
+    [messages_1.MessageType.BuskStop]: noPayload,
     [messages_1.MessageType.AdminSetTime]: isAdminSetTimeMessage,
     [messages_1.MessageType.AdminNearbyRequest]: noPayload,
     [messages_1.MessageType.AdminGive]: isAdminGiveMessage,

@@ -8,11 +8,14 @@ paths:
   - "apps/server/src/gameClock.ts"
   - "apps/client/src/features/activities/FishingWidget.tsx"
   - "apps/client/src/features/activities/VendingWidget.tsx"
+  - "packages/shared/src/busking.ts"
+  - "apps/server/src/busking.ts"
+  - "apps/client/src/features/activities/BuskingWidget.tsx"
   - "apps/client/src/game/objects/Customers.ts"
   - "apps/client/src/game/objects/Avatar.ts"
 ---
 
-# Pesca y vendedor ambulante
+# Pesca, vendedor ambulante y música en la calle
 
 Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río (en
 Ciudad Vieja hay dos iguales, para repartir a los que pescan: una sale de la punta oeste, al final de
@@ -80,3 +83,32 @@ al vendedor (su carrito queda a la vista hasta entonces, `Avatar.keepCart`, aunq
 terminó); después agradece y se va desvaneciéndose. "¡Vendido!" (`player.sales`) lo ven todos. Moverse, sentarse, ir a una
 tienda, salir o `vend:stop` cancelan sin cobrar (`stopActivities` corta pesca y venta a la vez).
 La tecla **F** es la misma que para pescar: el cliente hace lo que corresponde al lugar (`toggleActivity`).
+
+Música en la calle (el Centro). `CityDefinition.busking` (`VendingZone`) marca **18 de Julio** (toda
+la avenida), las plazas Fabini y Cagancha y la explanada de la Intendencia; `CityMap.canBuskAt`.
+Hace falta un **instrumento** (`InstrumentItem`, `category: "instrument"`, herramienta como cañas y
+carritos) y se usa el de mayor `tier` (`bestInstrument`): armónica, guitarra criolla, bandoneón y
+tambor de candombe (`INSTRUMENTS`, cada uno con `kind` para el dibujo, `song`, `tipMin`/`tipMax`,
+`noTipChance`, `waitFactor`, `maxUses`). Se compran (y se venden usados) en la **Casa de Música**
+(Centro, `building: "music"`). `busk:start` → el server valida (en la zona, quieto, sin pescar,
+vender ni tocar, con instrumento y `BUSK_ENERGY_COST`), sortea la propina base con `rollTip`
+(`apps/server/src/busking.ts`; espera de 4–6 s × `waitFactor`, sorteada aparte) y pone
+`player.busking` + `player.instrument` (Schema). Manda `busk:started { durationMs }`; al vencer
+cuenta el **público** (`audience`: los que están a `BUSK_LISTEN_RADIUS` tiles o menos; los que
+tocan son la **comparsa**) y paga `tip × buskMultiplier(oyentes, comparsa)` (+15 % por oyente hasta
+el doble, +10 % por compañero hasta +30 %), `player.tips++` ("🪙 ¡Propina!" para todos) y
+`busk:result { ok, text, earned, listeners, partners }`. **El clima** cambia todo, para bien o para
+mal (`busk*Factor` de cada `Weather`, `instrumentInWeather`): con sol y con calor (turistas) más
+propina; con lluvia y pampero, menos y más espera. Ninguno deja de ser rentable.
+**El público de mentira** (sólo lo ve el músico, como el hincha del carrito): `CROWD_ARRIVE_MS`
+después de empezar el server le manda a él `busk:crowd { state: Arriving }` (`session.crowdOut`) y al
+terminar `Tipped` (le dejaron plata) o `Left`; cortar el tema → `None`. `Audience`
+(`game/objects/Audience.ts`, sólo dibujo) arrima de 1 a 3 transeúntes delante del músico; con
+`Tipped` aplauden (el gesto `clap`) y uno tira una moneda en arco al estuche abierto que el músico
+tiene a los pies (`CASE_OFFSET`, `Avatar.drawCase`); con `Left` comentan y se van. Cortar (moverse, sentarse, `busk:stop`…) no cobra nada (`stopBusking`,
+dentro de `stopActivities`). Cliente: `BuskingWidget` (mismos estilos que pesca y venta), F
+(`toggleBusking`, después de pescar y vender en `pressF`), atajo 1–9 del instrumento y
+`Avatar.setBusking(kind, color)`: armónica en la boca, guitarra rasgueando, bandoneón con el fuelle
+que se abre y se cierra (se redibuja cada frame), el tambor reusa el tamboril y el palo del gesto de
+candombe, y notas que suben (`drawNotes`). El balance (`[Balance]` al arrancar) incluye a los
+instrumentos: sin público rinden un poco menos que los carritos; con público, hasta el doble.

@@ -237,6 +237,8 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.FoodEat]: isItemIdMessage,
   [MessageType.VendStart]: noPayload,
   [MessageType.VendStop]: noPayload,
+  [MessageType.BuskStart]: noPayload,
+  [MessageType.BuskStop]: noPayload,
   [MessageType.AdminSetTime]: isAdminSetTimeMessage,
   [MessageType.AdminNearbyRequest]: noPayload,
   [MessageType.AdminGive]: isAdminGiveMessage,

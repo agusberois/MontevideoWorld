@@ -48,6 +48,11 @@ export interface PlayerSession {
   customerTimer: Delayed | null;
   /** Se le mandó que llega el hincha y todavía no compró ni pasó: cortar la venta lo hace irse. */
   customerOut: boolean;
+  /** Tocando en la calle: resuelve el tema (la propina) y hace arrimar al público (`CROWD_ARRIVE_MS` después). */
+  buskingTimer: Delayed | null;
+  crowdTimer: Delayed | null;
+  /** Se le mandó que se arrima el público y todavía no dejó plata ni se fue: cortar el tema lo hace irse. */
+  crowdOut: boolean;
   /** Cuándo termina el gesto de `player.gesture` (ms, `Date.now()`). */
   gestureUntil: number;
   /** Mano de blackjack en curso en el casino (null = ninguna). */
@@ -93,6 +98,9 @@ export function createSession(client: Client, player: Player, inventory: Invento
     vendingTimer: null,
     customerTimer: null,
     customerOut: false,
+    buskingTimer: null,
+    crowdTimer: null,
+    crowdOut: false,
     gestureUntil: 0,
     pairRequest: null,
     blackjack: null,

@@ -3,11 +3,12 @@
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
- * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * Centenario; los mejores venden más caro), instrumentos (hacen falta para tocar en la calle en el
+ * Centro; los mejores dejan más propina) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.INSTRUMENTS = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.LONDON_PARIS_FASHION = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
 exports.walkSpeed = walkSpeed;
 exports.speedPerk = speedPerk;
 exports.isRod = isRod;
@@ -16,6 +17,9 @@ exports.rodStars = rodStars;
 exports.isCart = isCart;
 exports.bestCart = bestCart;
 exports.cartStars = cartStars;
+exports.isInstrument = isInstrument;
+exports.bestInstrument = bestInstrument;
+exports.instrumentStars = instrumentStars;
 exports.isFood = isFood;
 exports.edibleValue = edibleValue;
 exports.edibleLabel = edibleLabel;
@@ -93,8 +97,22 @@ exports.KOREAN_FASHION = clothing([
     { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 45 },
 ]);
 /**
- * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
- * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ * Ropa de vestir de London París, la gran tienda de 18 de Julio en el Centro: sólo se vende ahí. Más
+ * cara que la del resto de las roperías (es "de tienda"); no está en `CLOTHING` por lo mismo que la
+ * moda coreana.
+ */
+exports.LONDON_PARIS_FASHION = clothing([
+    { id: "boina-gris", name: "Boina gris", slot: "hat", style: "beret", color: "#7a7f87", price: 35 },
+    { id: "buzo-bordo", name: "Buzo bordó", slot: "top", style: "hoodie", color: "#7b1e2b", price: 65 },
+    { id: "remera-azul-marino", name: "Remera azul marino", slot: "top", style: "tshirt", color: "#1b2a4a", price: 30 },
+    { id: "pantalon-vestir-negro", name: "Pantalón de vestir negro", slot: "bottom", style: "pants", color: "#22232a", price: 60 },
+    { id: "pantalon-vestir-gris", name: "Pantalón de vestir gris", slot: "bottom", style: "pants", color: "#6b6f78", price: 60 },
+    { id: "botas-negras", name: "Botas negras", slot: "shoes", style: "boots", color: "#1d1d22", price: 75 },
+]);
+/**
+ * Calzado para caminar rápido: lo venden Calzados Sarandí (Ciudad Vieja) y Calzados 18 de Julio
+ * (Centro). Cuanto más caro, más rápido se camina (`speed`). No están en `CLOTHING`, así las
+ * roperías no los tienen.
  */
 exports.WALKING_SHOES = clothing([
     { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 15 },
@@ -168,6 +186,14 @@ exports.CARTS = cart([
     { id: "carrito-panchos", name: "Carrito de panchos", tier: 3, color: "#e9b10a", price: 480, product: "un pancho", cry: "¡Panchos, panchos calentitos!", saleMin: 10, saleMax: 16, noSaleChance: 0.15, giftChance: 0.035, waitFactor: 0.8, maxUses: 110 },
     { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 1250, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 16, saleMax: 26, noSaleChance: 0.1, giftChance: 0.05, waitFactor: 0.7, maxUses: 150 },
 ]);
+const instrument = (items) => items.map((item) => ({ ...item, category: "instrument" }));
+/** Instrumentos para tocar en la calle: los vende la Casa de Música del Centro. */
+exports.INSTRUMENTS = instrument([
+    { id: "armonica", name: "Armónica", tier: 1, kind: "harmonica", song: "♪ Un blues con la armónica", color: "#9aa3ad", price: 30, tipMin: 2, tipMax: 6, noTipChance: 0.25, waitFactor: 1, maxUses: 40 },
+    { id: "guitarra", name: "Guitarra criolla", tier: 2, kind: "guitar", song: "♪ Una de Los Olimareños", color: "#b5651d", price: 150, tipMin: 5, tipMax: 10, noTipChance: 0.2, waitFactor: 0.9, maxUses: 80 },
+    { id: "bandoneon", name: "Bandoneón", tier: 3, kind: "bandoneon", song: "♪ La Cumparsita", color: "#2b2b30", price: 450, tipMin: 9, tipMax: 15, noTipChance: 0.15, waitFactor: 0.8, maxUses: 110 },
+    { id: "tambor-candombe", name: "Tambor de candombe", tier: 4, kind: "drum", song: "♪ ¡Candombe! Chico, repique y piano", color: "#c0392b", price: 1200, tipMin: 15, tipMax: 25, noTipChance: 0.1, waitFactor: 0.7, maxUses: 150 },
+]);
 /** Caja que da el comando de admin `/box`. */
 exports.MYSTERY_BOX_ID = "caja-sorpresa";
 /**
@@ -199,7 +225,7 @@ exports.TICKET_ID = "boleto-stm";
 exports.TICKETS = [
     { id: exports.TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: money_1.TRAVEL_FARE },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.BOXES, ...exports.TICKETS];
+exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.LONDON_PARIS_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.INSTRUMENTS, ...exports.BOXES, ...exports.TICKETS];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 exports.SELL_RATIO = 0.5;
 /**
@@ -266,6 +292,15 @@ exports.ITEM_CATEGORIES = {
         buyNote: "Vendés siempre con el mejor carrito de la mochila, parado en la Explanada del Centenario; cada intento lo gasta y al final se rompe.",
         nothingToSell: "No tenés carritos en la mochila para vender.",
     },
+    instrument: {
+        label: "instrumentos",
+        tool: true,
+        buyMarkup: 1,
+        sellRatio: exports.SELL_RATIO,
+        sellNote: "Por un instrumento te pagan la mitad de su precio, menos cuanto más gastado esté.",
+        buyNote: "Tocás siempre con el mejor instrumento de la mochila, sobre 18 de Julio o en las plazas del Centro; cada tema lo gasta y al final se rompe.",
+        nothingToSell: "No tenés instrumentos en la mochila para vender.",
+    },
     ticket: {
         label: "boletos",
         tool: false,
@@ -317,6 +352,23 @@ function bestCart(itemIds) {
 }
 /** "★★☆☆" para mostrar el nivel de un carrito. */
 function cartStars(tier) {
+    return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+function isInstrument(item) {
+    return item?.category === "instrument";
+}
+/** El instrumento de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+function bestInstrument(itemIds) {
+    let best;
+    for (const id of itemIds) {
+        const item = getItem(id);
+        if (isInstrument(item) && (!best || item.tier > best.tier))
+            best = item;
+    }
+    return best;
+}
+/** "★★☆☆" para mostrar el nivel de un instrumento. */
+function instrumentStars(tier) {
     return "★".repeat(tier) + "☆".repeat(4 - tier);
 }
 function isFood(item) {

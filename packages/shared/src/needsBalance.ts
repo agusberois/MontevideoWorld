@@ -1,5 +1,6 @@
-import { CARTS, FOODS, FoodItem, RODS, ToolItem } from "./items";
+import { CARTS, FOODS, FoodItem, INSTRUMENTS, RODS, ToolItem } from "./items";
 import {
+  BUSK_ENERGY_COST,
   FISH_ENERGY_COST,
   FISH_HUNGER_COST,
   HUNGER_PER_SECOND,
@@ -42,12 +43,12 @@ export function foodCostPerHour(hungerFactor = 1): number {
 }
 
 /**
- * Segundos promedio de un intento (tirada o venta, ver `fishing.ts` / `vending.ts` del server: una
- * tirada tarda ~5,5 s y una venta ~4,5 s, por el `waitFactor` de la herramienta) más lo que hay que
+ * Segundos promedio de un intento (tirada, venta o tema, ver `fishing.ts` / `vending.ts` /
+ * `busking.ts` del server: una tirada tarda ~5,5 s, una venta ~4,5 s y un tema ~5 s, por el `waitFactor` de la herramienta) más lo que hay que
  * descansar sentado para reponer la energía que gasta.
  */
 function secondsPerUse(tool: ToolItem): number {
-  const [attempt, energy] = tool.category === "rod" ? [5.5, FISH_ENERGY_COST] : [4.5, VEND_ENERGY_COST];
+  const [attempt, energy] = tool.category === "rod" ? [5.5, FISH_ENERGY_COST] : tool.category === "cart" ? [4.5, VEND_ENERGY_COST] : [5, BUSK_ENERGY_COST];
   return attempt * tool.waitFactor + energy / SIT_ENERGY_REGEN;
 }
 
@@ -63,7 +64,7 @@ export function hourlyIncome(tool: ToolItem): number {
  */
 export function foodTooExpensiveFor(hungerFactor = 1): Array<{ tool: ToolItem; share: number }> {
   const cost = foodCostPerHour(hungerFactor);
-  return [...RODS, ...CARTS]
+  return [...RODS, ...CARTS, ...INSTRUMENTS]
     .map((tool) => ({ tool, share: cost / hourlyIncome(tool) }))
     .filter(({ share }) => !(share > 0 && share <= MAX_FOOD_SHARE));
 }

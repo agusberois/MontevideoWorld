@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { JAILED_KICK_CODE, getCityInfo } from "@montevideo-world/shared";
+import { JAILED_KICK_CODE, type TravelMessage, getCityInfo } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { activateHotbar, pressF } from "@/lib/gameActions";
 import { bindGameStore, closePanel, gameStore, togglePanel, useGame } from "@/lib/gameStore";
@@ -15,6 +15,7 @@ import { InteractPrompt } from "../ui/InteractPrompt";
 import { JailBanner } from "../features/jail/JailBanner";
 import { FaintOverlay } from "../features/health/FaintOverlay";
 import { VendingWidget } from "../features/activities/VendingWidget";
+import { BuskingWidget } from "../features/activities/BuskingWidget";
 import { CameraButton } from "../ui/CameraButton";
 import { Vitals } from "../ui/Vitals";
 import { TutorialCard } from "../features/tutorial/TutorialCard";
@@ -141,10 +142,10 @@ export function App() {
    * server sólo deja entrar a otro barrio con un boleto vigente.
    */
   const travel = useCallback(
-    async (cityId: string, roomId?: string, ambulance?: boolean, door?: boolean) => {
+    async ({ cityId, roomId, ambulance, door, walk }: TravelMessage) => {
       // `roomId` (de `/trace`) puede ser otra copia del mismo barrio.
       if (!room || gameStore.getState().traveling || (roomId ? roomId === room.roomId : cityId === session?.cityId)) return;
-      gameStore.setState({ traveling: { from: cityName(session?.cityId), to: cityName(cityId), ambulance, door } });
+      gameStore.setState({ traveling: { from: cityName(session?.cityId), to: cityName(cityId), ambulance, door, walk } });
       gameStore.resetCity();
       const startedAt = Date.now();
       try {
@@ -166,7 +167,7 @@ export function App() {
 
   // El server aprobó el boleto: recién ahí se viaja.
   useEffect(
-    () => eventBus.on("travel:approved", ({ cityId, roomId, ambulance, door }) => void travel(cityId, roomId, ambulance, door)),
+    () => eventBus.on("travel:approved", (message) => void travel(message)),
     [travel],
   );
 
@@ -209,6 +210,7 @@ export function App() {
         <InteractPrompt />
         <FishingWidget room={room} />
         <VendingWidget room={room} />
+        <BuskingWidget room={room} />
         <TutorialCard room={room} cityId={session.cityId} />
         <Vitals />
         <Hotbar room={room} />
@@ -226,7 +228,7 @@ export function App() {
       {Panel && <Panel room={room} cityId={session.cityId} onClose={closePanel} />}
       {traveling &&
         (traveling.door ? (
-          <DoorOverlay to={traveling.to} />
+          <DoorOverlay to={traveling.to} walk={traveling.walk} />
         ) : (
           <TravelOverlay from={traveling.from} to={traveling.to} ambulance={traveling.ambulance} />
         ))}

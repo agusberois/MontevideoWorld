@@ -1,7 +1,7 @@
 import { InventoryMessage, ItemDefinition, OutfitIds, edibleLabel, edibleValue } from "@montevideo-world/shared";
 import { eventBus } from "../../lib/eventBus";
 import { openPanel } from "../../lib/gameStore";
-import { CityRoom, sendBoxOpen, sendEquip, sendFoodEat, sendFishing, sendVending } from "../../lib/network";
+import { CityRoom, sendBoxOpen, sendBusking, sendEquip, sendFoodEat, sendFishing, sendVending } from "../../lib/network";
 
 /**
  * Qué hace cada tipo de ítem al usarlo desde la barra rápida (tecla 1–9 o clic). Es el único lugar
@@ -16,6 +16,8 @@ export interface ItemActionContext {
   fishing: { canFish: boolean; fishing: boolean };
   /** Si el avatar propio está en la explanada del Centenario y si está vendiendo. */
   vending: { canVend: boolean; vending: boolean };
+  /** Si el avatar propio está donde se toca en la calle (el Centro) y si está tocando. */
+  busking: { canBusk: boolean; busking: boolean };
 }
 
 export interface ItemAction {
@@ -36,7 +38,7 @@ export function isWorn(item: ItemDefinition, outfit: OutfitIds | null): boolean 
 
 /** La acción de este ítem ahora mismo, o null si no se puede usar (p. ej. no lo tenés). */
 export function itemAction(item: ItemDefinition, context: ItemActionContext): ItemAction | null {
-  const { room, outfit, inventory, fishing, vending } = context;
+  const { room, outfit, inventory, fishing, vending, busking } = context;
   const inBag = countInBag(inventory, item.id) > 0;
 
   switch (item.category) {
@@ -60,6 +62,15 @@ export function itemAction(item: ItemDefinition, context: ItemActionContext): It
       return {
         label: "vender (en la explanada del Centenario)",
         run: () => eventBus.emit("notice", { text: "Para vender parate en la Explanada del Centenario, en Tres Cruces." }),
+      };
+    case "instrument":
+      // Se toca con el mejor instrumento de la mochila; el atajo es lo mismo que la tecla F en 18 de Julio.
+      if (!inBag) return null;
+      if (busking.busking) return { label: "dejar de tocar", run: () => sendBusking(room, "stop") };
+      if (busking.canBusk) return { label: "tocar", run: () => sendBusking(room, "start") };
+      return {
+        label: "tocar (sobre 18 de Julio, en el Centro)",
+        run: () => eventBus.emit("notice", { text: "Para tocar parate sobre 18 de Julio o en una plaza del Centro." }),
       };
     case "fish":
     case "food":

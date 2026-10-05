@@ -38,10 +38,11 @@ export function Hotbar({ room }: HotbarProps) {
   const inventory = useGame((state) => state.inventory);
   const fishing = useGame((state) => state.fishing);
   const vending = useGame((state) => state.vending);
-  /** Ropa puesta, mochila y pesca: para saber qué hace cada ítem y cuántos hay. */
+  const busking = useGame((state) => state.busking);
+  /** Ropa puesta, mochila, pesca, venta y música: para saber qué hace cada ítem y cuántos hay. */
   const context = useMemo<ItemActionContext>(
-    () => ({ room, outfit, inventory, fishing, vending }),
-    [room, outfit, inventory, fishing, vending],
+    () => ({ room, outfit, inventory, fishing, vending, busking }),
+    [room, outfit, inventory, fishing, vending, busking],
   );
   const onChange = setHotbar;
   /** Usar el ítem del casillero (tecla 1–9 o clic). Ver `itemActions.ts`. */

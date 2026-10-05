@@ -78,6 +78,7 @@ function gestureBlocked(session: PlayerSession, gesture: AnyGestureId | string):
   const { player } = session;
   if (player.fishing) return "Estás pescando: recogé la línea para hacer un gesto.";
   if (player.vending) return "Estás vendiendo: terminá la venta para hacer un gesto.";
+  if (player.busking) return "Estás tocando: terminá el tema para hacer un gesto.";
   const seated = isGestureId(gesture) && GESTURES[gesture].seated;
   const name = isGestureId(gesture) || isPairGestureId(gesture) ? gestureInfo(gesture).name.toLocaleLowerCase("es") : "eso";
   if ((player.sitting || player.bathing) && !seated) return `Para ${name} tenés que estar parado.`;
@@ -126,7 +127,7 @@ function endPartner(session: PlayerSession) {
 }
 
 /**
- * Cada tick: termina los gestos vencidos y los que ya no se pueden seguir (camina, pesca, vende, se
+ * Cada tick: termina los gestos vencidos y los que ya no se pueden seguir (camina, pesca, vende, toca, se
  * sentó con uno de parado; en los de a dos, también si el otro dejó de hacerlo).
  */
 export function stepGestures(room: CityRoom, now = Date.now()) {

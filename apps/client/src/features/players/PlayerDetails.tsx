@@ -179,7 +179,7 @@ export function PlayerDetails({ room, cityId, onClose }: PanelProps) {
   );
 }
 
-/** "Pescando con Caña de fibra", "Vendiendo con …", "Sentada en un banco" o "Paseando". */
+/** "Pescando con Caña de fibra", "Vendiendo con …", "Tocando …", "Sentada en un banco" o "Paseando". */
 function activityText(activity: PlayerActivity | null, gender: Gender): string {
   if (!activity) return "Paseando";
   switch (activity.kind) {
@@ -187,6 +187,8 @@ function activityText(activity: PlayerActivity | null, gender: Gender): string {
       return `🎣 Pescando${toolName(activity.rod, " con ")}`;
     case "vending":
       return `🛒 Vendiendo${toolName(activity.cart, " con ")}`;
+    case "busking":
+      return `🎵 Tocando${toolName(activity.instrument, " ")}`;
     case "sitting":
       return `🪑 ${gender === "f" ? "Sentada" : "Sentado"} en un banco`;
   }

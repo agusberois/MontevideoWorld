@@ -47,6 +47,7 @@ export function describeTile(map: CityMap, x: number, y: number): string {
   if (stop) parts.push(`parada ${stop.name}`);
   if (inRect(city.spawnArea, x, y)) parts.push("spawn");
   if (map.canVendAt(x, y)) parts.push("zona de venta");
+  if (map.canBuskAt(x, y)) parts.push("se toca música");
   if (map.canFishAt(x, y)) parts.push("se pesca");
   parts.push(map.isWalkable(x, y) ? "caminable" : "no caminable");
   return parts.join(" · ");

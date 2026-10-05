@@ -246,12 +246,23 @@ const casinoDoor = {
     area: (0, grid_1.rect)(109, 20, 3),
     to: { cityId: "casino", at: { x: 1, y: 8 } },
 };
+/**
+ * 18 de Julio sigue hacia el Centro: el borde este de la avenida es una salida (se cruza caminando,
+ * sin boleto) que deja en la punta oeste de 18 de Julio del Centro.
+ */
+const centroEdge = {
+    id: "centro",
+    name: "Caminar al Centro",
+    area: (0, grid_1.rect)(grid_1.WIDTH - 1, dieciochoDeJulio[0], 1, dieciochoDeJulio[1] - dieciochoDeJulio[0] + 1),
+    to: { cityId: "centro", at: { x: 1, y: 30 } },
+    edge: true,
+};
 exports.CIUDAD_VIEJA = {
     ...info_1.CIUDAD_VIEJA_INFO,
     layout: builder.build(),
     // Se aparece en la Plaza Independencia (la plaza entera).
     spawnArea: plazaIndependencia,
-    doors: [termasDoor, casinoDoor],
+    doors: [termasDoor, casinoDoor, centroEdge],
     fillers,
     boats,
     streetLamps,
@@ -271,7 +282,8 @@ exports.CIUDAD_VIEJA = {
         { name: "Río de la Plata", x: 80, y: 90 },
         { name: "Escollera Sarandí", x: 11, y: 47 },
         { name: "Escollera norte", x: 11, y: 13 },
-        { name: "18 de Julio", x: 145, y: 53.5 },
+        { name: "18 de Julio", x: 143, y: 53.5 },
+        { name: "Centro →", x: 147, y: 53.5 },
         ...Object.entries({ Piedras: rows.piedras, Cerrito: rows.cerrito, "25 de Mayo": rows.veinticincoDeMayo, Rincón: rows.rincon, "Buenos Aires": rows.buenosAires, Reconquista: rows.reconquista }).map(([name, v]) => ({ name, x: 86, y: (0, grid_1.tileY)(v) - 0.5 })),
         ...Object.entries({ "Pérez Castellano": grid_1.COLUMN_STREETS.perezCastellano, Zabala: grid_1.COLUMN_STREETS.zabala, Ituzaingó: grid_1.COLUMN_STREETS.ituzaingo, "Juan Carlos Gómez": grid_1.COLUMN_STREETS.juanCarlosGomez, Juncal: grid_1.COLUMN_STREETS.juncal }).map(([name, u]) => ({ name, x: (0, grid_1.tileX)(u) - 0.5, y: 29 })),
     ],

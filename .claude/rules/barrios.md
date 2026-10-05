@@ -53,6 +53,35 @@ paths:
   al sur; Teatro Solís al suroeste; Plaza Matriz con la Catedral (oeste) y el Cabildo (este); Plaza
   Zabala con el Palacio Taranco; Mercado del Puerto frente a la bahía; Templo Inglés y Plaza España
   sobre la rambla sur. La guía de bienvenida toma sus áreas de `CIUDAD_VIEJA_INFO` (por id).
+- Centro (126×68, `centro/grid.ts`, spawn en la Plaza Cagancha): **el mismo patrón que Ciudad Vieja**
+  (franjas de 4 tiles, sin vereda en los cruces, manzanas de 6 × 8 llenas de `fillers` de 2 × 2,
+  `bigTowerSpec`: ~580). **Delante de cada emblemático y cada local** (al sur y al este, las fachadas
+  que ve la cámara) quedan dos tiles de patio de baldosa, y los lotes cercanos a ese frente son casonas
+  bajas (`kind: "house"`, `inFrontOfLandmark`): con edificios altos ahí, los tapaban casi enteros, con las calles en su orden real y las distancias comprimidas: filas Mercedes,
+  Colonia, **18 de Julio** (avenida de 6: vereda doble a cada lado), San José y Soriano; columnas
+  Andes … Ejido. Las calles se arman por tile (calzada si está en la calzada de alguna, vereda si
+  está en alguna vereda), así los cruces salen solos también con la vereda doble. Emblemáticos, cada uno
+  dibujado como el real (`landmarks/centro/`, con `common.ts` para la esquina redondeada:
+  `roundedBox`, `roundedBand`, `cylinder`): Palacio Rinaldi (`artDeco`: ocho pisos arena, zigzag en
+  los antepechos, bow windows y remates escalonados), Palacio Lapido (`modernTower`: doce pisos
+  blancos que doblan la esquina en curva con balcones corridos, retranqueos y la torre), Palacio Díaz
+  (`decoTower`: 17 pisos con pilastras corridas y el remate escalonado), London París
+  (`departmentStore`: torre octogonal de la esquina con el letrero, el reloj triple, el templete, la
+  cúpula de zinc y el Atlas; además es la tienda `building: "none"` con ropa exclusiva,
+  `LONDON_PARIS_FASHION`), Plaza Fabini con El Entrevero (`entrevero`, en la fuente) y canteros, el
+  Edificio Rex / Sala Zitarrosa (`cinema`: esquina curva y la cúpula mirador iluminada), Plaza
+  Cagancha con la Columna de la Paz (`peaceColumn`) en su cantero y el Mercado de los Artesanos,
+  Palacio Piria (`frenchPalace`: mansarda, frontón y el pabellón de la esquina con cúpula), Palacio
+  Santos (`italianPalace`: renacimiento italiano, pórtico y balaustrada con jarrones) y, pasando
+  Ejido, la explanada con el David (`statue`), la Niké de Samotracia (`victoryStatue`) y el Palacio
+  Municipal (`cityHall`, 8 × 8: torre de 22 pisos de hormigón con el ascensor exterior y el mirador,
+  pórtico y escalinata; con el cartel "MW").
+  Es **el barrio con más tiendas** (11): London París, ropería, sombrerería, Calzados 18 de Julio
+  (también los championes rápidos), farmacia, kiosco, confitería, Café Facal (`cafe`), Mercado de
+  los Artesanos (`crafts`), Mercado de la Abundancia (rotisería) y la Casa de Música (`music`,
+  instrumentos). Faroles sobre 18 de Julio. Su actividad es **tocar en la calle** (`busking`: toda
+  18 de Julio, Fabini, Cagancha y la explanada; ver `pesca-y-venta.md`).
+  **Se llega caminando desde Ciudad Vieja** (ver "Barrios conectados a pie", abajo).
 - Tres Cruces (84×64, spawn en la explanada del shopping): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
   sobre el borde (`LayoutBuilder.edges`), Bulevar Artigas y Av. Italia, el Shopping (con la
   terminal y la tienda `building: "none"` "Moda Tres Cruces"), el Sanatorio Americano, el Obelisco y
@@ -64,10 +93,28 @@ paths:
   veredas anchas y la peatonal Emilio Reus (3 tiles, con bancos) entre las **Casas de Reus al Norte**
   (`reusHouses`: una pieza 1×1 pastel por tile, color por `tileHash`). Emblemáticos: Mercado Agrícola
   (el MAM, `agriMarket`: bóveda de hierro y vidrio), Iglesia de San Pancracio (`church`) y el Espacio de Arte Contemporáneo en la ex
-  Cárcel de Miguelete (`artCenter`, con el cartel "MW"). Es **el barrio con más tiendas** (9):
+  Cárcel de Miguelete (`artCenter`, con el cartel "MW"). Tiene 9 tiendas (sólo el Centro tiene más):
   mayoristas de ropa (`wholesale`, `shoes`, con `priceFactor` 0,75), Moda Coreana (ropa exclusiva,
   `KOREAN_FASHION`), panadería (`bakery`), rotisería (`rotisserie`), farmacia y un puesto de tortas
   fritas. Sin zona de venta: la venta con carrito es de los hinchas del Centenario.
+- **Barrios ocultos** (`CityInfo.hidden`, hoy **Tres Cruces** y el **Barrio de los Judíos**: por
+  ahora sólo se juega en Ciudad Vieja, el Centro y el COMCAR): no salen en la lista (`isPublicCity`) ni
+  en la landing (tampoco sus tarjetas de `FEATURES`, con `cityId`), `travel:request` los rechaza,
+  quien había quedado ahí vuelve a Ciudad Vieja (`canResumeTo`), sus tiendas no salen en
+  `whereToBuy` y, sin el Sanatorio, el desmayo te despierta en la plaza (`hospitalDoor`). Con eso
+  tampoco hay venta en el Centenario ni guardia. Para volver a abrirlos, sacar `hidden: true` de su `info.ts`.
+- **Barrios conectados a pie** (Ciudad Vieja ↔ Centro, por 18 de Julio): el último tile de la
+  avenida en el borde de cada mapa es una `Door` con `edge: true`, marcada con un **arco de calle**
+  (`CityRenderer.drawPortals`, piezas 1 × 1 de `portalSpec`: pilares de piedra clara con farol de
+  hierro en las puntas, sobre las veredas, y el arco de hierro forjado con volutas sobre la calzada,
+  con la chapa azul del nomenclátor; cartel "18 de Julio · hacia <destino>", faroles que se prenden de
+  noche; no tapa al avatar). Mismos colores que la Puerta de la Ciudadela y los edificios del 900. El
+  hover la marca y el cartel de F dice "Caminar al Centro". Clic, F o **WASD contra el borde**
+  (`LocalMover.edgeDoorAhead` → `MoverHost.enterDoor`, una vez hasta soltar) → `door:enter` → el
+  server camina hasta ahí y cruza sin boleto (`crossDoor`, `travel:ok` con `walk`: el fundido dice
+  "🚶 Caminando a…"). Se aparece en la otra punta de 18 de Julio (Centro 1,30; Ciudad Vieja 148,53).
+  `CityInfo.onFoot`: al volver a entrar al juego se vuelve a ese barrio sin boleto (`canResumeTo`).
+  El Centro igual sale en la lista de barrios y se puede ir en ómnibus.
 - Salas con acceso (`CityInfo.access`, hoy las Termas del Donador): no salen en la lista ni en la
   landing, no se llega en ómnibus y se entra por una `Door` (ver `termas.md`). `indoor`: sin noche
   ni lluvia. Tiles de interior: `Floor` e `InnerWall`.

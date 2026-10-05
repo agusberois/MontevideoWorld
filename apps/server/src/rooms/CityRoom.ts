@@ -145,9 +145,11 @@ function hasDonorAccess(key: string | null, name: string): boolean {
  */
 function canResumeTo(key: string, location: SavedLocation, name: string): boolean {
   const city = getCityMap(location.cityId)?.city;
+  // Un barrio oculto (`CityInfo.hidden`): se vuelve a Ciudad Vieja.
+  if (city?.hidden) return false;
   if (city?.access === "donor") return hasDonorAccess(key, name);
-  // Las salas de puerta abierta (el casino): se vuelve sin boleto.
-  if (city?.access === "door") return true;
+  // Las salas de puerta abierta (el casino) y el Centro, al que se llega caminando: se vuelve sin boleto.
+  if (city?.access === "door" || city?.onFoot) return true;
   return hasTicket(key);
 }
 

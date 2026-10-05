@@ -2,13 +2,14 @@
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
- * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * Centenario; los mejores venden más caro), instrumentos (hacen falta para tocar en la calle en el
+ * Centro; los mejores dejan más propina) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 
 import { TRAVEL_FARE } from "./money";
 
-export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
+export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "instrument" | "box" | "ticket";
 
 export const ITEM_SLOTS = ["hat", "top", "bottom", "shoes"] as const;
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
@@ -126,12 +127,40 @@ export interface CartItem extends ItemBase {
   maxUses: number;
 }
 
+/** Nivel de un instrumento: 1 = armónica … 4 = tambor de candombe. */
+export type InstrumentTier = 1 | 2 | 3 | 4;
+
+/** Cómo se dibuja el instrumento en las manos del avatar y en el ícono. */
+export type InstrumentKind = "harmonica" | "guitar" | "bandoneon" | "drum";
+
 /**
- * Herramientas: cañas y carritos. Se gastan con el uso (`maxUses`), no se apilan (cada una ocupa su
- * casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a comprarlas: eso
- * mantiene vivo el mercado.
+ * Instrumento para tocar en la calle (el Centro: 18 de Julio y sus plazas). Hay que tener uno en la
+ * mochila; se usa siempre el de mayor nivel. Los mejores dejan más propina, más seguido y más
+ * rápido; y cuanta más gente escuchando alrededor, más dejan (ver `busking.ts`).
  */
-export type ToolItem = RodItem | CartItem;
+export interface InstrumentItem extends ItemBase {
+  category: "instrument";
+  tier: InstrumentTier;
+  kind: InstrumentKind;
+  /** Lo que se toca, para el globo al empezar: "♪ Un candombe". */
+  song: string;
+  /** Lo que deja una propina, en pesos enteros (sin gente escuchando). */
+  tipMin: number;
+  tipMax: number;
+  /** Probabilidad (0–1) de que nadie deje nada. */
+  noTipChance: number;
+  /** Multiplica la espera hasta la propina (menos de 1 = antes). */
+  waitFactor: number;
+  /** Temas que aguanta (cada uno gasta un uso, dejen o no); después se rompe. */
+  maxUses: number;
+}
+
+/**
+ * Herramientas: cañas, carritos e instrumentos. Se gastan con el uso (`maxUses`), no se apilan (cada
+ * una ocupa su casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a
+ * comprarlas: eso mantiene vivo el mercado.
+ */
+export type ToolItem = RodItem | CartItem | InstrumentItem;
 
 /** Premio posible de una caja: `weight` relativo (más alto = sale más seguido). */
 export interface LootEntry {
@@ -183,7 +212,7 @@ export interface MedicineItem extends ItemBase {
   energy: number;
 }
 
-export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
+export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | InstrumentItem | BoxItem | TicketItem;
 
 /** El ítem sin `category` (la pone el armador). Distributivo, para que la ropa siga atando `slot` y `style`. */
 type CatalogEntry<T> = T extends unknown ? Omit<T, "category"> : never;
@@ -230,8 +259,23 @@ export const KOREAN_FASHION: readonly ClothingItem[] = clothing([
 ]);
 
 /**
- * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
- * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ * Ropa de vestir de London París, la gran tienda de 18 de Julio en el Centro: sólo se vende ahí. Más
+ * cara que la del resto de las roperías (es "de tienda"); no está en `CLOTHING` por lo mismo que la
+ * moda coreana.
+ */
+export const LONDON_PARIS_FASHION: readonly ClothingItem[] = clothing([
+  { id: "boina-gris", name: "Boina gris", slot: "hat", style: "beret", color: "#7a7f87", price: 35 },
+  { id: "buzo-bordo", name: "Buzo bordó", slot: "top", style: "hoodie", color: "#7b1e2b", price: 65 },
+  { id: "remera-azul-marino", name: "Remera azul marino", slot: "top", style: "tshirt", color: "#1b2a4a", price: 30 },
+  { id: "pantalon-vestir-negro", name: "Pantalón de vestir negro", slot: "bottom", style: "pants", color: "#22232a", price: 60 },
+  { id: "pantalon-vestir-gris", name: "Pantalón de vestir gris", slot: "bottom", style: "pants", color: "#6b6f78", price: 60 },
+  { id: "botas-negras", name: "Botas negras", slot: "shoes", style: "boots", color: "#1d1d22", price: 75 },
+]);
+
+/**
+ * Calzado para caminar rápido: lo venden Calzados Sarandí (Ciudad Vieja) y Calzados 18 de Julio
+ * (Centro). Cuanto más caro, más rápido se camina (`speed`). No están en `CLOTHING`, así las
+ * roperías no los tienen.
  */
 export const WALKING_SHOES: readonly ClothingItem[] = clothing([
   { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 15 },
@@ -318,6 +362,16 @@ export const CARTS: readonly CartItem[] = cart([
   { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 1250, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 16, saleMax: 26, noSaleChance: 0.1, giftChance: 0.05, waitFactor: 0.7, maxUses: 150 },
 ]);
 
+const instrument = (items: CatalogEntry<InstrumentItem>[]): InstrumentItem[] => items.map((item) => ({ ...item, category: "instrument" }));
+
+/** Instrumentos para tocar en la calle: los vende la Casa de Música del Centro. */
+export const INSTRUMENTS: readonly InstrumentItem[] = instrument([
+  { id: "armonica", name: "Armónica", tier: 1, kind: "harmonica", song: "♪ Un blues con la armónica", color: "#9aa3ad", price: 30, tipMin: 2, tipMax: 6, noTipChance: 0.25, waitFactor: 1, maxUses: 40 },
+  { id: "guitarra", name: "Guitarra criolla", tier: 2, kind: "guitar", song: "♪ Una de Los Olimareños", color: "#b5651d", price: 150, tipMin: 5, tipMax: 10, noTipChance: 0.2, waitFactor: 0.9, maxUses: 80 },
+  { id: "bandoneon", name: "Bandoneón", tier: 3, kind: "bandoneon", song: "♪ La Cumparsita", color: "#2b2b30", price: 450, tipMin: 9, tipMax: 15, noTipChance: 0.15, waitFactor: 0.8, maxUses: 110 },
+  { id: "tambor-candombe", name: "Tambor de candombe", tier: 4, kind: "drum", song: "♪ ¡Candombe! Chico, repique y piano", color: "#c0392b", price: 1200, tipMin: 15, tipMax: 25, noTipChance: 0.1, waitFactor: 0.7, maxUses: 150 },
+]);
+
 /** Caja que da el comando de admin `/box`. */
 export const MYSTERY_BOX_ID = "caja-sorpresa";
 
@@ -353,7 +407,7 @@ export const TICKETS: readonly TicketItem[] = [
   { id: TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: TRAVEL_FARE },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...WALKING_SHOES, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...LONDON_PARIS_FASHION, ...WALKING_SHOES, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...INSTRUMENTS, ...BOXES, ...TICKETS];
 
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 export const SELL_RATIO = 0.5;
@@ -443,6 +497,16 @@ export const ITEM_CATEGORIES: Record<ItemCategory, ItemCategoryInfo> = {
       "Vendés siempre con el mejor carrito de la mochila, parado en la Explanada del Centenario; cada intento lo gasta y al final se rompe.",
     nothingToSell: "No tenés carritos en la mochila para vender.",
   },
+  instrument: {
+    label: "instrumentos",
+    tool: true,
+    buyMarkup: 1,
+    sellRatio: SELL_RATIO,
+    sellNote: "Por un instrumento te pagan la mitad de su precio, menos cuanto más gastado esté.",
+    buyNote:
+      "Tocás siempre con el mejor instrumento de la mochila, sobre 18 de Julio o en las plazas del Centro; cada tema lo gasta y al final se rompe.",
+    nothingToSell: "No tenés instrumentos en la mochila para vender.",
+  },
   ticket: {
     label: "boletos",
     tool: false,
@@ -499,6 +563,25 @@ export function bestCart(itemIds: Iterable<string>): CartItem | undefined {
 
 /** "★★☆☆" para mostrar el nivel de un carrito. */
 export function cartStars(tier: CartTier): string {
+  return "★".repeat(tier) + "☆".repeat(4 - tier);
+}
+
+export function isInstrument(item: ItemDefinition | undefined): item is InstrumentItem {
+  return item?.category === "instrument";
+}
+
+/** El instrumento de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+export function bestInstrument(itemIds: Iterable<string>): InstrumentItem | undefined {
+  let best: InstrumentItem | undefined;
+  for (const id of itemIds) {
+    const item = getItem(id);
+    if (isInstrument(item) && (!best || item.tier > best.tier)) best = item;
+  }
+  return best;
+}
+
+/** "★★☆☆" para mostrar el nivel de un instrumento. */
+export function instrumentStars(tier: InstrumentTier): string {
   return "★".repeat(tier) + "☆".repeat(4 - tier);
 }
 
@@ -608,7 +691,7 @@ export const MAX_STACK = 99;
 export interface InventoryStack {
   itemId: string;
   quantity: number;
-  /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
+  /** Sólo herramientas (cañas, carritos, instrumentos; siempre de a una): usos que le quedan. */
   uses?: number;
   /**
    * Casillero de la mochila (0 … capacidad − 1) donde está la pila: el jugador los reordena

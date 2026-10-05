@@ -39,7 +39,7 @@ normal + 1 y `maxHagglePrice(total)` (5×); la tienda acepta con `haggleChance` 
 (la misma fórmula que muestra el panel). Si acepta se cobra `price`; si no, se pierde todo lo
 elegido y no se cobra nada (el resultado llega igual con `action: "sell"`, así el panel limpia). Con exponente > 1, en promedio regatear rinde un
 poco menos que vender normal: es una apuesta, no una forma de farmear plata.
-**Calzados Sarandí** (Ciudad Vieja, junto a la Ropería) vende los calzados comunes y los rápidos
+**Calzados Sarandí** (Ciudad Vieja, junto a la Ropería; también **Calzados 18 de Julio** en el Centro) vende los calzados comunes y los rápidos
 (`WALKING_SHOES`): `ClothingOf.speed` (1,1 a 1,5) hace caminar más rápido con ellos puestos. El
 server avanza `walkSpeed(player.shoes)` tiles por tick con un crédito (`session.stepCredit` en
 `stepPlayers`: con 1,5, tres tiles cada dos ticks; cansado manda la lentitud) y el cliente acorta el
@@ -51,5 +51,6 @@ usadas (`buys: ["rod"]`). **Precio por tienda**: `Shop.priceFactor` multiplica e
 priceFactor)`, en el server y en `ShopPanel`, que muestra tachado el precio normal). Los mayoristas
 del Barrio de los Judíos usan 0,75; tiene que quedar por encima de lo que la tienda paga al comprar
 (`sellPrice`, la mitad en ropa) o se podría comprar y revender ganando. La ropa de `KOREAN_FASHION`
-sólo la vende Moda Coreana (no está en `CLOTHING`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
+sólo la vende Moda Coreana y la de `LONDON_PARIS_FASHION`, sólo London París (Centro); ninguna está en `CLOTHING`.
+Los instrumentos (`INSTRUMENTS`) los vende y los compra usados la **Casa de Música** (Centro, `building: "music"`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
 para un tipo nuevo, sumar su estilo en `SHOP_STYLES` (`buildings.ts`).

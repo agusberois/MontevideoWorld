@@ -3,6 +3,18 @@ import { casasReus } from "./barrioDeLosJudios/casasReus";
 import { eac } from "./barrioDeLosJudios/eac";
 import { sanPancracio } from "./barrioDeLosJudios/sanPancracio";
 import { mercadoAgricola } from "./barrioDeLosJudios/mercadoAgricola";
+import { artDeco } from "./centro/artDeco";
+import { columnaDeLaPaz } from "./centro/columnaDeLaPaz";
+import { david } from "./centro/david";
+import { entrevero } from "./centro/entrevero";
+import { lapido } from "./centro/lapido";
+import { londonParis } from "./centro/londonParis";
+import { nike } from "./centro/nike";
+import { palacioDiaz } from "./centro/palacioDiaz";
+import { palacioPiria } from "./centro/palacioPiria";
+import { palacioSantos } from "./centro/palacioSantos";
+import { palacioMunicipal } from "./centro/palacioMunicipal";
+import { salaZitarrosa } from "./centro/salaZitarrosa";
 import { cabildo } from "./ciudadVieja/cabildo";
 import { catedral } from "./ciudadVieja/catedral";
 import { farola } from "./ciudadVieja/farola";
@@ -49,6 +61,19 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   fountain: fuente,
   lighthouse: farola,
   gate: puertaCiudadela,
+  // Centro (18 de Julio): cada edificio con su dibujo, como es en la realidad.
+  artDeco,
+  modernTower: lapido,
+  decoTower: palacioDiaz,
+  italianPalace: palacioSantos,
+  frenchPalace: palacioPiria,
+  victoryStatue: nike,
+  departmentStore: londonParis,
+  entrevero,
+  peaceColumn: columnaDeLaPaz,
+  cinema: salaZitarrosa,
+  cityHall: palacioMunicipal,
+  statue: david,
   // Tres Cruces y Parque Batlle
   shopping,
   hospital: sanatorio,

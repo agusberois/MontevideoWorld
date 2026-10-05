@@ -6,6 +6,8 @@ import {
   difficultyStars,
   edibleLabel,
   edibleValue,
+  instrumentPerks,
+  instrumentStars,
   rodPerks,
   rodStars,
   speedPerk,
@@ -50,6 +52,10 @@ const CATEGORY_UI: { [C in ItemCategory]: CategoryUi<ItemOf<C>> } = {
   cart: {
     rating: (cart) => ({ stars: cartStars(cart.tier), title: `Nivel ${cart.tier} de 4` }),
     perks: cartPerks,
+  },
+  instrument: {
+    rating: (instrument) => ({ stars: instrumentStars(instrument.tier), title: `Nivel ${instrument.tier} de 4` }),
+    perks: instrumentPerks,
   },
   box: {},
   ticket: {},

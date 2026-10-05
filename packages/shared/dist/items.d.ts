@@ -2,10 +2,11 @@
  * Catálogo de ítems: ropa (se pone en el avatar), pescados (se sacan en la Escollera Sarandí y se
  * venden en el Mercado del Puerto), cañas de pescar (hacen falta para pescar; las mejores
  * mejoran la pesca), carritos de venta (hacen falta para vender en la explanada del Estadio
- * Centenario; los mejores venden más caro) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
+ * Centenario; los mejores venden más caro), instrumentos (hacen falta para tocar en la calle en el
+ * Centro; los mejores dejan más propina) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
-export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "box" | "ticket";
+export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "instrument" | "box" | "ticket";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
@@ -106,12 +107,37 @@ export interface CartItem extends ItemBase {
     /** Intentos de venta que aguanta (cada intento gasta un uso, compren o no); después se rompe. */
     maxUses: number;
 }
+/** Nivel de un instrumento: 1 = armónica … 4 = tambor de candombe. */
+export type InstrumentTier = 1 | 2 | 3 | 4;
+/** Cómo se dibuja el instrumento en las manos del avatar y en el ícono. */
+export type InstrumentKind = "harmonica" | "guitar" | "bandoneon" | "drum";
 /**
- * Herramientas: cañas y carritos. Se gastan con el uso (`maxUses`), no se apilan (cada una ocupa su
- * casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a comprarlas: eso
- * mantiene vivo el mercado.
+ * Instrumento para tocar en la calle (el Centro: 18 de Julio y sus plazas). Hay que tener uno en la
+ * mochila; se usa siempre el de mayor nivel. Los mejores dejan más propina, más seguido y más
+ * rápido; y cuanta más gente escuchando alrededor, más dejan (ver `busking.ts`).
  */
-export type ToolItem = RodItem | CartItem;
+export interface InstrumentItem extends ItemBase {
+    category: "instrument";
+    tier: InstrumentTier;
+    kind: InstrumentKind;
+    /** Lo que se toca, para el globo al empezar: "♪ Un candombe". */
+    song: string;
+    /** Lo que deja una propina, en pesos enteros (sin gente escuchando). */
+    tipMin: number;
+    tipMax: number;
+    /** Probabilidad (0–1) de que nadie deje nada. */
+    noTipChance: number;
+    /** Multiplica la espera hasta la propina (menos de 1 = antes). */
+    waitFactor: number;
+    /** Temas que aguanta (cada uno gasta un uso, dejen o no); después se rompe. */
+    maxUses: number;
+}
+/**
+ * Herramientas: cañas, carritos e instrumentos. Se gastan con el uso (`maxUses`), no se apilan (cada
+ * una ocupa su casillero y lleva sus `uses` restantes) y, como se rompen, hay que volver a
+ * comprarlas: eso mantiene vivo el mercado.
+ */
+export type ToolItem = RodItem | CartItem | InstrumentItem;
 /** Premio posible de una caja: `weight` relativo (más alto = sale más seguido). */
 export interface LootEntry {
     itemId: string;
@@ -155,7 +181,7 @@ export interface MedicineItem extends ItemBase {
     health: number;
     energy: number;
 }
-export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | BoxItem | TicketItem;
+export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | InstrumentItem | BoxItem | TicketItem;
 export declare const CLOTHING: readonly ClothingItem[];
 /**
  * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
@@ -164,8 +190,15 @@ export declare const CLOTHING: readonly ClothingItem[];
  */
 export declare const KOREAN_FASHION: readonly ClothingItem[];
 /**
- * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
- * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ * Ropa de vestir de London París, la gran tienda de 18 de Julio en el Centro: sólo se vende ahí. Más
+ * cara que la del resto de las roperías (es "de tienda"); no está en `CLOTHING` por lo mismo que la
+ * moda coreana.
+ */
+export declare const LONDON_PARIS_FASHION: readonly ClothingItem[];
+/**
+ * Calzado para caminar rápido: lo venden Calzados Sarandí (Ciudad Vieja) y Calzados 18 de Julio
+ * (Centro). Cuanto más caro, más rápido se camina (`speed`). No están en `CLOTHING`, así las
+ * roperías no los tienen.
  */
 export declare const WALKING_SHOES: readonly ClothingItem[];
 /** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
@@ -193,6 +226,8 @@ export declare const BASIC_ROD_ID = "cana-basica";
 export declare const RODS: readonly RodItem[];
 /** Carritos de venta, de la conservadora a la parrillita. Se compran en el Kiosco del Parque. */
 export declare const CARTS: readonly CartItem[];
+/** Instrumentos para tocar en la calle: los vende la Casa de Música del Centro. */
+export declare const INSTRUMENTS: readonly InstrumentItem[];
 /** Caja que da el comando de admin `/box`. */
 export declare const MYSTERY_BOX_ID = "caja-sorpresa";
 /**
@@ -245,6 +280,11 @@ export declare function isCart(item: ItemDefinition | undefined): item is CartIt
 export declare function bestCart(itemIds: Iterable<string>): CartItem | undefined;
 /** "★★☆☆" para mostrar el nivel de un carrito. */
 export declare function cartStars(tier: CartTier): string;
+export declare function isInstrument(item: ItemDefinition | undefined): item is InstrumentItem;
+/** El instrumento de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguno. */
+export declare function bestInstrument(itemIds: Iterable<string>): InstrumentItem | undefined;
+/** "★★☆☆" para mostrar el nivel de un instrumento. */
+export declare function instrumentStars(tier: InstrumentTier): string;
 export declare function isFood(item: ItemDefinition | undefined): item is FoodItem;
 /** Lo que da comer algo: saciedad, energía y salud (negativa: hace mal). */
 export interface EdibleValue {
@@ -292,7 +332,7 @@ export declare const MAX_STACK = 99;
 export interface InventoryStack {
     itemId: string;
     quantity: number;
-    /** Sólo herramientas (cañas, carritos; siempre de a una): usos que le quedan. */
+    /** Sólo herramientas (cañas, carritos, instrumentos; siempre de a una): usos que le quedan. */
     uses?: number;
     /**
      * Casillero de la mochila (0 … capacidad − 1) donde está la pila: el jugador los reordena

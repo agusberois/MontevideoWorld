@@ -32,6 +32,8 @@ export declare const TIRED_RECOVERY = 35;
 export declare const FISH_ENERGY_COST = 10;
 /** Gasto por cada vez que se ofrece la mercadería en la explanada del Centenario. */
 export declare const VEND_ENERGY_COST = 6;
+/** Gasto por cada tema que se toca en la calle (el Centro). */
+export declare const BUSK_ENERGY_COST = 6;
 /** Recuperación por segundo quieto (parado, sin pescar). */
 export declare const IDLE_ENERGY_REGEN = 2;
 /** Recuperación por segundo sentado en un banco: descansar de verdad rinde mucho más. */
@@ -52,6 +54,7 @@ export declare const HUNGER_PER_SECOND: number;
 export declare const WALK_HUNGER_COST = 0.05;
 export declare const FISH_HUNGER_COST = 0.5;
 export declare const VEND_HUNGER_COST = 0.5;
+export declare const BUSK_HUNGER_COST = 0.5;
 /** Por debajo de esto "tenés hambre" y la energía se recupera a la mitad. */
 export declare const HUNGRY = 60;
 /** Por debajo de esto "estás muerto de hambre" y se recupera a un cuarto (también en el HUD en rojo). */

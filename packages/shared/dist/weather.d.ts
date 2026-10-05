@@ -1,4 +1,4 @@
-import { CartItem, RodItem } from "./items";
+import { CartItem, InstrumentItem, RodItem } from "./items";
 /**
  * Clima de Montevideo: global para todo el server como la hora (todos los barrios tienen el mismo).
  * Lo decide el server (`weather.ts` del server: cada clima dura unas horas del juego y después
@@ -15,6 +15,7 @@ export interface Weather {
     /** Qué cambia, en una frase corta, para los paneles de pesca y venta (vacío = nada). */
     fishingHint: string;
     vendingHint: string;
+    buskingHint: string;
     /** Peso al sortear el próximo clima (nunca se repite el mismo seguido). */
     weight: number;
     /** Cuánto dura, en horas del juego (se sortea entre las dos). */
@@ -22,9 +23,19 @@ export interface Weather {
     /** Pesca: multiplica la espera y la probabilidad de que no pique nada. */
     fishWaitFactor: number;
     fishNothingFactor: number;
-    /** Venta: multiplica la espera y la probabilidad de que nadie compre (con lluvia hay menos gente). */
+    /**
+     * Venta (y tocar en la calle): multiplica la espera y la probabilidad de que nadie compre o deje
+     * propina (con lluvia hay menos gente).
+     */
     vendWaitFactor: number;
     vendNoSaleFactor: number;
+    /**
+     * Tocar en la calle (el Centro): multiplica la espera, la probabilidad de que nadie deje nada y la
+     * propina. Cada clima la cambia para bien o para mal (con sol y con calor hay más gente paseando).
+     */
+    buskWaitFactor: number;
+    buskNoTipFactor: number;
+    buskTipFactor: number;
     /** Hambre: multiplica lo que baja solo con el tiempo (no lo de caminar ni trabajar). */
     hungerFactor: number;
 }
@@ -39,6 +50,8 @@ export declare function getWeather(id: string): Weather;
 export declare function rodInWeather(rod: RodItem, weather: Weather): RodItem;
 /** El carrito como rinde con este clima (espera, "nadie compra" y, con calor, el precio de lo frío). */
 export declare function cartInWeather(cart: CartItem, weather: Weather): CartItem;
+/** El instrumento como rinde con este clima: espera, "nadie deja nada" y la propina (`busk*Factor`). */
+export declare function instrumentInWeather(instrument: InstrumentItem, weather: Weather): InstrumentItem;
 /**
  * Si el admin fuerza el clima (`GameState.weatherMode`): "auto" lo sortea solo; un `WeatherId` lo
  * deja fijo hasta que se vuelva a "auto".

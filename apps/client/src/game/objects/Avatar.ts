@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { AnyGestureId, CHAT_BUBBLE_MS, FishingSpot, OutfitIds, PAIR_GESTURES, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
+import { AnyGestureId, CHAT_BUBBLE_MS, FishingSpot, InstrumentKind, OutfitIds, PAIR_GESTURES, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import type { AvatarLook } from "./avatarLook";
@@ -118,6 +118,24 @@ const VEND_WAVE_ANGLE = -1.3;
 const CART_METAL = 0x9aa1a9;
 const CART_DARK = 0x2b2b30;
 
+/**
+ * Tocando en la calle (el Centro): un ciclo de la pose cada `BUSK_BEAT_MS` (el rasgueo, el fuelle del
+ * bandoneón) y notas que suben flotando, una cada `BUSK_NOTE_EVERY_MS` y durante `BUSK_NOTE_MS`.
+ */
+const BUSK_BEAT_MS = 420;
+const BUSK_NOTE_EVERY_MS = 650;
+const BUSK_NOTE_MS = 1800;
+/** La armónica, frente a la boca (px del cuerpo). */
+const HARMONICA_AT = { x: 1, y: -60 };
+/** Guitarra: el agujero (donde rasguea la mano cercana) y la punta del mango (donde va la otra). */
+const GUITAR_HOLE = { x: 5, y: -36 };
+const GUITAR_HEAD = { x: -22, y: -56 };
+/** El estuche abierto en el piso, al costado del músico (px desde sus pies): ahí cae la propina. */
+export const CASE_OFFSET = { x: -20, y: -1 };
+/** Bandoneón: a la altura del pecho; cuánto se abre el fuelle (px a cada lado). */
+const BANDONEON_Y = -40;
+const BANDONEON_OPEN: [number, number] = [9, 16];
+
 /** Gestos (`Player.gesture`): entrada suave a la pose y largo del brazo hasta el centro de la mano. */
 const GESTURE_BLEND_MS = 200;
 const ARM_LENGTH = 21;
@@ -210,6 +228,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly fishingLine: Phaser.GameObjects.Graphics;
   /** Carrito de vendedor (al costado del avatar, sólo mientras vende). */
   private readonly cart: Phaser.GameObjects.Graphics;
+  /** Instrumento en las manos mientras toca en la calle (el tambor usa `drum`, el del candombe). */
+  private readonly instrument: Phaser.GameObjects.Graphics;
   private readonly overlay: Phaser.GameObjects.Container;
   private readonly donorTag: Phaser.GameObjects.Text;
   /** "🔒 PRESO" arriba del nombre mientras está preso en el COMCAR (`Player.jailLeft`). */
@@ -256,6 +276,10 @@ export class Avatar extends Phaser.GameObjects.Container {
   private vendTime = 0;
   /** El carrito sigue un rato después de vender, mientras se entrega la comida (`keepCart`, ms). */
   private cartHoldLeft = 0;
+  /** Tocando en la calle: qué instrumento (null = no toca), su color y cuánto lleva (ms). */
+  private busking: InstrumentKind | null = null;
+  private buskColor = 0xb5651d;
+  private buskTime = 0;
   /** Gesto en curso (`Player.gesture`) y cuánto lleva (ms). */
   private gesture: AnyGestureId | null = null;
   private gestureTime = 0;
@@ -318,6 +342,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     // Un poco más grandes que de verdad: si no, con el zoom normal casi no se ven.
     this.caughtFish = Array.from({ length: MAX_HOOKED }, () => scene.add.graphics().setVisible(false).setScale(1.5));
     this.cart = scene.add.graphics().setVisible(false);
+    this.instrument = scene.add.graphics().setVisible(false);
     this.termo = scene.add.graphics().setVisible(false);
     this.drawTermo();
     this.prop = scene.add.graphics().setVisible(false);
@@ -337,6 +362,7 @@ export class Avatar extends Phaser.GameObjects.Container {
       this.rod,
       this.termo,
       this.drum,
+      this.instrument,
       this.arms[1],
       this.prop,
       this.cart,
@@ -708,6 +734,8 @@ export class Avatar extends Phaser.GameObjects.Container {
         this.poseFishing(delta);
       } else if (this.reelLeft > 0) {
         this.poseReel(delta);
+      } else if (this.busking) {
+        this.poseBusking(this.busking, delta);
       } else if (this.vending) {
         this.poseVending(delta);
       } else {
@@ -717,7 +745,7 @@ export class Avatar extends Phaser.GameObjects.Container {
       // El gesto pisa los brazos (y, parado, el resto del cuerpo) de la pose de base.
       if (this.gesture) this.poseGesture(this.gesture, delta);
       // Respira sólo parado sin hacer nada (sentado, pescando, vendiendo o con un gesto ya se mueve otra cosa).
-      const idle = !this.sitting && !this.bathing && !this.fishing && !this.vending && !this.gesture && this.reelLeft <= 0;
+      const idle = !this.sitting && !this.bathing && !this.fishing && !this.vending && !this.busking && !this.gesture && this.reelLeft <= 0;
       this.body_.scaleY = idle ? 1 + Math.sin((this.idleTime / BREATH_MS) * Math.PI * 2) * BREATH_SCALE : 1;
     } else {
       // Se fue caminando mientras sacaba el pez: se corta la animación.
@@ -730,7 +758,8 @@ export class Avatar extends Phaser.GameObjects.Container {
 
     // Caminando no hay gesto (el server lo corta): sin accesorios ni efectos. (Con gesto, cada frame
     // `poseGesture` dice qué se ve.)
-    if (!this.gesture || this.segment) this.hideGestureProps();
+    // Tocando quieto, el tambor, el palo y las notas los maneja `poseBusking`.
+    if ((!this.gesture || this.segment) && !(this.busking && !this.segment)) this.hideGestureProps();
     this.poseKick(delta);
     this.poseOffer(delta);
     this.updateCartHold(delta);
@@ -1085,6 +1114,174 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillCircle(5, -0.8, 1);
     g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
     g.strokeEllipse(0, 0, 16, 7);
+  }
+
+  /**
+   * Tocando en la calle (o no) con un instrumento de `kind` y `color`: armónica, guitarra criolla,
+   * bandoneón o tambor de candombe (el tamboril del gesto).
+   */
+  setBusking(kind: InstrumentKind | null, color = 0xb5651d) {
+    if (kind === this.busking && color === this.buskColor) return;
+    if (kind && !this.busking) this.buskTime = 0;
+    this.busking = kind;
+    this.buskColor = color;
+    this.instrument.clear().setVisible(kind !== null && kind !== "drum");
+    if (kind === "harmonica") this.drawHarmonica(color);
+    else if (kind === "guitar") this.drawGuitar(color);
+    if (!kind) {
+      this.hideGestureProps();
+      this.instrument.setPosition(0, 0);
+    }
+  }
+
+  /**
+   * De frente tocando: los brazos según el instrumento (al ritmo de `BUSK_BEAT_MS`), el cuerpo que se
+   * mece y las notas que suben. El bandoneón se redibuja cada frame (el fuelle se abre y se cierra).
+   */
+  private poseBusking(kind: InstrumentKind, delta: number) {
+    this.setBackView(false);
+    this.body_.scaleX = 1;
+    this.poseLimbs(delta, 0, 1, 0);
+    this.buskTime += delta;
+    const time = this.buskTime;
+    const beat = (time % BUSK_BEAT_MS) / BUSK_BEAT_MS;
+    const swing = Math.sin(beat * Math.PI * 2);
+    const [far, near] = this.arms;
+    const aimAt = (arm: Phaser.GameObjects.Container, shoulderX: number, hand: { x: number; y: number }) => {
+      const target = reach({ x: hand.x - shoulderX, y: hand.y - SHOULDER_Y });
+      arm.rotation = target.rotation;
+      arm.scaleY = target.scale;
+    };
+    this.body_.rotation = Math.sin((time / BUSK_BEAT_MS) * Math.PI * 0.5) * 0.04;
+    this.drum.setVisible(false);
+    this.prop.setVisible(false);
+    const g = this.fx.clear();
+
+    switch (kind) {
+      case "harmonica": {
+        // Las dos manos en la boca; la armónica va y viene un poco.
+        const slide = swing * 2;
+        this.instrument.setPosition(slide, 0);
+        aimAt(near, ARM_X, { x: HARMONICA_AT.x + 5 + slide, y: HARMONICA_AT.y + 2 });
+        aimAt(far, -ARM_X, { x: HARMONICA_AT.x - 5 + slide, y: HARMONICA_AT.y + 2 });
+        break;
+      }
+      case "guitar":
+        // La mano cercana rasguea en el agujero; la otra arma los acordes en el mango.
+        aimAt(near, ARM_X, { x: GUITAR_HOLE.x + 3, y: GUITAR_HOLE.y + swing * 4 });
+        aimAt(far, -ARM_X, { x: GUITAR_HEAD.x + 6, y: GUITAR_HEAD.y + 4 + Math.sin(time / 700) * 1.5 });
+        break;
+      case "bandoneon": {
+        // El fuelle se abre y se cierra entre las dos manos.
+        const open = Phaser.Math.Linear(BANDONEON_OPEN[0], BANDONEON_OPEN[1], (swing + 1) / 2);
+        this.drawBandoneon(this.buskColor, open);
+        aimAt(near, ARM_X, { x: open, y: BANDONEON_Y + 2 });
+        aimAt(far, -ARM_X, { x: -open, y: BANDONEON_Y + 2 });
+        break;
+      }
+      case "drum": {
+        // Como el gesto de candombe: el tamboril colgado y la mano con el palo pegando en el parche.
+        const down = beat < 0.35 ? smooth(beat / 0.35) : 1 - smooth((beat - 0.35) / 0.65);
+        const hand = { x: Phaser.Math.Linear(DRUM_UP.x, DRUM_HIT.x, down), y: Phaser.Math.Linear(DRUM_UP.y, DRUM_HIT.y, down) };
+        const target = reach(hand);
+        near.rotation = target.rotation;
+        near.scaleY = target.scale;
+        far.rotation = -0.45 + Math.sin(time / 180) * 0.15;
+        far.scaleY = 0.9;
+        this.drum.setVisible(true);
+        this.holdProp("stick");
+        const at = this.handOf(near, ARM_X);
+        this.prop.setPosition(at.x, at.y);
+        break;
+      }
+    }
+    this.drawCase(g);
+    this.drawNotes(g, time);
+  }
+
+  /** El estuche abierto en el piso, al costado, con unas monedas (ahí cae la propina). */
+  private drawCase(g: Phaser.GameObjects.Graphics) {
+    const { x, y } = CASE_OFFSET;
+    g.fillStyle(0x000000, 0.25).fillEllipse(x, y + 1, 20, 6);
+    g.fillStyle(0x3d2414, 1).fillRoundedRect(x - 9, y - 5, 18, 6, 2);
+    g.fillStyle(0x7b1e2b, 1).fillRoundedRect(x - 7.5, y - 4, 15, 3.5, 1.5);
+    g.fillStyle(0xf2c94c, 1);
+    for (const [cx, cy] of [[-3, -2.5], [1, -2], [4, -3]]) g.fillCircle(x + cx, y + cy, 1.3);
+    g.fillStyle(0x3d2414, 1).fillRoundedRect(x - 9, y - 12, 18, 6, 2);
+  }
+
+  /** Notas musicales que suben desde arriba del hombro, se mecen y se desvanecen. */
+  private drawNotes(g: Phaser.GameObjects.Graphics, time: number) {
+    const color = shade(this.buskColor, 45);
+    const count = Math.ceil(BUSK_NOTE_MS / BUSK_NOTE_EVERY_MS);
+    const newest = Math.floor(time / BUSK_NOTE_EVERY_MS);
+    for (let i = 0; i < count; i++) {
+      const index = newest - i;
+      if (index < 0) break;
+      const age = (time - index * BUSK_NOTE_EVERY_MS) / BUSK_NOTE_MS;
+      if (age < 0 || age > 1) continue;
+      const side = index % 2 === 0 ? 1 : -1;
+      const x = side * (10 + age * 10) + Math.sin(age * Math.PI * 3 + index) * 4;
+      const y = -66 - age * 34;
+      const alpha = age < 0.15 ? age / 0.15 : 1 - (age - 0.15) / 0.85;
+      g.fillStyle(color, alpha);
+      g.fillEllipse(x, y, 5, 3.6);
+      g.lineStyle(1.3, color, alpha);
+      g.lineBetween(x + 2.2, y, x + 2.2, y - 8);
+      if (index % 3 === 0) g.lineBetween(x + 2.2, y - 8, x + 5.5, y - 6);
+    }
+  }
+
+  /** Armónica frente a la boca: metal con la tapa de color y los agujeritos. */
+  private drawHarmonica(color: number) {
+    const g = this.instrument;
+    const { x, y } = HARMONICA_AT;
+    g.fillStyle(0xd9dde2, 1);
+    g.fillRoundedRect(x - 7, y - 2.2, 14, 4.4, 1);
+    g.fillStyle(color, 1);
+    g.fillRect(x - 7, y - 0.6, 14, 1.2);
+    g.fillStyle(0x2b2b30, 1);
+    for (let i = 0; i < 6; i++) g.fillRect(x - 5.5 + i * 2.2, y + 1, 1, 0.9);
+  }
+
+  /** Guitarra criolla cruzada sobre el cuerpo: caja de color, boca, mango y clavijero. */
+  private drawGuitar(color: number) {
+    const g = this.instrument;
+    const dark = shade(color, -35);
+    g.lineStyle(3.2, 0x5a3b1e, 1);
+    g.lineBetween(GUITAR_HOLE.x - 2, GUITAR_HOLE.y - 2, GUITAR_HEAD.x, GUITAR_HEAD.y);
+    g.fillStyle(0x3d2414, 1);
+    g.fillRoundedRect(GUITAR_HEAD.x - 3, GUITAR_HEAD.y - 3, 6, 5, 1.5);
+    g.fillStyle(color, 1);
+    g.fillEllipse(GUITAR_HOLE.x + 4, GUITAR_HOLE.y + 5, 17, 13);
+    g.fillEllipse(GUITAR_HOLE.x - 1, GUITAR_HOLE.y - 1, 12, 10);
+    g.lineStyle(1, dark, 0.8);
+    g.strokeEllipse(GUITAR_HOLE.x + 4, GUITAR_HOLE.y + 5, 17, 13);
+    g.fillStyle(0x2b1a10, 1);
+    g.fillCircle(GUITAR_HOLE.x + 1, GUITAR_HOLE.y + 1, 2.4);
+    g.lineStyle(0.6, 0xf4efe3, 0.8);
+    g.lineBetween(GUITAR_HOLE.x + 6, GUITAR_HOLE.y + 7, GUITAR_HEAD.x + 1, GUITAR_HEAD.y);
+  }
+
+  /** Bandoneón: las dos cajas con botones en las manos y el fuelle plegado en el medio. */
+  private drawBandoneon(color: number, open: number) {
+    const g = this.instrument.clear();
+    const y = BANDONEON_Y;
+    const folds = 5;
+    g.fillStyle(0xf4efe3, 1);
+    g.fillRect(-open + 3, y - 6, open * 2 - 6, 12);
+    g.lineStyle(1, 0x2b2b30, 0.9);
+    for (let i = 0; i <= folds; i++) {
+      const x = -open + 3 + ((open * 2 - 6) * i) / folds;
+      g.lineBetween(x, y - 6, x, y + 6);
+    }
+    for (const side of [-1, 1]) {
+      const cx = side * open;
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(cx - 4, y - 8, 8, 16, 2);
+      g.fillStyle(0xf4efe3, 1);
+      for (const dy of [-4, 0, 4]) g.fillCircle(cx, y + dy, 0.9);
+    }
   }
 
   /** De frente con el carrito a la derecha; cada tanto levanta el brazo para ofrecer. */

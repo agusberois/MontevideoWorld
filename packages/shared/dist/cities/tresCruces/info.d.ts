@@ -6,6 +6,7 @@ export declare const TRES_CRUCES_INFO: {
     id: "tres-cruces";
     name: string;
     description: string;
+    hidden: true;
     landmarks: ({
         id: string;
         name: string;

@@ -6,6 +6,7 @@ import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
 import type { TutorialState } from "./tutorial";
 import type { CustomerState, MatchMode } from "./vending";
+import type { CrowdState } from "./busking";
 import type { WeatherMode } from "./weather";
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 export declare const MessageType: {
@@ -76,6 +77,16 @@ export declare const MessageType: {
     readonly VendResult: "vend:result";
     /** Servidor → Cliente (sólo al vendedor): el hincha que se acerca al carrito (`CustomerState`). */
     readonly VendCustomer: "vend:customer";
+    /** Cliente → Servidor: tocar un tema en la calle (en la zona del Centro, con un instrumento). */
+    readonly BuskStart: "busk:start";
+    /** Cliente → Servidor: dejar de tocar. */
+    readonly BuskStop: "busk:stop";
+    /** Servidor → Cliente: estás tocando; en `durationMs` se sabe si dejaron propina. */
+    readonly BuskStarted: "busk:started";
+    /** Servidor → Cliente: cómo te fue con el tema. */
+    readonly BuskResult: "busk:result";
+    /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
+    readonly BuskCrowd: "busk:crowd";
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     readonly Notice: "notice";
     /** Cliente (admin) → Servidor: mover el reloj del juego. */
@@ -394,6 +405,25 @@ export interface VendCustomerMessage {
     state: CustomerState;
     cartId?: string;
 }
+/** Servidor → Cliente: estás tocando; el resultado llega en `durationMs`. */
+export interface BuskStartedMessage {
+    durationMs: number;
+}
+/**
+ * Servidor → Cliente: resultado del tema. `earned` = la propina (0 si nadie dejó nada);
+ * `listeners` / `partners` = cuántos escuchaban y cuántos tocaban cerca cuando terminó.
+ */
+export interface BuskResultMessage {
+    ok: boolean;
+    text: string;
+    earned: number;
+    listeners: number;
+    partners: number;
+}
+/** Servidor → Cliente (sólo al músico): su público se arrima, deja plata, se va sin dejar o se va (tema cortado). */
+export interface BuskCrowdMessage {
+    state: CrowdState;
+}
 /** Servidor → Cliente: aviso breve que sólo ve ese jugador. */
 export interface NoticeMessage {
     text: string;
@@ -451,6 +481,8 @@ export interface TravelMessage {
     ambulance?: boolean;
     /** Sólo Servidor → Cliente: cruzaste una puerta (las Termas): un fundido corto, sin ómnibus. */
     door?: boolean;
+    /** Sólo Servidor → Cliente: la puerta era el borde del mapa (`Door.edge`): se va caminando. */
+    walk?: boolean;
 }
 /** Cliente → Servidor: cruzar la puerta `doorId` del barrio. */
 export interface DoorEnterMessage {
@@ -572,6 +604,8 @@ export interface ClientToServerMessages {
     [MessageType.FoodEat]: FoodEatMessage;
     [MessageType.VendStart]: undefined;
     [MessageType.VendStop]: undefined;
+    [MessageType.BuskStart]: undefined;
+    [MessageType.BuskStop]: undefined;
     [MessageType.AdminSetTime]: AdminSetTimeMessage;
     [MessageType.AdminNearbyRequest]: undefined;
     [MessageType.AdminGive]: AdminGiveMessage;
@@ -617,6 +651,9 @@ export interface ServerToClientMessages {
     [MessageType.VendStarted]: VendStartedMessage;
     [MessageType.VendResult]: VendResultMessage;
     [MessageType.VendCustomer]: VendCustomerMessage;
+    [MessageType.BuskStarted]: BuskStartedMessage;
+    [MessageType.BuskResult]: BuskResultMessage;
+    [MessageType.BuskCrowd]: BuskCrowdMessage;
     [MessageType.CasinoResult]: CasinoResultMessage;
     [MessageType.GesturePairInvite]: GesturePairInviteMessage;
     [MessageType.Notice]: NoticeMessage;

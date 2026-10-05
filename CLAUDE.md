@@ -1,14 +1,14 @@
 # Montevideo World — Documentación viva
 
 MMORPG web 2.5D con vista isométrica estilo Habbo. **v1 = prueba de concepto**: conectarse por
-WebSocket, aparecer en un barrio de Montevideo (**Ciudad Vieja** al entrar; también **Tres Cruces** y el **Barrio de los Judíos** (el de más tiendas), con
-viaje entre barrios desde la lista M), caminar haciendo clic en el piso (sincronizado en tiempo real) y chatear con globos
+WebSocket, aparecer en un barrio de Montevideo (**Ciudad Vieja** al entrar; también el **Centro** (el de más tiendas, al que se
+llega caminando por 18 de Julio); **Tres Cruces** y el **Barrio de los Judíos** están ocultos por ahora (`CityInfo.hidden`), con viaje entre barrios desde la lista M), caminar haciendo clic en el piso (sincronizado en tiempo real) y chatear con globos
 de texto sobre la cabeza del avatar. Hay bancos donde sentarse (clic) y una mochila con ropa
 para ponerse/sacarse, más una barra de acceso rápido, dinero, tiendas y la primera actividad:
-**pescar** en la Escollera Sarandí (con cañas de distinto nivel) y **vender** con un carrito en la
-explanada del Estadio Centenario (Tres Cruces). Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **K** calendario de Uruguay, **C** comandos, **Tab** jugadores
+**pescar** en la Escollera Sarandí (con cañas de distinto nivel), **vender** con un carrito en la
+explanada del Estadio Centenario (Tres Cruces) y **tocar en la calle** sobre 18 de Julio (Centro, con instrumentos). Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **K** calendario de Uruguay, **C** comandos, **Tab** jugadores
 del barrio, **F** interactuar con lo que tenés al lado (tienda, banco, palmera, parada, jugador, picudo) o, si no
-hay nada, pescar en la escollera / vender en el Centenario, **1–9** barra rápida, **WASD** caminar, **Y** cámara fija / libre, **Espacio** centrar la cámara, **flechas** mover la
+hay nada, pescar en la escollera / vender en el Centenario / tocar en 18 de Julio, **1–9** barra rápida, **WASD** caminar, **Y** cámara fija / libre, **Espacio** centrar la cámara, **flechas** mover la
 cámara, **Esc** cierra.
 
 > Mantené esta documentación actualizada: este archivo para lo que vale en todo el repo y la regla de
@@ -37,7 +37,7 @@ El árbol sale del código (`ls`, y cada archivo explica arriba qué hace). Lo q
 ## Arquitectura
 
 - Una sala de Colyseus (`CityRoom`) por barrio y copia; se entra siempre a Ciudad Vieja y se viaja
-  con boleto. El cliente (Next + Phaser) manda **intenciones** (`room.send(MessageType.X, …)`); el
+  con boleto (o caminando, entre Ciudad Vieja y el Centro). El cliente (Next + Phaser) manda **intenciones** (`room.send(MessageType.X, …)`); el
   server valida, mueve un tile por tick (`STEP_MS`) y replica el mundo por el Schema (`GameState`).
 - El servidor es **autoritativo**: el cliente nunca escribe posiciones ni saldos. Predice el camino
   del avatar propio para que arranque sin demora, pero siempre se corrige a lo que dice el server.
@@ -146,14 +146,14 @@ Reglas:
 - Pesca sin minijuego: el resultado se sortea al tirar y sólo hay que esperar. La venta en el
   Centenario funciona igual (sin minijuego ni mercadería que reponer). Cañas y carritos se gastan
   por uso y se rompen; no se pueden reparar. Prendas sin comprarlas: sólo las que regalan los hinchas al vender.
-- Tres barrios (Ciudad Vieja, Tres Cruces y el Barrio de los Judíos), más el COMCAR (presos adentro, visitas afuera)
+- Cuatro barrios (Ciudad Vieja, el Centro, Tres Cruces y el Barrio de los Judíos; los dos últimos ocultos por ahora), más el COMCAR (presos adentro, visitas afuera)
   el **Hotel del Donador** (spa con jacuzzi al que sólo entran donadores y el admin) y el **Casino**
   (tragamonedas, ruleta y blackjack), interiores a los que se entra por la puerta de su edificio en
   Ciudad Vieja. Al volver a
   entrar se aparece donde se quedó (barrio y tile, guardado con el progreso; el COMCAR no cuenta); la
   primera vez, en Ciudad Vieja. Al viajar, en la zona de spawn del destino. Quien queda en otro barrio
   sin boleto STM (sólo se venden en Ciudad Vieja) puede salir y volver a entrar: sin boleto en la
-  mochila, vuelve a Ciudad Vieja.
+  mochila, vuelve a Ciudad Vieja (salvo al Centro, que se llega caminando).
 - Avatares dibujados con primitivas (4 orientaciones por espejado: frente/espalda × izq/der; de espaldas
   sólo mientras camina, al llegar queda de frente). Se dibujan una sola vez, como listas de formas
   (`lib/avatar/`), que pintan igual el juego (Phaser) y la vista previa (SVG). El aspecto se elige al entrar y no se puede cambiar después sin reconectar. Próximo

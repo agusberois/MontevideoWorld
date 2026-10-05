@@ -1,8 +1,8 @@
 import * as Phaser from "phaser";
-import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect } from "@montevideo-world/shared";
+import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect, getCityInfo } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
+import { PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, portalSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
 import { landmarkPieces, roofSpot } from "./landmarks";
@@ -119,9 +119,29 @@ export class CityRenderer {
       this.placePiece(stop, spec);
       this.addSign(`Parada · ${stop.name}`, { x: stop.x, y: stop.y, width: 1, height: 1 }, spec.maxZ, "#ffffff", "rgba(29, 95, 168, 0.88)");
     }
+    this.drawPortals();
     this.drawPlaceLabels();
     if (logo) this.drawLogoSign(logo);
   }
+
+  /**
+   * El arco de las salidas por el borde (`Door.edge`, 18 de Julio entre Ciudad Vieja y el Centro):
+   * pilares de piedra con farol en las puntas y el arco de hierro sobre la calle, con el cartel del
+   * destino como el nomenclátor de la calle. No tapa al avatar (se camina pegado y por debajo).
+   */
+  private drawPortals() {
+    for (const door of this.map.city.doors ?? []) {
+      if (!door.edge) continue;
+      const { x, y, height } = door.area;
+      for (let i = 0; i < height; i++) {
+        const role = i === 0 ? "start" : i === height - 1 ? "end" : "curtain";
+        this.placePiece({ x, y: y + i }, portalSpec(role), { occludes: false });
+      }
+      const destination = getCityInfo(door.to.cityId)?.name ?? "";
+      this.addSign(`18 de Julio · hacia ${destination}`, door.area, 178, "#ffffff", "rgba(29, 79, 138, 0.9)");
+    }
+  }
+
 
   /**
    * Dónde va el cartel "MW": el punto del techo del edificio emblemático indicado en
@@ -195,6 +215,11 @@ export class CityRenderer {
     }
     for (const stop of this.map.city.busStops) {
       lights.push({ ...isoPoint(stop.x, stop.y, 30), radius: 50, color: 0xdff1ff });
+    }
+    // Los faroles de los pilares del arco de 18 de Julio (las salidas por el borde).
+    for (const door of this.map.city.doors ?? []) {
+      if (!door.edge) continue;
+      for (const y of [door.area.y, door.area.y + door.area.height - 1]) lights.push({ ...isoPoint(door.area.x, y, 160), radius: 70, color: 0xffd98a });
     }
     return lights;
   }

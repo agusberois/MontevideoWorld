@@ -13,19 +13,20 @@ paths:
 Global para todo el server como la hora: todos los barrios tienen el mismo. Cuatro climas
 (`WEATHERS` en `packages/shared/src/weather.ts`): **despejado**, **lluvia**, **viento pampero** y
 **calor de enero**. Cada uno define su peso al sortear, cuántas horas del juego dura (`hours`), sus
-textos (`announce` para el chat; `fishingHint` / `vendingHint` para los paneles) y sus efectos:
+textos (`announce` para el chat; `fishingHint` / `vendingHint` / `buskingHint` para los paneles) y sus efectos:
 
-| Clima | Pesca | Venta | Hambre |
-| --- | --- | --- | --- |
-| Lluvia | espera ×0,8, "no picó nada" ×0,6 | espera ×1,3, "nadie compra" ×1,6 (hay menos gente) | — |
-| Pampero | espera ×1,25, "no picó nada" ×1,6 | — | — |
-| Calor | — | la **conservadora** (`HEAT_COLD_CARTS`): "nadie compra" ×0,5 y paga ×1,5 | ×1,3 (sólo lo que baja con el tiempo) |
+| Clima | Pesca | Venta | Tocar en la calle | Hambre |
+| --- | --- | --- | --- | --- |
+| Despejado | — | — | "nadie deja" ×0,85, propina ×1,15 | — |
+| Lluvia | espera ×0,8, "no picó nada" ×0,6 | espera ×1,3, "nadie compra" ×1,6 (hay menos gente) | espera ×1,3, "nadie deja" ×1,6, propina ×0,8 | — |
+| Pampero | espera ×1,25, "no picó nada" ×1,6 | — | espera ×1,15, "nadie deja" ×1,4, propina ×0,9 | — |
+| Calor | — | la **conservadora** (`HEAT_COLD_CARTS`): "nadie compra" ×0,5 y paga ×1,5 | espera ×0,9, "nadie deja" ×0,9, propina ×1,25 (turistas) | ×1,3 (sólo lo que baja con el tiempo) |
 
 - **Server** (`apps/server/src/weather.ts`, `WeatherClock`, singleton `weather`): no tiene timer;
   `current()` avanza sorteando el próximo cuando vence el de ahora (nunca el mismo dos veces
   seguidas). Arranca despejado y vive en memoria (no se guarda). Simulado: ~55 % del tiempo
   despejado y un cambio cada ~5 minutos reales con el día de 24 minutos.
-- **Efectos**: `rodInWeather` / `cartInWeather` devuelven una copia de la herramienta ajustada; el
+- **Efectos**: `rodInWeather` / `cartInWeather` / `instrumentInWeather` devuelven una copia de la herramienta ajustada; el
   server sortea con esa copia (`rollCatch` / `rollSale` en `systems/activities.ts`) y le cobra el uso
   a la de verdad. El hambre pasa por `NeedsTick.hungerFactor` (`tickNeeds` en `systems/life.ts`).
   Ninguna probabilidad de fallar pasa de 0,9.

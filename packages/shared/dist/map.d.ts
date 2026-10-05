@@ -68,6 +68,8 @@ export declare class CityMap {
     canFishAt(x: number, y: number): boolean;
     /** Se vende con carrito parado en la zona de venta del barrio (si tiene una). */
     canVendAt(x: number, y: number): boolean;
+    /** Se toca en la calle parado en la zona del barrio (si tiene una: el Centro). */
+    canBuskAt(x: number, y: number): boolean;
     /**
      * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
      * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera

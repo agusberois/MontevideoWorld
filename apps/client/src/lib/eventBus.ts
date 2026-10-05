@@ -9,6 +9,9 @@ import type {
   Appearance,
   FishStartedMessage,
   VendResultMessage,
+  BuskResultMessage,
+  BuskStartedMessage,
+  BuskCrowdMessage,
   VendStartedMessage,
   VendCustomerMessage,
   GesturePairInviteMessage,
@@ -66,6 +69,14 @@ export interface GameEvents {
   "vending:result": VendResultMessage;
   /** Sólo al vendedor: su hincha llega, compra (con qué carrito), pasa o se va. */
   "vending:customer": VendCustomerMessage;
+  /** Phaser → React: si el avatar propio está donde se toca en la calle (el Centro) y si está tocando. */
+  "busking:status": { canBusk: boolean; busking: boolean };
+  /** Red → React: estás tocando; el resultado llega en `durationMs`. */
+  "busking:started": BuskStartedMessage;
+  /** Red → React: cómo te fue con el tema. */
+  "busking:result": BuskResultMessage;
+  /** Sólo al músico: la gente de mentira que se arrima a escuchar, deja plata o se va. */
+  "busking:crowd": BuskCrowdMessage;
   /** Te invitan a un gesto de a dos (chocar los cinco, abrazo, pasar el mate). */
   "gesture:invite": GesturePairInviteMessage;
   /** Cómo salió la jugada en el casino (sólo al que juega). */
@@ -172,7 +183,7 @@ export interface PlayerSummary {
   energy: number;
 }
 
-export type PlayerActivity = { kind: "fishing"; rod: string } | { kind: "vending"; cart: string } | { kind: "sitting" };
+export type PlayerActivity = { kind: "fishing"; rod: string } | { kind: "vending"; cart: string } | { kind: "busking"; instrument: string } | { kind: "sitting" };
 
 type Handler<T> = (payload: T) => void;
 

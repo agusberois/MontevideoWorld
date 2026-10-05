@@ -7,14 +7,17 @@ const cx = moduleClasses(styles);
 
 /** Lo que dura el viaje en ómnibus entre barrios (como mínimo: si el server tarda más, se espera). */
 export const TRAVEL_MS = 5000;
-/** Cruzar una puerta (las Termas): un fundido corto, sin ómnibus. */
+/** Cruzar una puerta (las Termas) o el borde de 18 de Julio: un fundido corto, sin ómnibus. */
 export const DOOR_MS = 700;
 
-/** Pantalla al cruzar una puerta: se oscurece y dice adónde se entra. */
-export function DoorOverlay({ to }: { to: string }) {
+/**
+ * Pantalla al cruzar una puerta: se oscurece y dice adónde se entra. `walk`: era el borde de 18 de
+ * Julio (entre Ciudad Vieja y el Centro), se va caminando.
+ */
+export function DoorOverlay({ to, walk }: { to: string; walk?: boolean }) {
   return (
     <div className={cx("door-overlay")} role="status" aria-live="polite">
-      <p>🚪 {to}…</p>
+      <p>{walk ? `🚶 Caminando a ${to}` : `🚪 ${to}`}…</p>
     </div>
   );
 }

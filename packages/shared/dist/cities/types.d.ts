@@ -50,7 +50,7 @@ export declare const TileChar: {
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable" | "entrevero" | "peaceColumn" | "departmentStore" | "artDeco" | "cinema" | "cityHall" | "statue" | "modernTower" | "decoTower" | "italianPalace" | "frenchPalace" | "victoryStatue";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -94,7 +94,7 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "wholesale" | "shoes" | "bakery" | "rotisserie" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "wholesale" | "shoes" | "bakery" | "rotisserie" | "cafe" | "crafts" | "music" | "none";
 export interface Shop {
     id: string;
     name: string;
@@ -123,8 +123,8 @@ export interface Shop {
     priceFactor?: number;
 }
 /**
- * Zona donde se puede vender con un carrito (p. ej. la explanada del Estadio Centenario): los
- * tiles caminables dentro de `areas`.
+ * Zona donde se puede vender con un carrito (p. ej. la explanada del Estadio Centenario) o tocar en
+ * la calle (18 de Julio): los tiles caminables dentro de `areas`.
  */
 export interface VendingZone {
     name: string;
@@ -137,7 +137,7 @@ export interface PlaceLabel {
     y: number;
 }
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export declare const CITY_IDS: readonly ["ciudad-vieja", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"];
+export declare const CITY_IDS: readonly ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"];
 export type CityId = (typeof CITY_IDS)[number];
 /**
  * Lo liviano de un barrio: lo que necesitan la lista de barrios, la landing, las tiendas y los
@@ -159,6 +159,17 @@ export interface CityInfo {
     access?: "donor" | "door";
     /** Es un interior: sin lluvia ni noche (luz fija). */
     indoor?: boolean;
+    /**
+     * Se llega caminando desde Ciudad Vieja (el Centro, por 18 de Julio): al volver a entrar al juego
+     * se vuelve sin boleto, como a las salas de puerta.
+     */
+    onFoot?: boolean;
+    /**
+     * Oculto por ahora (Tres Cruces y el Barrio de los Judíos): no sale en la lista ni en la landing, no
+     * se puede viajar ni volver a entrar ahí (se vuelve a Ciudad Vieja) y sus tiendas no se nombran en
+     * los avisos. El mapa sigue en el código: para volver a abrirlo, sacar el campo.
+     */
+    hidden?: boolean;
 }
 /**
  * Puerta: un área (no caminable) a la que se hace clic para pasar a otra sala, sin boleto. Afuera
@@ -176,6 +187,12 @@ export interface Door {
     };
     /** Quién puede cruzarla (sin el campo, cualquiera). */
     access?: "donor";
+    /**
+     * Salida por el borde del mapa (18 de Julio, entre Ciudad Vieja y el Centro): no se dibuja nada
+     * (sigue la calle), se cruza también caminando contra ella con WASD y al cruzar se ve "Caminando
+     * a…" en lugar de la puerta.
+     */
+    edge?: boolean;
 }
 /**
  * Jacuzzi: un área (no caminable) con lugares (`seats`, tiles del área) donde se mete uno por
@@ -213,6 +230,8 @@ export interface CityDefinition extends Omit<CityInfo, "prison"> {
     busStops: readonly BusStop[];
     /** Dónde se vende con carrito (sólo en algunos barrios). */
     vending?: VendingZone;
+    /** Dónde se toca en la calle con un instrumento (el Centro: 18 de Julio y sus plazas). */
+    busking?: VendingZone;
     placeLabels: readonly PlaceLabel[];
     /** Edificio emblemático (`Landmark.id`) sobre cuyo techo va el cartel con el logo de Montevideo World. */
     logoSign?: {

@@ -2,7 +2,7 @@ import { getItem } from "@montevideo-world/shared";
 import { eventBus } from "./eventBus";
 import { gameStore } from "./gameStore";
 import { ItemActionContext, itemAction } from "../features/inventory/itemActions";
-import { CityRoom, sendFishing, sendTravelRequest, sendVending } from "./network";
+import { CityRoom, sendBusking, sendFishing, sendTravelRequest, sendVending } from "./network";
 
 /**
  * Acciones del jugador que dependen del estado de la UI (`gameStore`). Las usan los atajos de
@@ -11,8 +11,8 @@ import { CityRoom, sendFishing, sendTravelRequest, sendVending } from "./network
 
 /** Lo que `itemAction` necesita para saber qué hace cada ítem ahora mismo. */
 export function itemActionContext(room: CityRoom): ItemActionContext {
-  const { outfit, inventory, fishing, vending } = gameStore.getState();
-  return { room, outfit, inventory, fishing, vending };
+  const { outfit, inventory, fishing, vending, busking } = gameStore.getState();
+  return { room, outfit, inventory, fishing, vending, busking };
 }
 
 /** F / botón: tirar la línea si estás en la escollera, o recogerla si ya está en el agua. */
@@ -29,21 +29,30 @@ export function toggleVending(room: CityRoom) {
   else if (vending.canVend) sendVending(room, "start");
 }
 
+/** Botón (o F sobre 18 de Julio): tocar un tema si estás donde se toca en el Centro, o dejar de tocar. */
+export function toggleBusking(room: CityRoom) {
+  const { busking } = gameStore.getState();
+  if (busking.busking) sendBusking(room, "stop");
+  else if (busking.canBusk) sendBusking(room, "start");
+}
+
 /**
- * F, en este orden: si estás pescando o vendiendo, lo corta; si tenés algo al lado (tienda,
+ * F, en este orden: si estás pescando, vendiendo o tocando, lo corta; si tenés algo al lado (tienda,
  * banco, palmera, parada, otro jugador, un picudo), interactúa con eso; si no, pesca en la
- * escollera o vende en la explanada del Centenario.
+ * escollera, vende en la explanada del Centenario o toca en 18 de Julio.
  */
 export function pressF(room: CityRoom) {
-  const { fishing, vending, interaction } = gameStore.getState();
+  const { fishing, vending, busking, interaction } = gameStore.getState();
   if (fishing.fishing) toggleFishing(room);
   else if (vending.vending) toggleVending(room);
+  else if (busking.busking) toggleBusking(room);
   else if (interaction) eventBus.emit("interact:use", null);
   else if (fishing.canFish) toggleFishing(room);
   else if (vending.canVend) toggleVending(room);
+  else if (busking.canBusk) toggleBusking(room);
 }
 
-/** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, vender, comer, abrir una caja). */
+/** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, vender, tocar, comer, abrir una caja). */
 export function activateHotbar(room: CityRoom, index: number) {
   const itemId = gameStore.getState().hotbar[index];
   const item = itemId ? getItem(itemId) : undefined;

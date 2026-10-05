@@ -58,5 +58,5 @@ function doubleBench(x, y, facing) {
     ];
 }
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-exports.CITY_IDS = ["ciudad-vieja", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"];
+exports.CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"];
 //# sourceMappingURL=types.js.map

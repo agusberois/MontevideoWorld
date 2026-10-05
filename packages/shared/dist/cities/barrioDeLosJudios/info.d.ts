@@ -2,6 +2,7 @@ export declare const BARRIO_DE_LOS_JUDIOS_INFO: {
     id: "barrio-de-los-judios";
     name: string;
     description: string;
+    hidden: true;
     landmarks: ({
         id: string;
         name: string;
