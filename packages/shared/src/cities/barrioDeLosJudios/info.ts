@@ -54,10 +54,10 @@ export const BARRIO_DE_LOS_JUDIOS_INFO = {
       area: { x: 35, y: 19, width: 1, height: 11 },
     },
     {
-      id: "sinagoga",
-      name: "Sinagoga del barrio",
-      description: "Templo de la colectividad judía que llegó a Villa Muñoz escapando de los pogromos de Europa del Este.",
-      kind: "synagogue",
+      id: "mercado-agricola",
+      name: "Mercado Agrícola",
+      description: "El MAM: mercado de 1913 con bóveda de hierro y vidrio, lleno de puestos de frutas, verduras, quesos y comida, a pasos de Villa Muñoz.",
+      kind: "agriMarket",
       area: { x: 38, y: 21, width: 3, height: 3 },
     },
     {

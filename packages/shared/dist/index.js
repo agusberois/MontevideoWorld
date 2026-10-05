@@ -15,9 +15,12 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./appearance"), exports);
+__exportStar(require("./calendar"), exports);
+__exportStar(require("./casino"), exports);
 __exportStar(require("./commands"), exports);
 __exportStar(require("./constants"), exports);
 __exportStar(require("./fishing"), exports);
+__exportStar(require("./gestures"), exports);
 __exportStar(require("./haggle"), exports);
 __exportStar(require("./cities/types"), exports);
 __exportStar(require("./cities/info"), exports);

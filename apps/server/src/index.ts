@@ -6,6 +6,7 @@ import cors, { CorsOptions } from "cors";
 import express from "express";
 import { Server, matchMaker } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
+import { Encoder } from "@colyseus/schema";
 import {
   CARTS,
   DEFAULT_PORT,
@@ -26,6 +27,11 @@ import {
 import { liveRooms, tickMetrics } from "./metrics";
 import { playerStore, travelTickets } from "./playerStore";
 import { CityRoom, saveEveryone } from "./rooms/CityRoom";
+
+// Buffer de cada sala para codificar el estado: el de fábrica (8 KB) no alcanza con más de ~55
+// jugadores en una sala (de tope son `MAX_PLAYERS_PER_ROOM`) y, al desbordar, Colyseus agranda y
+// vuelve a codificar todo en cada entrada. Tiene que estar antes de crear cualquier sala.
+Encoder.BUFFER_SIZE = 32 * 1024;
 
 // Cañas y carritos se gastan: cada uno tiene que dejar más plata de lo que cuesta. Si alguien toca
 // precios, usos o probabilidades y uno deja de ser rentable, se avisa al arrancar.

@@ -12,7 +12,7 @@ import { loadBlocked, saveBlocked, toggleInList } from "../features/players/bloc
  */
 
 /** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
-export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "playerDetails";
+export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails";
 
 export interface GameStoreState {
   /** Un solo panel abierto a la vez. */
@@ -59,7 +59,7 @@ export interface GameStoreState {
   /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
   trading: boolean;
   /** Viaje en curso (pantalla del ómnibus): de qué barrio a cuál. */
-  traveling: { from: string; to: string; ambulance?: boolean } | null;
+  traveling: { from: string; to: string; ambulance?: boolean; door?: boolean } | null;
   /** Barra rápida 1–9: preferencia del navegador, sobrevive a salir y a viajar. */
   hotbar: HotbarSlots;
   /** Jugadores bloqueados (esqueleto del nombre, `nameKey`): preferencia del navegador, como la barra. */

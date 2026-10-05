@@ -17,7 +17,7 @@ export declare const BARRIO_DE_LOS_JUDIOS_INFO: {
         id: string;
         name: string;
         description: string;
-        kind: "synagogue";
+        kind: "agriMarket";
         area: {
             x: number;
             y: number;

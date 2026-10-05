@@ -2,6 +2,8 @@ import { Client, MatchMakeError, Room, ServerError } from "colyseus.js";
 import {
   JAILED_JOIN_CODE,
   JAIL_CITY_ID,
+  RESUME_CITY_CODE,
+  CITY_INFOS,
   Appearance,
   BoxOpenMessage,
   TravelMessage,
@@ -25,8 +27,19 @@ import {
   ROOM_NAME,
   SPAWN_CITY_ID,
   ShopHaggleMessage,
+  ShopHaggleManyMessage,
+  CasinoBlackjackMessage,
+  CasinoRouletteMessage,
+  CasinoSlotsMessage,
+  RouletteBet,
+  ShopSellManyMessage,
   ShopTradeMessage,
   TargetPlayerMessage,
+  GestureId,
+  GestureMessage,
+  GesturePairRequestMessage,
+  GesturePairRespondMessage,
+  PairGestureId,
   TradeOffer,
   TradeRespondMessage,
 } from "@montevideo-world/shared";
@@ -67,17 +80,17 @@ function getClient() {
 /** Con qué nombre y aspecto se entró: al viajar a otro barrio se vuelve a entrar igual. */
 let lastJoin: { name: string; appearance: Appearance } | null = null;
 
-/** Entrar a un barrio con el aspecto elegido (al empezar, siempre al de spawn: Ciudad Vieja). */
-export async function joinCity(
-  name: string,
-  appearance: Appearance,
-  cityId: string = SPAWN_CITY_ID,
-  roomId?: string,
-): Promise<CitySession> {
+/**
+ * Entrar a un barrio con el aspecto elegido. Sin `cityId` (desde la pantalla de ingreso) se pide el de
+ * spawn (Ciudad Vieja) con `resume`: si habías quedado en otro barrio, el server te da el pase y
+ * contesta `RESUME_CITY_CODE` con ese barrio, y se entra ahí.
+ */
+export async function joinCity(name: string, appearance: Appearance, cityId?: string, roomId?: string): Promise<CitySession> {
   lastJoin = { name, appearance };
-  const options: JoinOptions = { name, cityId, appearance, playerKey: getPlayerKey() ?? undefined };
+  const resume = cityId === undefined;
+  const options: JoinOptions = { name, cityId: cityId ?? SPAWN_CITY_ID, appearance, playerKey: getPlayerKey() ?? undefined, resume };
   // El mapa del barrio se descarga mientras se conecta: la escena lo necesita ya cargado.
-  const map = loadCityMap(cityId);
+  const map = loadCityMap(options.cityId);
   map.catch(() => {}); // si la entrada falla antes, que no quede un rechazo sin atender
   let session: CitySession;
   try {
@@ -89,8 +102,12 @@ export async function joinCity(
       : await getClient().joinOrCreate<GameState>(ROOM_NAME, options);
     session = { room, cityId: options.cityId };
   } catch (error) {
+    // Había quedado en otro barrio: el pase ya está emitido, se entra ahí.
+    if (resume && isServerError(error, RESUME_CITY_CODE) && CITY_INFOS.some((city) => city.id === error.message)) {
+      return joinCity(name, appearance, error.message);
+    }
     // Preso (`/ban`): el server no lo deja entrar a otro barrio; va directo al COMCAR.
-    if (!(error instanceof ServerError) || error.code !== JAILED_JOIN_CODE || cityId === JAIL_CITY_ID) throw error;
+    if (!isServerError(error, JAILED_JOIN_CODE) || options.cityId === JAIL_CITY_ID) throw error;
     const jailOptions: JoinOptions = { ...options, cityId: JAIL_CITY_ID };
     const [room] = await Promise.all([getClient().joinOrCreate<GameState>(ROOM_NAME, jailOptions), loadCityMap(JAIL_CITY_ID)]);
     return { room, cityId: JAIL_CITY_ID };
@@ -103,6 +120,11 @@ export async function joinCity(
     throw error;
   }
   return session;
+}
+
+/** ¿El server rechazó la entrada con este código? (Desde `onAuth` llega como `MatchMakeError`.) */
+function isServerError(error: unknown, code: number): error is ServerError | MatchMakeError {
+  return (error instanceof ServerError || error instanceof MatchMakeError) && error.code === code;
 }
 
 /**
@@ -148,6 +170,9 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "fishing:result": MessageType.FishResult,
   "vending:started": MessageType.VendStarted,
   "vending:result": MessageType.VendResult,
+  "vending:customer": MessageType.VendCustomer,
+  "gesture:invite": MessageType.GesturePairInvite,
+  "casino:result": MessageType.CasinoResult,
   "admin:nearby": MessageType.AdminNearby,
   notice: MessageType.Notice,
   announcement: MessageType.Announcement,
@@ -221,6 +246,36 @@ export function sendShopCheckout(room: CityRoom, shopId: string, items: CartLine
   room.send(MessageType.ShopCheckout, message);
 }
 
+/** Casino: una tirada de la tragamonedas `shopId`. */
+export function sendCasinoSlots(room: CityRoom, shopId: string, bet: number) {
+  const message: CasinoSlotsMessage = { shopId, bet };
+  room.send(MessageType.CasinoSlots, message);
+}
+
+/** Casino: una bola de la ruleta. */
+export function sendCasinoRoulette(room: CityRoom, shopId: string, bet: number, choice: RouletteBet) {
+  const message: CasinoRouletteMessage = { shopId, bet, choice };
+  room.send(MessageType.CasinoRoulette, message);
+}
+
+/** Casino: blackjack (repartir con `bet`, pedir o plantarse). */
+export function sendCasinoBlackjack(room: CityRoom, shopId: string, action: CasinoBlackjackMessage["action"], bet?: number) {
+  const message: CasinoBlackjackMessage = { shopId, action, bet };
+  room.send(MessageType.CasinoBlackjack, message);
+}
+
+/** Vender de una lo elegido en la pestaña Vender (todo o nada). */
+export function sendShopSellMany(room: CityRoom, shopId: string, items: CartLine[]) {
+  const message: ShopSellManyMessage = { shopId, items };
+  room.send(MessageType.ShopSellMany, message);
+}
+
+/** Regatear el lote elegido entero: `price` por todo, todo o nada. */
+export function sendShopHaggleMany(room: CityRoom, shopId: string, items: CartLine[], price: number) {
+  const message: ShopHaggleManyMessage = { shopId, items, price };
+  room.send(MessageType.ShopHaggleMany, message);
+}
+
 /** Guardia del sanatorio: pagar la consulta y quedar con la salud en 100. */
 export function sendHospitalHeal(room: CityRoom, shopId: string) {
   room.send(MessageType.HospitalHeal, { shopId });
@@ -289,16 +344,34 @@ export function sendAdminGive(room: CityRoom, itemId: string, quantity: number, 
   room.send(MessageType.AdminGive, message);
 }
 
-/** Saludar a otro jugador (sale en el chat como mensaje propio). */
 /** Visita del COMCAR: burlarse de un preso (sale en el chat). */
 export function sendTaunt(room: CityRoom, targetId: string) {
   const message: TargetPlayerMessage = { targetId };
   room.send(MessageType.Taunt, message);
 }
 
+/** Saludar a otro jugador (sale en el chat como mensaje propio y el avatar saluda con la mano). */
 export function sendGreet(room: CityRoom, targetId: string) {
   const message: TargetPlayerMessage = { targetId };
   room.send(MessageType.Greet, message);
+}
+
+/** Hacer un gesto (lo ven todos; si está caminando, lo hace al llegar). */
+export function sendGesture(room: CityRoom, gesture: GestureId) {
+  const message: GestureMessage = { gesture };
+  room.send(MessageType.Gesture, message);
+}
+
+/** Invitar a quien tenés al lado a un gesto de a dos (chocar los cinco, abrazo, pasar el mate). */
+export function sendPairGesture(room: CityRoom, targetId: string, gesture: PairGestureId) {
+  const message: GesturePairRequestMessage = { targetId, gesture };
+  room.send(MessageType.GesturePairRequest, message);
+}
+
+/** Aceptar o no el gesto de a dos que te propuso `fromId`. */
+export function sendPairGestureRespond(room: CityRoom, fromId: string, accept: boolean) {
+  const message: GesturePairRespondMessage = { fromId, accept };
+  room.send(MessageType.GesturePairRespond, message);
 }
 
 /** Invitar a otro jugador a intercambiar. */

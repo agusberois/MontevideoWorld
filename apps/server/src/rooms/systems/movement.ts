@@ -1,7 +1,9 @@
-import { Bench, MAX_ROUTE_LENGTH, MessageType, TIRED_STEP_TICKS, TilePoint, WALK_HUNGER_COST, WEEVIL_REWARD } from "@montevideo-world/shared";
+import { Bench, MAX_ROUTE_LENGTH, MessageType, TIRED_STEP_TICKS, TilePoint, WALK_HUNGER_COST, WEEVIL_REWARD, walkSpeed } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
-import { PlayerSession, halt, isWalking, oncePerTick } from "../session";
+import { PlayerSession, halt, isWalking, oncePerTick, standUp } from "../session";
 import { stopActivities } from "./activities";
+import { crossDoor, enterJacuzzi } from "./doors";
+import { startGesture } from "./gestures";
 import { openShop } from "./shops";
 import { checkTutorialReach } from "./tutorial";
 import type { MessageRoutes } from "./types";
@@ -28,7 +30,7 @@ export function movementRoutes(room: CityRoom) {
       // o destino inalcanzable: frena donde está.
       halt(session);
       if (path.length === 0) return;
-      player.sitting = false;
+      standUp(player);
       session.path = path;
     }),
 
@@ -46,7 +48,7 @@ export function movementRoutes(room: CityRoom) {
       const alreadyThere = player.x === approach.x && player.y === approach.y;
       if (path.length === 0 && !alreadyThere) return;
 
-      player.sitting = false;
+      standUp(player);
       session.path = path;
       session.pending = { kind: "bench", bench };
     }),
@@ -64,7 +66,7 @@ export function movementRoutes(room: CityRoom) {
       const approach = room.map.approachTile(palm, { x: player.x, y: player.y });
       const path = approach ? room.map.findPath({ x: player.x, y: player.y }, approach) : [];
       if (path.length === 0) return;
-      player.sitting = false;
+      standUp(player);
       session.path = path;
       session.pending = { kind: "palm", palm };
     }),
@@ -98,7 +100,7 @@ export function isBenchTaken(room: CityRoom, bench: Bench, except: PlayerSession
 export function teleport(session: PlayerSession, tile: TilePoint) {
   stopActivities(session);
   halt(session);
-  session.player.sitting = false;
+  standUp(session.player);
   session.player.x = tile.x;
   session.player.y = tile.y;
 }
@@ -106,7 +108,7 @@ export function teleport(session: PlayerSession, tile: TilePoint) {
 /**
  * Cada `STEP_MS`: primero los pedidos de camino que quedaron en cola (`oncePerTick`), después los que ya llegaron (sin camino) hacen lo que tenían pendiente (sentarse
  * un tick después de llegar, así el avatar no salta dos tiles de golpe; sacudir la palmera; abrir la
- * tienda) y después cada uno con camino avanza un tile.
+ * tienda, hacer el gesto) y después cada uno con camino avanza un tile.
  */
 export function stepPlayers(room: CityRoom) {
   // Tick nuevo: cada uno puede volver a buscar camino; el pedido que quedó en cola va primero.
@@ -130,6 +132,12 @@ export function stepPlayers(room: CityRoom) {
       player.sitting = true;
     } else if (pending.kind === "palm") {
       if (room.map.isNextTo(pending.palm, player.x, player.y)) shakePalm(room, session, pending.palm);
+    } else if (pending.kind === "gesture") {
+      startGesture(session, pending.gesture);
+    } else if (pending.kind === "door") {
+      if (room.map.isNearDoor(pending.door, player.x, player.y)) crossDoor(room, session, pending.door);
+    } else if (pending.kind === "jacuzzi") {
+      enterJacuzzi(room, session, pending.seat);
     } else if (room.map.isNearShop(pending.shop, player.x, player.y)) {
       openShop(room, session, pending.shop);
     }
@@ -142,13 +150,26 @@ export function stepPlayers(room: CityRoom) {
       session.stepWait -= 1;
       continue;
     }
-    if (session.player.tired) session.stepWait = TIRED_STEP_TICKS - 1;
-    // Cada paso gasta un poco de energía, pero nunca deja agotado (`walkStep`): siempre se puede caminar.
-    session.needs.walkStep();
-    session.needs.drainHunger(WALK_HUNGER_COST);
-    const next = session.path.shift()!;
-    session.player.x = next.x;
-    session.player.y = next.y;
-    checkTutorialReach(room, session);
+    let steps = 1;
+    if (session.player.tired) {
+      session.stepWait = TIRED_STEP_TICKS - 1;
+      session.stepCredit = 0;
+    } else {
+      // Calzado rápido (`walkSpeed`): cada tick suma la velocidad y se avanza un tile por cada punto
+      // entero (con 1,5, tres tiles cada dos ticks). Con calzado común es siempre uno.
+      session.stepCredit += walkSpeed(session.player.shoes);
+      steps = Math.floor(session.stepCredit);
+      session.stepCredit -= steps;
+    }
+    for (let i = 0; i < steps && isWalking(session); i++) {
+      // Cada paso gasta un poco de energía, pero nunca deja agotado (`walkStep`): siempre se puede caminar.
+      session.needs.walkStep();
+      session.needs.drainHunger(WALK_HUNGER_COST);
+      const next = session.path.shift()!;
+      session.player.x = next.x;
+      session.player.y = next.y;
+      checkTutorialReach(room, session);
+    }
+    if (!isWalking(session)) session.stepCredit = 0;
   }
 }

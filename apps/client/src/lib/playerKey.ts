@@ -19,3 +19,21 @@ export function getPlayerKey(): string | null {
     return null;
   }
 }
+
+/** Una clave nueva al azar (para un personaje nuevo); null si no hay criptografía. */
+export function newPlayerKey(): string | null {
+  try {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
+/** Pone `key` como la clave activa (la del personaje elegido). */
+export function setPlayerKey(key: string) {
+  try {
+    window.localStorage.setItem(PLAYER_KEY_STORAGE_KEY, key);
+  } catch {
+    // Sin almacenamiento: se juega igual, sin guardar.
+  }
+}

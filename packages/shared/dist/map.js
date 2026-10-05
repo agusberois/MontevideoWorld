@@ -53,9 +53,10 @@ class CityMap {
             if (this.inBounds(stop.x, stop.y))
                 this.walkable[stop.y * this.width + stop.x] = 0;
         }
-        // Las tiendas son edificios: se atiende desde un tile pegado a su área.
-        for (const shop of city.shops) {
-            const { x, y, width, height } = shop.area;
+        // Las tiendas son edificios: se atiende desde un tile pegado a su área. Las puertas y los
+        // jacuzzis, igual: se llega a un tile pegado (y al jacuzzi uno se mete desde ahí).
+        for (const { area } of [...city.shops, ...(city.doors ?? []), ...(city.jacuzzis ?? [])]) {
+            const { x, y, width, height } = area;
             for (let ty = y; ty < y + height; ty++) {
                 for (let tx = x; tx < x + width; tx++)
                     if (this.inBounds(tx, ty))
@@ -138,19 +139,45 @@ class CityMap {
     }
     /** ¿El tile (x, y) está pegado a la tienda (incluye diagonales)? Desde ahí se puede comprar. */
     isNearShop(shop, x, y) {
-        const { area } = shop;
-        const dx = Math.max(area.x - x, 0, x - (area.x + area.width - 1));
-        const dy = Math.max(area.y - y, 0, y - (area.y + area.height - 1));
-        return Math.max(dx, dy) === 1;
+        return isNextToArea(shop.area, x, y);
     }
     /** Tile caminable pegado a la tienda más cercano a `from` (adonde camina quien hace clic). */
     shopApproach(shop, from) {
-        const { x, y, width, height } = shop.area;
+        return this.areaApproach(shop.area, from);
+    }
+    doorAt(x, y) {
+        return this.city.doors?.find((door) => inRect(door.area, x, y));
+    }
+    getDoor(id) {
+        return this.city.doors?.find((door) => door.id === id);
+    }
+    /** ¿El tile (x, y) está pegado a la puerta (incluye diagonales)? Desde ahí se cruza. */
+    isNearDoor(door, x, y) {
+        return isNextToArea(door.area, x, y);
+    }
+    /** Tile caminable pegado a la puerta más cercano a `from`. */
+    doorApproach(door, from) {
+        return this.areaApproach(door.area, from);
+    }
+    jacuzziAt(x, y) {
+        return this.city.jacuzzis?.find((jacuzzi) => inRect(jacuzzi.area, x, y));
+    }
+    /** ¿(x, y) es un lugar de algún jacuzzi? (Ahí está metido quien tiene `bathing`.) */
+    isJacuzziSeat(x, y) {
+        return Boolean(this.jacuzziAt(x, y)?.seats.some((seat) => seat.x === x && seat.y === y));
+    }
+    /** Tile caminable pegado al lugar `seat` del jacuzzi (desde ahí uno se mete), el más cercano a `from`. */
+    seatApproach(seat, from) {
+        return this.approachTile(seat, from);
+    }
+    /** Tile caminable pegado al área más cercano a `from` (el borde de una tienda o una puerta). */
+    areaApproach(area, from) {
+        const { x, y, width, height } = area;
         let best;
         let bestDistance = Infinity;
         for (let ty = y - 1; ty <= y + height; ty++) {
             for (let tx = x - 1; tx <= x + width; tx++) {
-                if (!this.isWalkable(tx, ty) || !this.isNearShop(shop, tx, ty))
+                if (!this.isWalkable(tx, ty) || !isNextToArea(area, tx, ty))
                     continue;
                 const distance = Math.abs(tx - from.x) + Math.abs(ty - from.y);
                 if (distance < bestDistance) {
@@ -174,11 +201,17 @@ class CityMap {
         return this.city.busStops.find((stop) => stop.x === x && stop.y === y);
     }
     /**
-     * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+     * Qué hay para hacer en el tile (x, y), en orden de prioridad: puerta, jacuzzi, parada, tienda, palmera, banco,
      * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
      * se mueven y los resuelve quien llama.
      */
     interactionAt(x, y, { palmReach = 0 } = {}) {
+        const door = this.doorAt(x, y);
+        if (door)
+            return { kind: "door", target: { x, y }, area: door.area, door };
+        const jacuzzi = this.jacuzziAt(x, y);
+        if (jacuzzi)
+            return { kind: "jacuzzi", target: { x, y }, area: jacuzzi.area, jacuzzi };
         const busStop = this.busStopAt(x, y);
         if (busStop)
             return { kind: "busStop", target: { x, y }, area: tileRect(x, y), busStop };
@@ -207,6 +240,10 @@ class CityMap {
             if (!hit || hit.kind === "floor")
                 continue;
             if (hit.kind === "shop" && found.some((other) => other.kind === "shop" && other.shop === hit.shop))
+                continue;
+            if (hit.kind === "door" && found.some((other) => other.kind === "door" && other.door === hit.door))
+                continue;
+            if (hit.kind === "jacuzzi" && found.some((other) => other.kind === "jacuzzi" && other.jacuzzi === hit.jacuzzi))
                 continue;
             found.push(hit);
         }
@@ -322,6 +359,12 @@ class CityMap {
     }
 }
 exports.CityMap = CityMap;
+/** ¿(x, y) está pegado al área (incluye diagonales), sin estar adentro? */
+function isNextToArea(area, x, y) {
+    const dx = Math.max(area.x - x, 0, x - (area.x + area.width - 1));
+    const dy = Math.max(area.y - y, 0, y - (area.y + area.height - 1));
+    return Math.max(dx, dy) === 1;
+}
 function inRect(rect, x, y) {
     return x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height;
 }

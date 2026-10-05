@@ -9,6 +9,10 @@ export declare const CITY_INFOS: readonly CityInfo[];
 export declare const SPAWN_CITY_ID: CityId;
 /** Adonde va preso el que banea el admin (`/ban`): no se sale hasta cumplir. */
 export declare const JAIL_CITY_ID: CityId;
+/** Las Termas del Donador: sólo donadores y admin, por la puerta de Ciudad Vieja. */
+export declare const TERMAS_CITY_ID: CityId;
+/** ¿Se puede viajar en ómnibus a este barrio? (No a los de acceso restringido, que tienen puerta.) */
+export declare function isPublicCity(city: CityInfo): boolean;
 export declare function isCityId(id: string): id is CityId;
 export declare function getCityInfo(id: string): CityInfo | undefined;
 /** Dónde se vende `itemId` (p. ej. para decir dónde comprar boletos): tienda y barrio. */

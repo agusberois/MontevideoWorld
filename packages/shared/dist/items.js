@@ -7,7 +7,9 @@
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.walkSpeed = walkSpeed;
+exports.speedPerk = speedPerk;
 exports.isRod = isRod;
 exports.bestRod = bestRod;
 exports.rodStars = rodStars;
@@ -90,6 +92,26 @@ exports.KOREAN_FASHION = clothing([
     { id: "pantalon-cargo", name: "Pantalón cargo", slot: "bottom", style: "pants", color: "#6b6b3a", price: 40 },
     { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 45 },
 ]);
+/**
+ * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
+ * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ */
+exports.WALKING_SHOES = clothing([
+    { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 15 },
+    { id: "championes-caminata", name: "Championes de caminata", slot: "shoes", style: "sneakers", color: "#8fa3ad", price: 90, speed: 1.1 },
+    { id: "championes-deportivos", name: "Championes deportivos", slot: "shoes", style: "sneakers", color: "#2a9d8f", price: 240, speed: 1.2 },
+    { id: "championes-running", name: "Championes de running", slot: "shoes", style: "sneakers", color: "#f28c28", price: 560, speed: 1.35 },
+    { id: "championes-atleta", name: "Championes de atleta", slot: "shoes", style: "sneakers", color: "#e9b10a", price: 1300, speed: 1.5 },
+]);
+/** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
+function walkSpeed(shoesId) {
+    const item = shoesId ? exports.ITEMS.find((candidate) => candidate.id === shoesId) : undefined;
+    return item?.category === "clothing" && item.speed ? item.speed : 1;
+}
+/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+function speedPerk(item) {
+    return item.speed && item.speed > 1 ? [`👟 Caminás ${Math.round((item.speed - 1) * 100)} % más rápido`] : [];
+}
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).
@@ -177,7 +199,7 @@ exports.TICKET_ID = "boleto-stm";
 exports.TICKETS = [
     { id: exports.TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: money_1.TRAVEL_FARE },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.BOXES, ...exports.TICKETS];
+exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.BOXES, ...exports.TICKETS];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 exports.SELL_RATIO = 0.5;
 /**

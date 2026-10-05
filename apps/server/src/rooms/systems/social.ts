@@ -8,7 +8,9 @@ import { CommandHost, runCommand } from "../../commands";
 import { playerDirectory } from "../../directory";
 import { issueTravelTicket, playerStore } from "../../playerStore";
 import type { CityRoom } from "../CityRoom";
-import type { PlayerSession } from "../session";
+import { PlayerSession, isWalking } from "../session";
+import { leaveRestricted } from "./doors";
+import { startGesture } from "./gestures";
 import { teleport } from "./movement";
 import { restartTutorial } from "./tutorial";
 import type { MessageRoutes } from "./types";
@@ -41,7 +43,10 @@ export function socialRoutes(room: CityRoom) {
       sayAs(room, session, text, now);
     },
 
-    /** Saludar a otro jugador: sale como mensaje propio en el chat (y en el globo). Usa el cooldown del chat. */
+    /**
+     * Saludar a otro jugador: sale como mensaje propio en el chat (y en el globo) y saluda con la mano
+     * (gesto `wave`, si no está ocupado ni caminando). Usa el cooldown del chat.
+     */
     [MessageType.Greet]: (session, message) => {
       const target = room.sessions.get(message.targetId);
       if (!target || target === session) return;
@@ -49,6 +54,7 @@ export function socialRoutes(room: CityRoom) {
       if (now - session.lastChatAt < CHAT_COOLDOWN_MS || isMuted(room, session, now)) return;
       session.lastChatAt = now;
       sayAs(room, session, `👋 ¡Hola, ${target.player.name}!`, now);
+      if (!isWalking(session)) startGesture(session, "wave", now);
     },
 
     /**
@@ -143,6 +149,8 @@ export function createCommandHost(room: CityRoom): CommandHost {
       if (!session) return false;
       session.player.donor = donor;
       room.savePlayer(session);
+      // Le sacaron el donador estando en las Termas: se lo saca por la puerta.
+      if (!donor && room.map.city.access === "donor" && !session.player.admin) leaveRestricted(room, session);
       return session.key !== null;
     },
     giveMoney: (client, amount) => {
@@ -193,6 +201,22 @@ export function createCommandHost(room: CityRoom): CommandHost {
       issueTravelTicket(session.key, to.cityId, Date.now() + TRAVEL_TICKET_MS, Date.now(), { near: to.sessionId });
       room.sendTo(session, MessageType.TravelApproved, { cityId: to.cityId, roomId: to.mailbox.roomId });
       room.notice(session, `📍 Yendo hasta ${to.name} (${to.cityName}).`);
+    },
+    summon: (client, to) => {
+      const session = sessionOf(client);
+      if (!session) return;
+      // El tile del admin; si es un banco o el jacuzzi (no se camina), uno pegado.
+      const here = { x: session.player.x, y: session.player.y };
+      const at = room.map.isWalkable(here.x, here.y) ? here : room.map.approachTile(here, here);
+      if (!at) return room.notice(session, "No hay dónde dejarlo: parate en un tile libre.");
+      const target = room.sessions.get(to.sessionId);
+      if (target && to.mailbox.roomId === room.roomId) {
+        teleport(target, at);
+        room.notice(target, `🧲 ${session.player.name} te trajo a su lado.`);
+        return room.notice(session, `🧲 Trajiste a ${to.name}.`);
+      }
+      const why = to.mailbox.summon(to.sessionId, { cityId: room.map.city.id, roomId: room.roomId, at, by: session.player.name });
+      room.notice(session, why ? `No se pudo traer a ${to.name}: ${why}` : `🧲 Trayendo a ${to.name} desde ${to.cityName}.`);
     },
     // Anuncio para todos los barrios: se publica en presence y cada sala lo reenvía. (Queda en el
     // log como el comando `/post`, ver `audit`.)

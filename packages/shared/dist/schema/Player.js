@@ -30,6 +30,8 @@ class Player extends schema_1.Schema {
         this.y = 0;
         /** Sentado en el banco del tile actual. */
         this.sitting = false;
+        /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */
+        this.bathing = false;
         /** Pescando desde la escollera (los demás lo ven con la caña). */
         this.fishing = false;
         /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
@@ -43,12 +45,15 @@ class Player extends schema_1.Schema {
         this.petName = "";
         /** Preso en el COMCAR (`/ban`): segundos que le quedan (0 = libre). */
         this.jailLeft = 0;
-        /** Hincha que se acerca al carrito (`CustomerState`: nadie, llegando, compró, siguió de largo). */
-        this.customer = 0;
         /** Sube en cada venta: los clientes muestran "¡Vendido!" sobre el vendedor. */
         this.sales = 0;
         /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
         this.kicks = 0;
+        /** Gesto que está haciendo (id de `GESTURES`; "" = ninguno). Lo pone y lo saca el server (`systems/gestures.ts`). */
+        this.gesture = "";
+        /** Gesto de a dos (`PAIR_GESTURES`): con quién (sessionId) y si lo invitó él (en el mate, el que convida). */
+        this.gesturePartner = "";
+        this.gestureLead = false;
         /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
         this.energy = 100;
         /** Cansado: camina `TIRED_STEP_TICKS` veces más lento (lo decide el server; todos lo ven así). */
@@ -106,6 +111,9 @@ __decorate([
 ], Player.prototype, "sitting", void 0);
 __decorate([
     (0, schema_1.type)("boolean")
+], Player.prototype, "bathing", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
 ], Player.prototype, "fishing", void 0);
 __decorate([
     (0, schema_1.type)("string")
@@ -126,14 +134,20 @@ __decorate([
     (0, schema_1.type)("uint32")
 ], Player.prototype, "jailLeft", void 0);
 __decorate([
-    (0, schema_1.type)("uint8")
-], Player.prototype, "customer", void 0);
-__decorate([
     (0, schema_1.type)("uint16")
 ], Player.prototype, "sales", void 0);
 __decorate([
     (0, schema_1.type)("uint16")
 ], Player.prototype, "kicks", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "gesture", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "gesturePartner", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "gestureLead", void 0);
 __decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "energy", void 0);

@@ -9,6 +9,7 @@ import {
   MoveMessage,
   OutfitIds,
   ShopVisitMessage,
+  DoorEnterMessage,
   SitMessage,
   TilePoint,
   WEEVIL_BITE_ENERGY,
@@ -16,7 +17,6 @@ import {
   WeevilKickMessage,
   weevilModeOf,
   weevilTile,
-  CustomerState,
   getPet,
   MatchMode,
   WeatherMode,
@@ -29,6 +29,10 @@ import {
   FacialHair,
   GLASSES,
   Glasses,
+  gestureInfo,
+  isGestureId,
+  isPairGestureId,
+  walkSpeed,
 } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { PlayerActivity, PlayerSummary, eventBus } from "@/lib/eventBus";
@@ -52,6 +56,8 @@ const HOVER_DEPTH = FLOOR_DEPTH + 20;
 /** Color del borde al pasar el mouse, por tipo de cosa del mapa (ver `CityMap.interactionAt`). */
 const HOVER_COLORS: Record<MapInteractionKind, number> = {
   floor: 0xffffff,
+  door: 0xffd166,
+  jacuzzi: 0x7fd6ff,
   bench: 0xffd166,
   shop: 0x9ef0c9,
   palm: 0xff8a5c,
@@ -62,7 +68,7 @@ const FLOAT_TEXT_DEPTH = 1_000_500;
 /** Cada cuánto se busca qué hay al lado para interactuar con F (y se actualiza el cartel). */
 const INTERACT_CHECK_MS = 100;
 /** Con F, qué cosa del mapa pegada al avatar se usa primero (el piso no cuenta: ya estás ahí). */
-const NEARBY_PRIORITY: readonly MapInteractionKind[] = ["shop", "busStop", "bench", "palm"];
+const NEARBY_PRIORITY: readonly MapInteractionKind[] = ["door", "shop", "busStop", "jacuzzi", "bench", "palm"];
 
 /** Algo con lo que se puede interactuar con F desde donde está el avatar propio. */
 interface Interaction {
@@ -96,6 +102,9 @@ interface CitySceneData {
   room: CityRoom;
   cityId: string;
 }
+
+/** Lo que flota al empezar un gesto sale por encima del nombre (px sobre los pies). */
+const GESTURE_CRY_Y = 128;
 
 export class CityScene extends Phaser.Scene {
   static readonly KEY = "CityScene";
@@ -160,7 +169,7 @@ export class CityScene extends Phaser.Scene {
     this.localAvatar = null;
     this.avatars = new Map();
     this.weevils = new Map();
-    this.customers = new Customers(this, map);
+    this.customers = new Customers(this, map, (id) => this.avatars.get(id));
     this.pets = new Map();
     this.roster = new Map();
     this.fishingStatus = "";
@@ -233,6 +242,25 @@ export class CityScene extends Phaser.Scene {
       }),
     );
 
+    // Sólo para el que lo hace (mensajes privados del server, no el Schema): así no se le dibujan a
+    // todo el barrio los peces y los hinchas de todos.
+    this.disposers.push(
+      // Picó: la caña se dobla, salpica y sale cada pez (con doble, dos), de su color.
+      eventBus.on("fishing:result", (result) => {
+        if (!result.hooked?.length) return;
+        const colors = result.hooked.map((id) => {
+          const fish = getItem(id);
+          return fish ? Phaser.Display.Color.HexStringToColor(fish.color).color : 0x9fb4c0;
+        });
+        this.localAvatar?.reelIn(colors);
+      }),
+      // El hincha que se acerca al carrito: llega, compra (le dan la comida y paga) o sigue de largo.
+      eventBus.on("vending:customer", ({ state, cartId }) => {
+        const self = this.room.state.players.get(this.room.sessionId);
+        if (self) this.customers.update(this.room.sessionId, state, { x: self.x, y: self.y }, cartId);
+      }),
+    );
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.dispose, this);
   }
@@ -290,6 +318,10 @@ export class CityScene extends Phaser.Scene {
       const stand = bench ? this.map.benchApproach(bench) : undefined;
       return stand ? { key: "stand", label: "Levantarse", run: () => this.requestMove(stand) } : null;
     }
+    if (self.bathing) {
+      const out = this.map.seatApproach({ x: self.x, y: self.y }, { x: self.x, y: self.y + 1 });
+      return out ? { key: "stand", label: "Salir del jacuzzi", run: () => this.requestMove(out) } : null;
+    }
 
     let weevilId: string | null = null;
     let weevilDistance = WEEVIL_KICK_RANGE;
@@ -340,10 +372,21 @@ export class CityScene extends Phaser.Scene {
   private describe(hit: MapInteraction): Interaction {
     const { x, y } = hit.target;
     switch (hit.kind) {
+      case "door": {
+        const self = this.room.state.players.get(this.room.sessionId);
+        const locked = hit.door.access === "donor" && !self?.donor && !self?.admin;
+        return { key: `door:${hit.door.id}`, label: locked ? "♥ Sólo donadores" : hit.door.name, run: () => this.enterDoor(hit.door.id) };
+      }
+      case "jacuzzi":
+        return { key: `jacuzzi:${hit.jacuzzi.id}`, label: "Meterte al jacuzzi", run: () => this.enterJacuzzi(hit.target) };
       case "busStop":
         return { key: `stop:${hit.busStop.name}`, label: "Tomar el ómnibus", run: () => this.goToBusStop(hit.busStop) };
       case "shop":
-        return { key: `shop:${hit.shop.id}`, label: `Entrar a ${hit.shop.name}`, run: () => this.visitShop(hit.target) };
+        return {
+          key: `shop:${hit.shop.id}`,
+          label: hit.shop.casino ? `Jugar: ${hit.shop.name}` : `Entrar a ${hit.shop.name}`,
+          run: () => this.visitShop(hit.target),
+        };
       case "palm":
         return { key: `palm:${x},${y}`, label: "Sacudir la palmera", run: () => this.shakePalm(hit.target) };
       case "bench":
@@ -532,7 +575,8 @@ export class CityScene extends Phaser.Scene {
       // Clima (global, como la hora): la escena dibuja lluvia o viento; React lo muestra en el HUD.
       $(this.room.state).listen("weather", (id) => {
         const weather = getWeather(id).id;
-        this.weatherFx.setWeather(weather, firstWeather);
+        // Adentro (el spa del hotel) no llueve; la noche sí llega y se prenden los faroles.
+        this.weatherFx.setWeather(this.map.city.indoor ? "clear" : weather, firstWeather);
         firstWeather = false;
         eventBus.emit("city:weather", { id: weather, mode: this.room.state.weatherMode as WeatherMode });
       }),
@@ -574,6 +618,23 @@ export class CityScene extends Phaser.Scene {
           }),
         );
 
+        // Gesto (tomar mate, aplaudir… o de a dos, con `gesturePartner`): lo anima el avatar y, al
+        // empezar, flota lo que dice (en los de a dos, sólo sobre el que invitó: si no, sale doble).
+        const applyGesture = () => {
+          const id = isGestureId(player.gesture) || isPairGestureId(player.gesture) ? player.gesture : null;
+          avatar.setGesture(id, player.gesturePartner ? (this.avatars.get(player.gesturePartner) ?? null) : null, player.gestureLead);
+        };
+        this.disposers.push(
+          $(player).listen("gesture", (gesture, previous) => {
+            applyGesture();
+            const id = isGestureId(gesture) || isPairGestureId(gesture) ? gesture : null;
+            if (!id || previous === undefined || (isPairGestureId(id) && !player.gestureLead)) return;
+            this.floatText(avatar.x, avatar.y - GESTURE_CRY_Y, gestureInfo(id).cry, "#ffffff");
+          }),
+          $(player).listen("gesturePartner", applyGesture),
+          $(player).listen("gestureLead", applyGesture),
+        );
+
         // Donador: lo marca el admin con /donador, también con el jugador ya conectado.
         this.disposers.push(
           $(player).listen("donor", (donor) => avatar.setDonor(donor)),
@@ -603,16 +664,12 @@ export class CityScene extends Phaser.Scene {
             if (previous === undefined || sales <= previous) return;
             this.floatText(avatar.x + 30, avatar.y - 50, "¡Vendido!", "#9ef0c9");
           }),
-          // El hincha que se acerca al carrito (llega, compra o sigue de largo).
-          $(player).listen("customer", (customer) => {
-            this.customers.update(sessionId, customer as CustomerState, { x: player.x, y: player.y });
-          }),
         );
 
         this.disposers.push(
           $(player).onChange(() => {
             // Antes del tile nuevo: el paso hacia él ya tiene que durar lo que dura cansado.
-            avatar.setTired(player.tired);
+            avatar.setTired(player.tired, walkSpeed(player.shoes));
             if (isLocal) this.mover.onServerTile({ x: player.x, y: player.y });
             else avatar.pushTile(player.x, player.y);
             this.applySitting(avatar, player);
@@ -792,6 +849,7 @@ export class CityScene extends Phaser.Scene {
   private applySitting(avatar: Avatar, player: Player) {
     const bench = player.sitting ? this.map.benchAt(player.x, player.y) : undefined;
     avatar.setSitting(Boolean(bench), bench?.facing);
+    avatar.setBathing(player.bathing && this.map.isJacuzziSeat(player.x, player.y));
   }
 
   private pointerTile(pointer: Phaser.Input.Pointer) {
@@ -966,6 +1024,16 @@ export class CityScene extends Phaser.Scene {
 
   private shakePalm(palm: TilePoint) {
     this.room.send(MessageType.PalmShake, palm);
+  }
+
+  private enterDoor(doorId: string) {
+    const enter: DoorEnterMessage = { doorId };
+    this.room.send(MessageType.DoorEnter, enter);
+  }
+
+  private enterJacuzzi(tile: TilePoint) {
+    const enter: SitMessage = { x: tile.x, y: tile.y };
+    this.room.send(MessageType.JacuzziEnter, enter);
   }
 
   private sitOn(bench: TilePoint) {

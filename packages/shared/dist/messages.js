@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAKER_MAX_QUANTITY = exports.MAKER_RANGE = exports.SHOP_MAX_QUANTITY = exports.MAX_ROUTE_LENGTH = exports.MessageType = void 0;
+exports.MAKER_MAX_QUANTITY = exports.MAKER_RANGE = exports.SHOP_MAX_QUANTITY = exports.MAX_ROUTE_LENGTH = exports.RESUME_CITY_CODE = exports.MessageType = void 0;
 exports.isPlayerKey = isPlayerKey;
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 exports.MessageType = {
@@ -40,8 +40,17 @@ exports.MessageType = {
     ShopSell: "shop:sell",
     /** Cliente → Servidor: vender regateando, todo o nada (ver `haggle.ts`). */
     ShopHaggle: "shop:haggle",
+    /** Cliente → Servidor: vender de una todo lo elegido en la pestaña Vender (como el carrito al comprar). */
+    ShopSellMany: "shop:sell-many",
+    /** Cliente → Servidor: regatear el lote elegido entero: un precio por todo, todo o nada. */
+    ShopHaggleMany: "shop:haggle-many",
     /** Servidor → Cliente: resultado de una compra o venta (para mostrar al jugador). */
     ShopResult: "shop:result",
+    /** Cliente → Servidor: casino (en la máquina o la mesa `shopId`). Servidor → Cliente: `casino:result`. */
+    CasinoSlots: "casino:slots",
+    CasinoRoulette: "casino:roulette",
+    CasinoBlackjack: "casino:blackjack",
+    CasinoResult: "casino:result",
     /** Cliente → Servidor: tirar la línea (hay que estar parado en la escollera). */
     FishCast: "fish:cast",
     /** Cliente → Servidor: recoger la línea sin esperar (cancela la pesca). */
@@ -60,6 +69,8 @@ exports.MessageType = {
     VendStarted: "vend:started",
     /** Servidor → Cliente: cómo salió la venta. */
     VendResult: "vend:result",
+    /** Servidor → Cliente (sólo al vendedor): el hincha que se acerca al carrito (`CustomerState`). */
+    VendCustomer: "vend:customer",
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     Notice: "notice",
     /** Cliente (admin) → Servidor: mover el reloj del juego. */
@@ -93,6 +104,18 @@ exports.MessageType = {
     WeevilKick: "weevil:kick",
     /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
     Greet: "greet",
+    /** Cliente → Servidor: cruzar una puerta (`Door`: las Termas del Donador); si está lejos, camina hasta ella. */
+    DoorEnter: "door:enter",
+    /** Cliente → Servidor: meterse al jacuzzi del tile (x, y) (camina hasta el borde y ocupa un lugar libre). */
+    JacuzziEnter: "jacuzzi:enter",
+    /** Cliente → Servidor: hacer un gesto (tomar mate, aplaudir…; ver `gestures.ts`). Lo ven todos en el Schema. */
+    Gesture: "gesture",
+    /** Cliente → Servidor: invitar a quien tenés al lado a un gesto de a dos (`PAIR_GESTURES`). */
+    GesturePairRequest: "gesture:pair",
+    /** Servidor → Cliente (sólo al invitado): alguien te invita a un gesto de a dos. */
+    GesturePairInvite: "gesture:invite",
+    /** Cliente → Servidor: aceptar o no la invitación. */
+    GesturePairRespond: "gesture:respond",
     /** Cliente → Servidor: en la veterinaria, adoptar una mascota con nombre, cambiarle el nombre o despedirse. */
     PetAdopt: "pet:adopt",
     PetRename: "pet:rename",
@@ -116,6 +139,11 @@ exports.MessageType = {
     /** Servidor → Cliente (a los dos): el intercambio terminó (hecho o cancelado). */
     TradeClosed: "trade:closed",
 };
+/**
+ * Código con el que el server rechaza la entrada al barrio de spawn de quien había quedado en otro
+ * (`JoinOptions.resume`): el mensaje es el `cityId` y el cliente entra ahí (ya tiene el pase).
+ */
+exports.RESUME_CITY_CODE = 4031;
 /** Clave de jugador válida: 32 a 64 caracteres de [A-Za-z0-9_-] (p. ej. un UUID sin guiones). */
 function isPlayerKey(value) {
     return typeof value === "string" && /^[A-Za-z0-9_-]{32,64}$/.test(value);

@@ -8,6 +8,8 @@ export declare class LayoutBuilder {
     readonly height: number;
     private readonly grid;
     constructor(width: number, height: number, fill: TileCharValue);
+    /** Lo que hay en (x, y) (undefined fuera del mapa). */
+    get(x: number, y: number): string | undefined;
     set(x: number, y: number, char: TileCharValue): this;
     rect({ x, y, width, height }: TileRect, char: TileCharValue): this;
     /** Fila y de x0 a x1 inclusive. */

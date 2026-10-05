@@ -9,6 +9,11 @@ export interface PrivateMailbox {
   jail(sessionId: string, until: number): void;
   /** Silenciado hasta `until` (ms; 0 = levantarlo), por `/silenciar`. */
   mute(sessionId: string, until: number): void;
+  /**
+   * Lo manda a la sala `roomId` (barrio `cityId`) y al tile `at` (`/mover`), con un pase gratis.
+   * Devuelve por qué no se pudo (null = va en camino).
+   */
+  summon(sessionId: string, place: { cityId: string; roomId: string; at: TilePoint; by: string }): string | null;
 }
 
 /** Un jugador conectado, en cualquier barrio. */

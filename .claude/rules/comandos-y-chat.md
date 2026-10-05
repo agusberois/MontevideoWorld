@@ -26,12 +26,16 @@ recibe con `name` = quién lo manda, y al que lo manda una copia con `to`. Sin g
 `/post <mensaje>` (admin), `/box [cantidad]` (admin, 1–10 cajas sorpresa a la mochila propia) y
 `/plata <monto> [jugador]` (admin: carga plata a un jugador del barrio por nombre, sin distinguir
 mayúsculas, tildes ni letras parecidas —`nameKey`, como todas las búsquedas por nombre— y con espacios; sin nombre, a uno mismo; acepta "1.000") y `/donador <si|no> [jugador]`
-(admin: marca a un jugador como **donador** del proyecto) y `/trace <jugador>` (admin: te lleva al
+(admin: marca a un jugador como **donador** del proyecto; entra a las Termas del Donador, y con `no`
+estando adentro se lo saca por la puerta) y `/trace <jugador>` (admin: te lleva al
 lado de un conectado en cualquier barrio o copia, sin boleto. En la misma sala lo teletransporta
 (`teleport`: corta todo y cambia `x/y`; el cliente, ante un salto de más de 2 tiles, aparece sin
 caminar). En otra sala emite un pase (`issueTravelTicket` con `near` = el jugador) y `travel:ok`
 con `roomId`: el cliente entra con `joinById` a esa copia y `onJoin` lo pone al lado (`tileNear`).
 `playerDirectory` guarda `cityId` y la sala (`mailbox.roomId`, `tileOf`, `jail`)) y
+`/mover <jugador>` (admin: `/trace` al revés, trae a un conectado al tile del admin; en otra sala
+su sala le emite el pase con `at` = ese tile, `PrivateMailbox.summon`; no trae presos ni, a la sala
+del Hotel del Donador, a quien no es donador) y
 `/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y
 `/guia` (todos: vuelve a abrir la guía de bienvenida, sin premios si ya la había empezado; ver
 `primeros-pasos.md`), `/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier

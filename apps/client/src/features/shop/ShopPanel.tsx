@@ -25,11 +25,12 @@ import {
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { useGame } from "@/lib/gameStore";
-import { CityRoom, sendShopCheckout, sendShopHaggle, sendShopTrade } from "@/lib/network";
+import { CityRoom, sendShopCheckout, sendShopHaggleMany, sendShopSellMany } from "@/lib/network";
 import type { PanelProps } from "../../shell/panels";
 import { ItemIcon } from "../inventory/ItemIcon";
 import { PetShop } from "../pets/PetShop";
 import { HospitalPanel } from "../health/HospitalPanel";
+import { CasinoPanel } from "../casino/CasinoPanel";
 import { itemPerks, itemRating } from "../inventory/itemCategoryUi";
 import { UiIcon } from "../../ui/UiIcon";
 import { moduleClasses } from "@/lib/cx";
@@ -63,6 +64,8 @@ export function ShopPanel({ room, cityId, onClose }: PanelProps) {
   if (shop.pets) return <PetShop room={room} shop={shop} onClose={onClose} />;
   // La guardia del sanatorio tampoco: se paga la consulta para curarse.
   if (shop.hospital) return <HospitalPanel room={room} shop={shop} onClose={onClose} />;
+  // Las máquinas y mesas del casino: su juego.
+  if (shop.casino) return <CasinoPanel room={room} shop={shop} game={shop.casino} onClose={onClose} />;
   return <ShopView room={room} shop={shop} onClose={onClose} />;
 }
 
@@ -73,10 +76,10 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
   const [tab, setTab] = useState<Tab>(sellsSomething ? "buy" : "sell");
   /** Último resultado, con un número que cambia en cada uno (reinicia la animación del aviso). */
   const [result, setResult] = useState<{ message: ShopResultMessage; key: number } | null>(null);
-  /** Ítem que se está regateando (se abre su formulario debajo de la fila). */
-  const [haggling, setHaggling] = useState<string | null>(null);
-  /** Cantidad elegida en cada fila (`"buy:id"` / `"sell:id"`); sin elegir, 1. */
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  /** Regateo del lote elegido abierto (el formulario va en la barra de abajo). */
+  const [haggling, setHaggling] = useState(false);
+  /** Lo elegido para vender (pestaña Vender): id → unidades. Se vende o se regatea todo junto. */
+  const [sale, setSale] = useState<Record<string, number>>({});
   /** Compra / venta esperando respuesta: el botón se deshabilita (así no se manda dos veces). */
   const [pending, setPending] = useState<string | null>(null);
   /** Carrito de la pestaña Comprar: id → unidades. Se compra todo junto con un solo botón. */
@@ -87,8 +90,13 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
       eventBus.on("shop:result", (message) => {
         setResult({ message, key: Date.now() });
         setPending(null);
-        // Compra del carrito hecha: se vacía.
+        // Compra del carrito hecha: se vacía. Venta (o regateo, salga como salga) de lo elegido: también.
         if (message.ok && message.bought) setCart({});
+        // (Un regateo rechazado también llega con `action: "sell"`: lo elegido ya no está.)
+        if (message.action === "sell") {
+          setSale({});
+          setHaggling(false);
+        }
       }),
     [],
   );
@@ -114,13 +122,10 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
     const room = stacks.filter((stack) => stack.itemId === itemId).reduce((total, stack) => total + Math.max(0, limit - stack.quantity), 0);
     return room + free * limit;
   }
-  /** Cantidad elegida para esta fila, dentro de 1 … `max`. */
-  const quantityOf = (key: string, max: number) => Math.max(1, Math.min(max, quantities[key] ?? 1));
-  const setQuantity = (key: string, value: number) => setQuantities((current) => ({ ...current, [key]: value }));
   /** La fila del último resultado (se resalta un momento). */
   const flashed = (action: Tab, itemId: string) => {
     if (!result?.message.ok || result.message.action !== action) return null;
-    const line = result.message.bought?.find((bought) => bought.itemId === itemId);
+    const line = (action === "buy" ? result.message.bought : result.message.sold)?.find((done) => done.itemId === itemId);
     if (line) return { key: result.key, quantity: line.quantity };
     return result.message.itemId === itemId ? { key: result.key, quantity: result.message.quantity ?? 1 } : null;
   };
@@ -147,10 +152,46 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
           (category) => ITEM_CATEGORIES[category].buyNote ?? [],
         );
 
-  function trade(action: Tab, itemId: string, quantity: number) {
+  /**
+   * Lo elegido para vender, con lo que pagan vendiendo normal: cada herramienta según su desgaste (se
+   * venden de la más gastada a la menos, como en el server). Sólo lo que sigue en la mochila.
+   */
+  const saleLines = sellable.flatMap((stack) => {
+    const item = getItem(stack.itemId);
+    const quantity = Math.min(sale[stack.itemId] ?? 0, stack.quantity);
+    if (!item || quantity <= 0) return [];
+    const unitPrices = isTool(item)
+      ? stacks
+          .filter((other) => other.itemId === item.id)
+          .map((other) => sellPrice(item, stackUses(other)))
+          .sort((a, b) => a - b)
+      : Array.from({ length: quantity }, () => sellPrice(item));
+    const total = unitPrices.slice(0, quantity).reduce((sum, price) => sum + price, 0);
+    return [{ item, quantity, total }];
+  });
+  const saleUnits = saleLines.reduce((sum, line) => sum + line.quantity, 0);
+  const saleTotal = saleLines.reduce((sum, line) => sum + line.total, 0);
+  const setSaleQuantity = (itemId: string, quantity: number) =>
+    setSale((current) => {
+      const next = { ...current };
+      if (quantity > 0) next[itemId] = quantity;
+      else delete next[itemId];
+      return next;
+    });
+  const allSelected = sellable.length > 0 && sellable.every((stack) => (sale[stack.itemId] ?? 0) >= stack.quantity);
+  const selectAll = () => setSale(allSelected ? {} : Object.fromEntries(sellable.map((stack) => [stack.itemId, stack.quantity])));
+  const saleItems = () => saleLines.map(({ item, quantity }) => ({ itemId: item.id, quantity }));
+  function sellSelection() {
+    if (saleLines.length === 0) return;
     setResult(null);
-    setPending(`${action}:${itemId}`);
-    sendShopTrade(room, action, shop.id, itemId, quantity);
+    setPending("sell");
+    sendShopSellMany(room, shop.id, saleItems());
+  }
+  function haggleSelection(price: number) {
+    if (saleLines.length === 0) return;
+    setResult(null);
+    setPending("sell");
+    sendShopHaggleMany(room, shop.id, saleItems(), price);
   }
 
   const resultItem = result?.message.itemId ? getItem(result.message.itemId) : undefined;
@@ -275,20 +316,26 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
             sellable.map((stack) => {
               const item = getItem(stack.itemId);
               if (!item) return null;
-              const open = haggling === item.id;
-              /** Usos que le quedan a la herramienta que se vende (undefined si no es herramienta). */
+              /** Usos que le quedan a la herramienta que se vende primero (undefined si no es herramienta). */
               const uses = isTool(item) ? stackUses(stack) : undefined;
-              const key = `sell:${item.id}`;
-              const max = Math.min(SHOP_MAX_QUANTITY, stack.quantity);
-              const quantity = quantityOf(key, max);
+              const max = stack.quantity;
+              const chosen = Math.min(sale[item.id] ?? 0, max);
               const flash = flashed("sell", item.id);
               return (
-                <li key={stack.itemId} className={cx(open ? "shop-row haggling" : "shop-row")}>
+                <li key={stack.itemId} className={cx(`shop-row${chosen > 0 ? " in-cart" : ""}`)}>
                   {flash && (
                     <span key={flash.key} className={cx("shop-row-flash sold")} aria-hidden="true">
                       −{flash.quantity}
                     </span>
                   )}
+                  <label className={cx("shop-check")} title="Elegir para vender">
+                    <input
+                      type="checkbox"
+                      checked={chosen > 0}
+                      onChange={(event) => setSaleQuantity(item.id, event.target.checked ? max : 0)}
+                      aria-label={`Vender ${item.name}`}
+                    />
+                  </label>
                   <ItemIcon item={item} size={36} />
                   <span className={cx("shop-item-name")}>
                     {item.name}
@@ -305,40 +352,10 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
                   </span>
                   <span className={cx("shop-price")}>{formatMoney(sellPrice(item, uses))}</span>
                   <div className={cx("shop-sell-actions")}>
-                    {max > 1 && (
-                      <QuantityPicker value={quantity} max={max} label={item.name} onChange={(value) => setQuantity(key, value)} />
+                    {max > 1 && chosen > 0 && (
+                      <QuantityPicker value={chosen} min={0} max={max} label={item.name} onChange={(value) => setSaleQuantity(item.id, value)} />
                     )}
-                    <button
-                      type="button"
-                      disabled={pending === key}
-                      aria-label={`Vender ${quantity} ${item.name}`}
-                      aria-busy={pending === key}
-                      onClick={() => trade("sell", item.id, quantity)}
-                    >
-                      Vender
-                    </button>
-                    <button
-                      type="button"
-                      className={cx("shop-haggle-toggle")}
-                      aria-expanded={open}
-                      onClick={() => setHaggling(open ? null : item.id)}
-                      title="Pedí más plata: todo o nada"
-                    >
-                      Regatear
-                    </button>
                   </div>
-                  {open && (
-                    <HaggleForm
-                      item={item}
-                      base={sellPrice(item, uses)}
-                      onHaggle={(price) => {
-                        setResult(null);
-                        sendShopHaggle(room, shop.id, item.id, price);
-                        // Si era la última unidad, la fila desaparece; si quedan, el formulario sigue abierto.
-                        if (stack.quantity <= 1) setHaggling(null);
-                      }}
-                    />
-                  )}
                 </li>
               );
             })}
@@ -371,6 +388,51 @@ function ShopView({ room, shop, onClose }: ShopViewProps) {
               onClick={checkout}
             >
               Comprar
+            </button>
+          </div>
+        )}
+
+        {tab === "sell" && haggling && saleUnits > 0 && (
+          <HaggleForm
+            what={saleUnits === 1 ? saleLines[0].item.name : `los ${saleUnits} productos`}
+            base={saleTotal}
+            disabled={pending === "sell"}
+            onHaggle={haggleSelection}
+          />
+        )}
+        {tab === "sell" && sellable.length > 0 && (
+          <div className={cx(`shop-cart${saleUnits > 0 ? " filled" : ""}`)}>
+            <span className={cx("shop-cart-summary")}>
+              <span aria-hidden="true">💰</span>{" "}
+              {saleUnits === 0 ? (
+                "Tildá lo que querés vender"
+              ) : (
+                <>
+                  {saleUnits} {saleUnits === 1 ? "producto" : "productos"} · te pagan <strong>{formatMoney(saleTotal)}</strong>
+                </>
+              )}
+            </span>
+            <button type="button" className={cx("shop-cart-clear")} onClick={selectAll}>
+              {allSelected ? "Destildar todo" : "Tildar todo"}
+            </button>
+            <button
+              type="button"
+              className={cx("shop-haggle-toggle")}
+              aria-expanded={haggling}
+              disabled={saleUnits === 0}
+              onClick={() => setHaggling((open) => !open)}
+              title="Pedí más plata por todo lo elegido: todo o nada"
+            >
+              Regatear
+            </button>
+            <button
+              type="button"
+              className={cx("shop-cart-buy")}
+              disabled={saleUnits === 0 || pending === "sell"}
+              aria-busy={pending === "sell"}
+              onClick={sellSelection}
+            >
+              Vender
             </button>
           </div>
         )}
@@ -436,24 +498,29 @@ function ItemRating({ item }: { item: ItemDefinition }) {
 }
 
 interface HaggleFormProps {
-  item: ItemDefinition;
-  /** Lo que pagan vendiendo normal (para una herramienta, según su desgaste). */
+  /** Lo que se regatea ("Pejerrey", "los 5 productos"), para el aviso. */
+  what: string;
+  /** Lo que pagan vendiendo normal todo lo elegido (cada herramienta según su desgaste). */
   base: number;
+  disabled?: boolean;
   onHaggle: (price: number) => void;
 }
 
 /**
- * Regatear la venta de un ítem: elegís cuánto pedir (más que el precio normal, hasta el tope) y se
- * ve en vivo la probabilidad de que acepten. Es todo o nada: si no aceptan, perdés el ítem.
+ * Regatear lo elegido, todo junto: elegís cuánto pedir por todo (más que el precio normal, hasta el
+ * tope) y se ve en vivo la probabilidad de que acepten. Es todo o nada: si no aceptan, perdés todo lo
+ * elegido sin cobrar.
  */
-function HaggleForm({ item, base, onHaggle }: HaggleFormProps) {
+function HaggleForm({ what, base, disabled, onHaggle }: HaggleFormProps) {
   const max = maxHagglePrice(base);
-  const [price, setPrice] = useState(() => Math.min(max, Math.max(base + 1, Math.ceil(base * 1.5))));
+  const [chosen, setPrice] = useState(() => Math.min(max, Math.max(base + 1, Math.ceil(base * 1.5))));
+  // Si cambia lo elegido, el precio queda dentro de lo que se puede pedir.
+  const price = Math.min(max, Math.max(base + 1, chosen));
   const chance = haggleChance(base, price);
   const level = chance >= 0.6 ? "high" : chance >= 0.3 ? "mid" : "low";
 
   return (
-    <div className={cx("haggle")}>
+    <div className={cx("haggle shop-haggle-all")}>
       <label className={cx("haggle-price")}>
         <span>Pedir</span>
         <input
@@ -475,10 +542,10 @@ function HaggleForm({ item, base, onHaggle }: HaggleFormProps) {
         </span>
       </div>
       <p className={cx("haggle-warning")}>
-        Todo o nada: o te pagan {formatMoney(price)} o perdés {item.name} sin cobrar nada (vendiendo normal te dan{" "}
+        Todo o nada: o te pagan {formatMoney(price)} por {what} o los perdés sin cobrar nada (vendiendo normal te dan{" "}
         {formatMoney(base)}).
       </p>
-      <button type="button" className={cx("haggle-go")} onClick={() => onHaggle(price)}>
+      <button type="button" className={cx("haggle-go")} disabled={disabled} onClick={() => onHaggle(price)}>
         🎲 Todo o nada por {formatMoney(price)}
       </button>
     </div>

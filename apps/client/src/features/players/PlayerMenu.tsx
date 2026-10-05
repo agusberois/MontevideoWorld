@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { PlayerClick, eventBus } from "@/lib/eventBus";
 import { openPlayerDetails, toggleBlocked, useGame } from "@/lib/gameStore";
-import { nameKey } from "@montevideo-world/shared";
-import { CityRoom, sendGreet, sendTaunt, sendTradeRequest } from "@/lib/network";
+import { PAIR_GESTURES, PAIR_GESTURE_IDS, PairGestureId, nameKey } from "@montevideo-world/shared";
+import { CityRoom, sendGreet, sendPairGesture, sendTaunt, sendTradeRequest } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./players.module.css";
 
@@ -15,7 +15,8 @@ interface PlayerMenuProps {
 }
 
 /**
- * Menú que aparece al hacer clic sobre otro jugador: Saludar, Intercambiar, Burlarse (si está preso),
+ * Menú que aparece al hacer clic sobre otro jugador: Saludar, gestos de a dos (chocar los cinco,
+ * abrazo, pasar el mate: le llega una invitación), Intercambiar, Burlarse (si está preso),
  * Detalles del jugador (abre el panel `playerDetails`) y Bloquear (dejás de ver su chat; sólo en tu
  * navegador). Se cierra con Esc, con un clic afuera o
  * al elegir una opción.
@@ -63,13 +64,24 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
       aria-label={`Opciones para ${target.name}`}
       style={{
         left: Math.min(target.screenX, window.innerWidth - 180),
-        top: Math.min(target.screenY, window.innerHeight - 190),
+        top: Math.max(8, Math.min(target.screenY, window.innerHeight - 300)),
       }}
     >
       <div className={cx("player-menu-name")}>{target.name}</div>
       <button type="button" role="menuitem" onClick={() => choose(sendGreet)}>
         👋 Saludar
       </button>
+      {PAIR_GESTURE_IDS.map((gesture: PairGestureId) => (
+        <button
+          key={gesture}
+          type="button"
+          role="menuitem"
+          title="Le llega una invitación; tienen que estar uno al lado del otro"
+          onClick={() => choose((room, targetId) => sendPairGesture(room, targetId, gesture))}
+        >
+          {PAIR_GESTURES[gesture].cry} {PAIR_GESTURES[gesture].name}
+        </button>
+      ))}
       <button type="button" role="menuitem" onClick={() => choose(sendTradeRequest)}>
         🔁 Intercambiar
       </button>

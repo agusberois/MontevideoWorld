@@ -256,3 +256,49 @@
     opacity: 0.4;
   }
 }
+
+/* Elegir personaje */
+.character-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 150px));
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.join-card .character-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 0;
+  padding: 10px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+}
+
+.join-card .character-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(76, 201, 240, 0.1);
+}
+
+.join-card .character-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.join-card .join-back {
+  width: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+}

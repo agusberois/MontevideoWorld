@@ -7,6 +7,17 @@ const cx = moduleClasses(styles);
 
 /** Lo que dura el viaje en ómnibus entre barrios (como mínimo: si el server tarda más, se espera). */
 export const TRAVEL_MS = 5000;
+/** Cruzar una puerta (las Termas): un fundido corto, sin ómnibus. */
+export const DOOR_MS = 700;
+
+/** Pantalla al cruzar una puerta: se oscurece y dice adónde se entra. */
+export function DoorOverlay({ to }: { to: string }) {
+  return (
+    <div className={cx("door-overlay")} role="status" aria-live="polite">
+      <p>🚪 {to}…</p>
+    </div>
+  );
+}
 
 interface TravelOverlayProps {
   from: string;

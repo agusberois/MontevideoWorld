@@ -8,6 +8,7 @@ import {
   edibleValue,
   rodPerks,
   rodStars,
+  speedPerk,
 } from "@montevideo-world/shared";
 
 /**
@@ -26,7 +27,9 @@ interface CategoryUi<I extends ItemDefinition> {
 }
 
 const CATEGORY_UI: { [C in ItemCategory]: CategoryUi<ItemOf<C>> } = {
-  clothing: {},
+  clothing: {
+    perks: speedPerk,
+  },
   fish: {
     rating: (fish) => ({ stars: difficultyStars(fish.difficulty), title: `Dificultad ${fish.difficulty} de 5` }),
     perks: (fish) => edibleText(fish),

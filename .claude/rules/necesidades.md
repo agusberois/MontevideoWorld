@@ -34,8 +34,8 @@ paso gasta `WALK_ENERGY_COST` (0,15), pero **caminar nunca la baja de `WALK_ENER
 `TIRED_STEP_TICKS` (3) veces más lento (`session.stepWait` en `stepPlayers`; el cliente alarga el
 paso y el balanceo con `Avatar.setTired`) hasta recuperar `TIRED_RECOVERY` (35): frenar un segundo
 no alcanza, hay que descansar (sentado, ~1,5 s). Lo decide `tickNeeds`. Tirar la línea
-`FISH_ENERGY_COST`, ofrecer en el Centenario `VEND_ENERGY_COST`; quieto (sin camino, sin pescar ni vender) recupera `IDLE_ENERGY_REGEN`/s y sentado en un
-banco `SIT_ENERGY_REGEN`/s, por `energyRegenFactor(hambre)` (lleno ×1, con hambre ×0,5, muerto de
+`FISH_ENERGY_COST`, ofrecer en el Centenario `VEND_ENERGY_COST`; quieto (sin camino, sin pescar ni vender) recupera `IDLE_ENERGY_REGEN`/s, sentado en un
+banco `SIT_ENERGY_REGEN`/s y en el jacuzzi de las Termas `JACUZZI_ENERGY_REGEN`/s (ver `termas.md`), por `energyRegenFactor(hambre)` (lleno ×1, con hambre ×0,5, muerto de
 hambre ×0,25).
 **Salud**: la bajan las picaduras (`WEEVIL_BITE_HEALTH`), la saciedad en 0 fuera del COMCAR
 (`STARVE_HEALTH_PER_SECOND`) y el pescado crudo (`edibleValue`: −`RAW_FISH_HEALTH`, sin bajarla de

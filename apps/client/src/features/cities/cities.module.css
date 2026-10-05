@@ -241,3 +241,27 @@
     transform: translate(-50%, -2px) rotate(0.4deg);
   }
 }
+
+/* Cruzar una puerta (las Termas): fundido a negro con el nombre del lugar. */
+.door-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  animation: door-fade 0.25s ease-out;
+}
+
+.door-overlay p {
+  margin: 0;
+  color: var(--system);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+@keyframes door-fade {
+  from {
+    opacity: 0;
+  }
+}

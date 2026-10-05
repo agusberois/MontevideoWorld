@@ -34,6 +34,8 @@ export function travelRoutes(room: CityRoom) {
     [MessageType.TravelRequest]: (session, message) => {
       const destination = getCity(message.cityId);
       if (!destination || destination.id === room.map.city.id) return;
+      // A las Termas no se va en ómnibus: se entra por la puerta del edificio (sólo donadores).
+      if (destination.access) return room.notice(session, `A ${destination.name} se entra por la puerta del edificio, en Ciudad Vieja.`);
       const jailedUntil = bans.until(session.key, session.player.name);
       if (jailedUntil) {
         return room.notice(session, `🚔 Estás preso: no podés ir a ningún lado. Te quedan ${formatJailLeft((jailedUntil - Date.now()) / 1000)}.`);

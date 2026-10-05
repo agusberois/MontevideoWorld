@@ -75,6 +75,12 @@ export const COMMANDS = [
     role: "admin",
   },
   {
+    name: "mover",
+    usage: "/mover <jugador>",
+    description: "Trae a un jugador conectado a tu mismo tile, esté en el barrio que esté (sin boleto).",
+    role: "admin",
+  },
+  {
     name: "guia",
     usage: "/guia",
     description: "Vuelve a abrir la guía de bienvenida (repetirla no da premios).",

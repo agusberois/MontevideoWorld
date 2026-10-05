@@ -12,6 +12,10 @@ class LayoutBuilder {
         this.height = height;
         this.grid = Array.from({ length: height }, () => Array(width).fill(fill));
     }
+    /** Lo que hay en (x, y) (undefined fuera del mapa). */
+    get(x, y) {
+        return this.grid[y]?.[x];
+    }
     set(x, y, char) {
         if (x >= 0 && y >= 0 && x < this.width && y < this.height)
             this.grid[y][x] = char;

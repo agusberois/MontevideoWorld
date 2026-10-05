@@ -1,5 +1,5 @@
 import type { Client, Delayed } from "@colyseus/core";
-import { type Bench, type NeedsMessage, type Shop, type TilePoint, type TutorialState, NEW_TUTORIAL } from "@montevideo-world/shared";
+import { type Bench, type Door, type GestureId, type NeedsMessage, type PairGestureId, type Shop, type TilePoint, type TutorialState, NEW_TUTORIAL } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import type { Inventory } from "../inventory";
 import type { Needs } from "../needs";
@@ -8,12 +8,17 @@ import type { MessageRoutes } from "./systems/types";
 
 /**
  * Lo que el jugador va a hacer al llegar al final de su camino. Es uno solo: pedir otra cosa lo
- * reemplaza y caminar a otro lado lo borra. El `kind` es el mismo de `CityMap.interactionAt`.
+ * reemplaza y caminar a otro lado lo borra. El `kind` es el mismo de `CityMap.interactionAt` (salvo `gesture`; `jacuzzi` lleva el lugar).
  */
 export type PendingAction =
   | { kind: "bench"; bench: Bench }
   | { kind: "shop"; shop: Shop }
-  | { kind: "palm"; palm: TilePoint };
+  | { kind: "palm"; palm: TilePoint }
+  /** Pidió un gesto caminando: lo hace al llegar. */
+  | { kind: "gesture"; gesture: GestureId }
+  /** Va a una puerta (las Termas) o a meterse al jacuzzi en el lugar `seat`. */
+  | { kind: "door"; door: Door }
+  | { kind: "jacuzzi"; seat: TilePoint };
 
 /**
  * Todo el estado de un jugador en la sala que no va en el Schema (mochila, plata, necesidades,
@@ -33,12 +38,22 @@ export interface PlayerSession {
   path: TilePoint[];
   /** Cansado (`player.tired`): ticks que faltan para el próximo paso. */
   stepWait: number;
+  /** Calzado rápido: lo que sobró de la velocidad de los ticks anteriores (ver `stepPlayers`). */
+  stepCredit: number;
   pending: PendingAction | null;
   /** Línea en el agua: resuelve la pesca. */
   fishingTimer: Delayed | null;
   /** Vendiendo: resuelve la venta y hace salir al hincha (`CUSTOMER_LEAD_MS` antes). */
   vendingTimer: Delayed | null;
   customerTimer: Delayed | null;
+  /** Se le mandó que llega el hincha y todavía no compró ni pasó: cortar la venta lo hace irse. */
+  customerOut: boolean;
+  /** Cuándo termina el gesto de `player.gesture` (ms, `Date.now()`). */
+  gestureUntil: number;
+  /** Mano de blackjack en curso en el casino (null = ninguna). */
+  blackjack: import("./systems/casino").BlackjackHand | null;
+  /** Su invitación a un gesto de a dos que todavía no respondieron (una sola a la vez). */
+  pairRequest: { targetId: string; gesture: PairGestureId; expiresAt: number } | null;
   lastChatAt: number;
   /** Último mensaje de chat (o `/mensaje`) y cuándo: repetirlo enseguida no sale (`REPEAT_CHAT_MS`). */
   lastChatText: string;
@@ -72,10 +87,15 @@ export function createSession(client: Client, player: Player, inventory: Invento
     tutorial: { ...NEW_TUTORIAL },
     path: [],
     stepWait: 0,
+    stepCredit: 0,
     pending: null,
     fishingTimer: null,
     vendingTimer: null,
     customerTimer: null,
+    customerOut: false,
+    gestureUntil: 0,
+    pairRequest: null,
+    blackjack: null,
     lastChatAt: 0,
     lastChatText: "",
     sentNeeds: null,
@@ -88,6 +108,12 @@ export function createSession(client: Client, player: Player, inventory: Invento
   };
 }
 
+/** Se levanta del banco o sale del jacuzzi (cualquier otra cosa que haga lo saca de ahí). */
+export function standUp(player: Player) {
+  player.sitting = false;
+  player.bathing = false;
+}
+
 /** ¿Está caminando? */
 export function isWalking(session: PlayerSession): boolean {
   return session.path.length > 0;
@@ -97,6 +123,7 @@ export function isWalking(session: PlayerSession): boolean {
 export function halt(session: PlayerSession) {
   session.path = [];
   session.stepWait = 0;
+  session.stepCredit = 0;
   session.pending = null;
   session.queuedSearch = null;
 }

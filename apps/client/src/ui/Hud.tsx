@@ -67,13 +67,15 @@ export function Hud({ cityName, onExit }: HudProps) {
           <span className={cx("hud-count")}>{playerCount}</span>
         </HudButton>
         <HudButton icon="map" label="Barrios" onClick={() => openPanel("cities")} title="Lista de barrios" shortcut="M" />
-        <HudButton icon="backpack" label="Mochila" onClick={() => openPanel("backpack")} title="Mochila" shortcut="H" />
+        <HudButton icon="backpack" label="Mochila" onClick={() => openPanel("backpack")} title="Mochila" shortcut="I" />
+        <HudButton icon="hand" label="Gestos" onClick={() => openPanel("gestures")} title="Gestos" shortcut="E" />
+        <HudButton icon="calendar" label="Calendario" onClick={() => openPanel("calendar")} title="Calendario de Uruguay" shortcut="K" />
         <HudButton icon="terminal" label="Comandos" onClick={() => openPanel("commands")} title="Comandos de chat" shortcut="C" />
         {isAdmin && (
           <HudButton icon="shield" label="Admin" onClick={() => openPanel("admin")} title="Controles de admin" shortcut="P" admin />
         )}
         {isAdmin && (
-          <HudButton icon="wand" label="Maker" onClick={() => openPanel("maker")} title="Maker: crear ítems (admin)" shortcut="I" admin />
+          <HudButton icon="wand" label="Maker" onClick={() => openPanel("maker")} title="Maker: crear ítems (admin)" shortcut="H" admin />
         )}
         <HudButton icon="exit" label="Salir" onClick={onExit} title="Salir del juego" />
       </div>

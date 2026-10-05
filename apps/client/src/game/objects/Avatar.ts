@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { CHAT_BUBBLE_MS, FishingSpot, OutfitIds, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
+import { AnyGestureId, CHAT_BUBBLE_MS, FishingSpot, OutfitIds, PAIR_GESTURES, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import type { AvatarLook } from "./avatarLook";
@@ -51,10 +51,22 @@ const ARRIVE_GRACE_MS = STEP_MS * 0.6;
 const KICK_MS = 300;
 const KICK_ANGLE = 1.25;
 
+/** Dar o recibir algo (la comida del carrito): el brazo cercano va hacia adelante y vuelve. */
+const OFFER_MS = 650;
+const OFFER_ANGLE = -1.35;
+
 /** Sentado: el cuerpo baja hasta el asiento y los muslos se acortan (apuntan hacia la cámara). */
 const SIT_DROP = 14;
 const SIT_LEG_SCALE = 0.6;
 const SIT_ARM_ANGLE = 0.3;
+/**
+ * En el jacuzzi (las Termas): el cuerpo se hunde hasta la cintura (las piernas no se ven), los brazos
+ * apoyados en el borde y el agua por delante, con burbujas.
+ */
+const BATH_DROP = 22;
+const BATH_ARM_ANGLE = 0.9;
+const BATH_WATER = 0x5ec4e0;
+
 /** Sentado en el banco: se dibuja apenas por delante del banco, que está en el mismo tile. */
 const SIT_DEPTH_BIAS = 2;
 
@@ -74,12 +86,82 @@ const LINE_COLOR = 0xe8eef2;
 /** Punta de la caña en coordenadas del cuerpo (de ahí sale la tanza). */
 const ROD_TIP = { x: 60, y: -88 };
 
+/**
+ * Sacar uno o dos peces (`fish:result.hooked`, sólo el que pesca): dura `REEL_MS`. Al principio la boya se hunde, el agua salpica y la
+ * caña se dobla; después el pez salta del agua hasta la punta de la caña y queda colgando.
+ */
+const REEL_MS = 1300;
+const REEL_LEAP_FROM = 0.22;
+const REEL_LEAP_TO = 0.72;
+/** Peces que se animan a la vez (la caña saca como mucho dos) y cuánto sale después cada uno. */
+const MAX_HOOKED = 2;
+const REEL_FISH_DELAY = 0.12;
+/** Colgando de la tanza, cada pez se corre un poco al costado para que se vean los dos. */
+const HANG_SPREAD_PX = 7;
+/** Cuánto baja la punta de la caña doblada (px) y cuánto sube el brazo al tirar (rad). */
+const ROD_BEND_PX = 16;
+const REEL_ARM_ANGLE = -1.55;
+const SPLASH_COLOR = 0xdff3ff;
+/** Gotas de la salpicadura: ángulo de salida (rad, 0 = derecha) y velocidad relativa. */
+const DROPS: ReadonlyArray<readonly [number, number]> = [
+  [-2.6, 1],
+  [-2.1, 0.8],
+  [-1.6, 1.2],
+  [-1.1, 0.9],
+  [-0.6, 1],
+];
+
 /** Vendiendo: cada cuánto ofrece la mercadería levantando el brazo, y cuánto dura el gesto. */
 const VEND_WAVE_EVERY_MS = 2400;
 const VEND_WAVE_MS = 600;
 const VEND_WAVE_ANGLE = -1.3;
 const CART_METAL = 0x9aa1a9;
 const CART_DARK = 0x2b2b30;
+
+/** Gestos (`Player.gesture`): entrada suave a la pose y largo del brazo hasta el centro de la mano. */
+const GESTURE_BLEND_MS = 200;
+const ARM_LENGTH = 21;
+/** Mate: cada cuánto lleva el mate a la boca, cuánto tarda en subirlo / bajarlo y cuánto chupa. */
+const MATE_SIP_EVERY_MS = 2600;
+const MATE_RAISE_MS = 600;
+const MATE_SIP_MS = 900;
+/** Brazo cercano con el mate a la altura del pecho y junto a la boca (rotación, escala del brazo). */
+const MATE_REST = { rotation: -0.63, scale: 0.65 };
+const MATE_MOUTH = { rotation: -2.36, scale: 0.3 };
+const TERMO_COLOR = 0x2f5d46;
+const GOURD_COLOR = 0x7a4a24;
+const YERBA_COLOR = 0x6b8e23;
+const BOMBILLA_COLOR = 0xc9ced4;
+/** Candombe: un golpe de tambor cada `CANDOMBE_BEAT_MS`, con los brazos y la cadera al ritmo. */
+const CANDOMBE_BEAT_MS = 360;
+/** Gol: un salto cada `GOAL_JUMP_MS`, con los dos brazos arriba. */
+const GOAL_JUMP_MS = 520;
+const GOAL_JUMP_PX = 9;
+const WAVE_MS = 220;
+/** Aplauso: un ciclo (abrir y juntar las manos) cada `CLAP_MS`. */
+const CLAP_MS = 380;
+/** Manos abiertas y juntas frente al pecho (px desde cada hombro hasta la mano). */
+const CLAP_OPEN = { near: { x: 10, y: 13 }, far: { x: 11, y: 16 } };
+const CLAP_CLOSED = { near: { x: -1, y: 11 }, far: { x: 23, y: 11 } };
+/** Pedir silencio: el índice frente a la boca. */
+const SHUSH_ARM = { rotation: 2.8, scale: 0.3 };
+/** Candombe: el tamboril colgado a un costado (centro y giro) y la mano con el palo arriba / pegando. */
+const DRUM_AT = { x: 17, y: -27, rotation: -0.35 };
+const DRUM_UP = { x: 10, y: -1 };
+const DRUM_HIT = { x: 4, y: 11 };
+const DRUM_WOOD = 0x8a5a2b;
+const DRUM_HEAD = 0xf1e3c6;
+/** Gol: la bandera uruguaya en la mano. */
+const FLAG_BLUE = 0x4f86c6;
+const FLAG_SUN = 0xf2c94c;
+const SPARK_COLOR = 0xfff3b0;
+const HEART_COLOR = 0xff6b8a;
+const STEAM_COLOR = 0xffffff;
+/** Gestos de a dos: chocar los cinco (cuándo se tocan las manos), pasar el mate (cuándo pasa de mano). */
+const HIGH_FIVE_HIT = 0.42;
+const SHARE_MATE_PASS_MS = 1300;
+/** Abrazo: cuánto se acercan (px entre los dos cuerpos al abrazarse). */
+const HUG_GAP_PX = 14;
 
 export interface AvatarConfig {
   /** Rasgos elegidos al entrar (sexo, piel, pelo), del Schema. */
@@ -105,6 +187,7 @@ export interface AvatarConfig {
  */
 export class Avatar extends Phaser.GameObjects.Container {
   private readonly look: AvatarLook;
+  private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly body_: Phaser.GameObjects.Container;
   private readonly legs: [Phaser.GameObjects.Container, Phaser.GameObjects.Container];
   private readonly arms: [Phaser.GameObjects.Container, Phaser.GameObjects.Container];
@@ -149,17 +232,46 @@ export class Avatar extends Phaser.GameObjects.Container {
   private outfitKey = "";
   private sitting = false;
   private sitScaleX = 1;
+  private bathing = false;
+  private bathTime = 0;
+  /** El agua del jacuzzi por delante del cuerpo (sólo metido), con burbujas. */
+  private readonly water: Phaser.GameObjects.Graphics;
   private fishing = false;
   private fishFacing: FishFacing = "south";
   /** A cuántos tiles del avatar cae la boya, en la dirección de `fishFacing` (ver `CityMap.fishingSpot`). */
   private fishDistance = 2;
+  /** Tiempo que le queda al brazo estirado de `offer` (ms). */
+  private offerLeft = 0;
   /** Tiempo que le queda a la patada en curso (ms); 0 = no está pateando. */
   private kickLeft = 0;
   private rodColor = ROD_COLOR;
   private fishTime = 0;
+  /** Sacando un pez: lo que le queda a la animación (ms; 0 = no) y el dibujo del pez. */
+  private reelLeft = 0;
+  private hooked = 0;
+  /** Uno por pez que picó (con doble, dos), en el orden en que salen del agua. */
+  private readonly caughtFish: Phaser.GameObjects.Graphics[];
   private vending = false;
   private cartKey = "";
   private vendTime = 0;
+  /** El carrito sigue un rato después de vender, mientras se entrega la comida (`keepCart`, ms). */
+  private cartHoldLeft = 0;
+  /** Gesto en curso (`Player.gesture`) y cuánto lleva (ms). */
+  private gesture: AnyGestureId | null = null;
+  private gestureTime = 0;
+  /** Gesto de a dos: el otro avatar y si invitó éste (en el mate, el que convida). */
+  private partner: Avatar | null = null;
+  private lead = false;
+  /**
+   * Lo que tiene en la mano cercana durante el gesto (el mate, el índice, la bandera, el palo del
+   * tambor), el termo bajo el brazo, el tamboril y los efectos de cada frame (vapor, chispas, corazones).
+   */
+  private readonly prop: Phaser.GameObjects.Graphics;
+  private readonly termo: Phaser.GameObjects.Graphics;
+  private readonly drum: Phaser.GameObjects.Graphics;
+  private readonly fx: Phaser.GameObjects.Graphics;
+  /** Qué está dibujado en `prop` ahora (se redibuja sólo al cambiar). */
+  private propKind: "" | "mate" | "finger" | "flag" | "stick" = "";
 
   constructor(scene: Phaser.Scene, config: AvatarConfig) {
     const start = tileToWorld(config.tileX, config.tileY);
@@ -203,7 +315,15 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.rod = scene.add.graphics().setVisible(false);
     this.drawRod(ROD_COLOR);
     this.fishingLine = scene.add.graphics().setVisible(false);
+    // Un poco más grandes que de verdad: si no, con el zoom normal casi no se ven.
+    this.caughtFish = Array.from({ length: MAX_HOOKED }, () => scene.add.graphics().setVisible(false).setScale(1.5));
     this.cart = scene.add.graphics().setVisible(false);
+    this.termo = scene.add.graphics().setVisible(false);
+    this.drawTermo();
+    this.prop = scene.add.graphics().setVisible(false);
+    this.drum = scene.add.graphics().setVisible(false).setPosition(DRUM_AT.x, DRUM_AT.y).setRotation(DRUM_AT.rotation);
+    this.drawDrum();
+    this.fx = scene.add.graphics();
 
     this.body_ = scene.add.container(0, 0, [
       ...this.legs,
@@ -213,9 +333,14 @@ export class Avatar extends Phaser.GameObjects.Container {
       this.headBack,
       this.headFront,
       this.fishingLine,
+      ...this.caughtFish,
       this.rod,
+      this.termo,
+      this.drum,
       this.arms[1],
+      this.prop,
       this.cart,
+      this.fx,
     ]);
     this.setOutfit(config.outfit);
 
@@ -254,15 +379,18 @@ export class Avatar extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 1)
       .setVisible(false);
 
-    this.add([shadow, this.body_]);
+    this.water = scene.add.graphics().setVisible(false);
+    this.shadow = shadow;
+    this.add([shadow, this.body_, this.water]);
     this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, label]);
     this.syncDepth();
     scene.add.existing(this);
   }
 
   /** Cansado (`Player.tired`): camina más lento, con el mismo ritmo que el server. */
-  setTired(tired: boolean) {
-    this.stepMs = tired ? STEP_MS * TIRED_STEP_TICKS : STEP_MS;
+  setTired(tired: boolean, speed = 1) {
+    // Con calzado rápido (`walkSpeed`) cada tile dura menos, igual que en el server.
+    this.stepMs = tired ? STEP_MS * TIRED_STEP_TICKS : STEP_MS / speed;
   }
 
   /** Donador o no (lo marca el admin; puede cambiar estando conectado). */
@@ -301,7 +429,12 @@ export class Avatar extends Phaser.GameObjects.Container {
   pushTile(tileX: number, tileY: number) {
     const end = this.endTile();
     if (end.x === tileX && end.y === tileY) return;
-    if (Math.max(Math.abs(end.x - tileX), Math.abs(end.y - tileY)) > 1 || this.queue.length >= MAX_QUEUE) {
+    // Con calzado rápido el server puede avanzar dos tiles en un tick: se camina por el del medio.
+    const gap = Math.max(Math.abs(end.x - tileX), Math.abs(end.y - tileY));
+    if (gap === 2 && this.queue.length < MAX_QUEUE - 1) {
+      this.queue.push({ x: Math.round((end.x + tileX) / 2), y: Math.round((end.y + tileY) / 2) });
+    }
+    if (Math.max(Math.abs(this.endTile().x - tileX), Math.abs(this.endTile().y - tileY)) > 1 || this.queue.length >= MAX_QUEUE) {
       this.snapTo(tileX, tileY);
       return;
     }
@@ -376,6 +509,37 @@ export class Avatar extends Phaser.GameObjects.Container {
     paintShapes(this.hatBack.clear(), hat(outfit.hat, true));
   }
 
+  /** Metido en el jacuzzi (las Termas) o no: se hunde hasta la cintura y se ve el agua por delante. */
+  setBathing(bathing: boolean) {
+    if (bathing === this.bathing) return;
+    this.bathing = bathing;
+    this.bathTime = 0;
+    for (const leg of this.legs) leg.setVisible(!bathing);
+    this.shadow.setVisible(!bathing);
+    this.water.setVisible(bathing);
+    if (!bathing) this.water.clear();
+  }
+
+  /** El agua por delante del cuerpo hundido: la superficie que se mece y burbujas que suben y revientan. */
+  private drawWater(delta: number) {
+    this.bathTime += delta;
+    const t = this.bathTime;
+    const g = this.water.clear();
+    const surface = -6 + Math.sin(t / 500) * 1;
+    g.fillStyle(BATH_WATER, 0.95);
+    g.fillEllipse(0, surface + 4, 52, 20);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillEllipse(-8 + Math.sin(t / 700) * 3, surface + 2, 14, 3);
+    g.lineStyle(1.2, 0xffffff, 0.55);
+    g.strokeEllipse(0, surface + 3, 30 + Math.sin(t / 400) * 3, 8);
+    for (let i = 0; i < 5; i++) {
+      const life = (t / 900 + i * 0.21) % 1;
+      const x = Math.sin(i * 2.7) * 16;
+      g.fillStyle(0xffffff, 0.7 * (1 - life));
+      g.fillCircle(x + Math.sin(life * 8 + i) * 1.5, surface + 6 - life * 9, 1.2 + life * 1.3);
+    }
+  }
+
   /** Sentado en un banco (`facing` = hacia dónde mira) o parado. */
   setSitting(sitting: boolean, facing?: SitFacing) {
     this.sitting = sitting;
@@ -385,10 +549,14 @@ export class Avatar extends Phaser.GameObjects.Container {
 
   /** Pescando desde la escollera (`facing` = hacia el agua) o no, con una caña de `rodColor`. */
   setFishing(fishing: boolean, spot: FishingSpot = { facing: "south", distance: 2 }, rodColor = ROD_COLOR) {
+    // Volvió a tirar antes de que termine la animación del pez anterior.
+    if (fishing && this.reelLeft > 0) this.endReel();
     if (fishing && rodColor !== this.rodColor) this.drawRod(rodColor);
     this.fishing = fishing;
     this.fishFacing = spot.facing;
     this.fishDistance = spot.distance;
+    // Sacando un pez, la caña sigue en la mano hasta que termina la animación (`endReel`).
+    if (this.reelLeft > 0 && !fishing) return;
     this.rod.setVisible(fishing);
     this.fishingLine.setVisible(fishing);
     if (!fishing) this.fishingLine.clear();
@@ -406,7 +574,9 @@ export class Avatar extends Phaser.GameObjects.Container {
     }
     if (vending && !this.vending) this.vendTime = 0;
     this.vending = vending;
-    this.cart.setVisible(vending);
+    if (vending) this.cartHoldLeft = 0;
+    // Terminó la venta pero se está entregando la comida: el carrito se va al terminar (`keepCart`).
+    this.cart.setVisible(vending || this.cartHoldLeft > 0);
   }
 
   private drawCart(color: number, tier: number) {
@@ -530,28 +700,75 @@ export class Avatar extends Phaser.GameObjects.Container {
         this.setBackView(false);
         this.body_.scaleX = this.sitScaleX;
         this.poseLimbs(delta, SIT_DROP, SIT_LEG_SCALE, SIT_ARM_ANGLE);
+      } else if (this.bathing) {
+        this.setBackView(false);
+        this.poseLimbs(delta, BATH_DROP, 1, BATH_ARM_ANGLE);
+        this.drawWater(delta);
       } else if (this.fishing) {
         this.poseFishing(delta);
+      } else if (this.reelLeft > 0) {
+        this.poseReel(delta);
       } else if (this.vending) {
         this.poseVending(delta);
       } else {
         if (this.idleTime >= ARRIVE_GRACE_MS) this.setBackView(false);
         this.poseLimbs(delta, 0, 1, 0);
       }
-      // Respira sólo parado sin hacer nada (sentado, pescando o vendiendo ya se mueve otra cosa).
-      const idle = !this.sitting && !this.fishing && !this.vending;
+      // El gesto pisa los brazos (y, parado, el resto del cuerpo) de la pose de base.
+      if (this.gesture) this.poseGesture(this.gesture, delta);
+      // Respira sólo parado sin hacer nada (sentado, pescando, vendiendo o con un gesto ya se mueve otra cosa).
+      const idle = !this.sitting && !this.bathing && !this.fishing && !this.vending && !this.gesture && this.reelLeft <= 0;
       this.body_.scaleY = idle ? 1 + Math.sin((this.idleTime / BREATH_MS) * Math.PI * 2) * BREATH_SCALE : 1;
     } else {
+      // Se fue caminando mientras sacaba el pez: se corta la animación.
+      if (this.reelLeft > 0) this.endReel();
       this.body_.scaleY = 1;
       this.walkTime += delta;
       this.idleTime = 0;
       this.animateWalk();
     }
 
+    // Caminando no hay gesto (el server lo corta): sin accesorios ni efectos. (Con gesto, cada frame
+    // `poseGesture` dice qué se ve.)
+    if (!this.gesture || this.segment) this.hideGestureProps();
     this.poseKick(delta);
+    this.poseOffer(delta);
+    this.updateCartHold(delta);
     this.updateBlink(delta);
     this.updateExpression(delta);
     this.syncDepth();
+  }
+
+  /**
+   * Empieza o termina un gesto (`Player.gesture`; null = ninguno). En los de a dos, `partner` es el
+   * avatar del otro (los dos se miran y se acercan) y `lead` si invitó éste.
+   */
+  setGesture(gesture: AnyGestureId | null, partner: Avatar | null = null, lead = false) {
+    this.partner = partner;
+    this.lead = lead;
+    if (gesture === this.gesture) return;
+    this.gesture = gesture;
+    this.gestureTime = 0;
+    if (!gesture) this.hideGestureProps();
+  }
+
+  private hideGestureProps() {
+    this.prop.setVisible(false);
+    this.termo.setVisible(false);
+    this.drum.setVisible(false);
+    this.fx.clear();
+  }
+
+  /** Dibuja en `prop` lo que va en la mano (sólo si cambió). */
+  private holdProp(kind: "mate" | "finger" | "flag" | "stick") {
+    if (this.propKind !== kind) {
+      this.propKind = kind;
+      if (kind === "mate") this.drawMate();
+      else if (kind === "finger") this.drawFinger();
+      else if (kind === "flag") this.drawFlag();
+      else this.drawStick();
+    }
+    this.prop.setVisible(true);
   }
 
   /** Le picó un picudo: cara de dolor un ratito. */
@@ -598,6 +815,44 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.legs[1].scaleY = 1;
   }
 
+  /**
+   * Estira el brazo para dar o recibir algo (la comida del carrito). Con `dirX` se da vuelta hacia
+   * ese lado (+ derecha); sin él (el vendedor, con el carrito a la derecha) queda como está.
+   */
+  offer(dirX?: number) {
+    if (dirX !== undefined && Math.abs(dirX) > 0.01) this.body_.scaleX = dirX >= 0 ? 1 : -1;
+    this.setBackView(false);
+    this.offerLeft = OFFER_MS;
+  }
+
+  /** Deja el carrito a la vista `ms` más aunque ya terminó la venta (la comida sale de ahí). */
+  keepCart(ms: number) {
+    if (!this.cartKey) return;
+    this.cartHoldLeft = ms;
+    this.cart.setVisible(true);
+  }
+
+  /** Algo en la mano cercana (la comida que compró el hincha): se dibuja y se va con el avatar. */
+  hold(object: Phaser.GameObjects.Graphics) {
+    object.setPosition(ARM_X + 1, SHOULDER_Y + ARM_LENGTH - 2);
+    this.body_.add(object);
+  }
+
+  /** Se acaba el rato del carrito de `keepCart` (o se fue caminando): se esconde. */
+  private updateCartHold(delta: number) {
+    if (this.cartHoldLeft <= 0) return;
+    this.cartHoldLeft = this.segment ? 0 : Math.max(0, this.cartHoldLeft - delta);
+    if (this.cartHoldLeft === 0 && !this.vending) this.cart.setVisible(false);
+  }
+
+  /** Pisa la pose del brazo cercano mientras lo tiene estirado (`offer`). */
+  private poseOffer(delta: number) {
+    if (this.offerLeft <= 0) return;
+    this.offerLeft = Math.max(0, this.offerLeft - delta);
+    const progress = 1 - this.offerLeft / OFFER_MS;
+    this.arms[1].rotation = Math.sin(progress * Math.PI) * OFFER_ANGLE;
+  }
+
   /** ¿El punto del mundo cae sobre el cuerpo? (caja de pies a cabeza, para clics y hover) */
   containsWorldPoint(worldX: number, worldY: number): boolean {
     const dx = worldX - this.x;
@@ -607,7 +862,7 @@ export class Avatar extends Phaser.GameObjects.Container {
 
   /** Profundidad por Y (los de adelante tapan a los de atrás) y overlay pegado a la cabeza. */
   private syncDepth() {
-    this.setDepth(this.y + (this.sitting ? SIT_DEPTH_BIAS : 0));
+    this.setDepth(this.y + (this.sitting || this.bathing ? SIT_DEPTH_BIAS : 0));
     this.overlay.setPosition(this.x, this.y + this.body_.y).setDepth(OVERLAY_DEPTH + this.y);
   }
 
@@ -632,6 +887,9 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.arms[0].rotation = -swing * ARM_SWING;
     this.arms[1].rotation = swing * ARM_SWING;
     for (const leg of this.legs) leg.scaleY = 1;
+    for (const arm of this.arms) arm.scaleY = 1;
+    this.body_.rotation = 0;
+    this.body_.x = 0;
     // El cuerpo sube cuando las piernas pasan juntas y baja con el paso abierto.
     this.body_.y = -(1 - Math.abs(swing)) * 2.5;
   }
@@ -649,6 +907,10 @@ export class Avatar extends Phaser.GameObjects.Container {
     // Brazo lejano (-x) hacia +x y brazo cercano hacia -x: ambos van al centro.
     this.arms[0].rotation = Phaser.Math.Linear(this.arms[0].rotation, -armAngle, t);
     this.arms[1].rotation = Phaser.Math.Linear(this.arms[1].rotation, armAngle, t);
+    // Lo que pueden haber cambiado los gestos (brazos acortados, cadera de costado) vuelve a lo normal.
+    for (const arm of this.arms) arm.scaleY = Phaser.Math.Linear(arm.scaleY, 1, t);
+    this.body_.rotation = Phaser.Math.Linear(this.body_.rotation, 0, t);
+    this.body_.x = Phaser.Math.Linear(this.body_.x, 0, t);
     this.body_.y = Phaser.Math.Linear(this.body_.y, drop, t);
   }
 
@@ -687,6 +949,144 @@ export class Avatar extends Phaser.GameObjects.Container {
     g.fillCircle(bx, by - 2, 1.4);
   }
 
+  /**
+   * Picó (sólo lo ve el que pesca, `fish:result.hooked`): con la caña y la tanza todavía en la mano,
+   * se hunde la boya, salpica, la caña se dobla y salta cada pez (de su color; con doble, dos, uno
+   * detrás del otro) hasta la punta. Llega cuando el server ya terminó la pesca (`fishing` en false),
+   * así que la caña se muestra hasta que termina.
+   */
+  reelIn(fishColors: readonly number[]) {
+    if (this.sitting || fishColors.length === 0) return;
+    this.reelLeft = REEL_MS;
+    this.rod.setVisible(true);
+    this.fishingLine.setVisible(true);
+    this.hooked = Math.min(MAX_HOOKED, fishColors.length);
+    this.caughtFish.forEach((fish, i) => {
+      fish.setVisible(false);
+      if (i < this.hooked) this.drawCaughtFish(fish, fishColors[i]);
+    });
+  }
+
+  private endReel() {
+    this.reelLeft = 0;
+    this.drawRod(this.rodColor);
+    for (const fish of this.caughtFish) fish.setVisible(false);
+    this.fishingLine.clear();
+    if (!this.fishing) {
+      this.rod.setVisible(false);
+      this.fishingLine.setVisible(false);
+    }
+  }
+
+  private poseReel(delta: number) {
+    this.reelLeft = Math.max(0, this.reelLeft - delta);
+    const t = 1 - this.reelLeft / REEL_MS;
+    const facing = this.fishFacing;
+    this.setBackView(facing === "north" || facing === "west");
+    this.body_.scaleX = facing === "east" || facing === "north" ? 1 : -1;
+    this.poseLimbs(delta, 0, 1, 0);
+    // El brazo tira para arriba y después vuelve un poco con el pez colgando.
+    const pull = t < 0.35 ? t / 0.35 : 1 - Math.max(0, t - 0.75) * 1.6;
+    this.arms[1].rotation = Phaser.Math.Linear(FISH_ARM_ANGLE, REEL_ARM_ANGLE, Math.max(0, pull));
+
+    // La caña se dobla mientras el pez tira (hasta que sale del agua) y se endereza con él colgando.
+    const bend = t < REEL_LEAP_FROM ? t / REEL_LEAP_FROM : Math.max(0.25, 1 - (t - REEL_LEAP_FROM) * 1.5);
+    const tip = this.drawBentRod(bend);
+
+    // La boya, donde estaba (ver `poseFishing`).
+    const front = facing === "south" || facing === "east";
+    const bx = this.fishDistance * (TILE_WIDTH / 2);
+    const by = this.fishDistance * (TILE_HEIGHT / 2) * (front ? 1 : -1);
+    const g = this.fishingLine.clear();
+    this.drawSplash(g, bx, by, t);
+
+    // Cada pez: tironea bajo el agua, salta en arco hasta la punta y queda colgando de la tanza (el
+    // segundo sale un poco después y cuelga al lado del primero).
+    g.lineStyle(1, LINE_COLOR, 0.95);
+    let anyOut = false;
+    for (let i = 0; i < this.hooked; i++) {
+      const start = REEL_LEAP_FROM + i * REEL_FISH_DELAY;
+      const leap = Phaser.Math.Clamp((t - start) / (REEL_LEAP_TO - REEL_LEAP_FROM), 0, 1);
+      const spread = this.hooked > 1 ? (i === 0 ? -1 : 1) * HANG_SPREAD_PX : 0;
+      const fx = Phaser.Math.Linear(bx + spread, tip.x + spread, leap);
+      const fy = Phaser.Math.Linear(by, tip.y + 16, leap) - Math.sin(leap * Math.PI) * 26;
+      // Cabeza para arriba (colgado de la boca), arqueándose en el salto y coleteando.
+      const wiggle = Math.sin(t * 60 + i * 2) * 0.35;
+      this.caughtFish[i]
+        .setVisible(leap > 0)
+        .setPosition(fx, fy)
+        .setRotation(-Math.PI / 2 + Math.sin(leap * Math.PI) * 0.9 + wiggle)
+        .setAlpha(t > 0.9 ? (1 - t) * 10 : 1);
+      if (leap > 0) {
+        anyOut = true;
+        // Tanza tirante de la punta a la boca del pez.
+        g.lineBetween(tip.x, tip.y, fx, fy - 6);
+      }
+    }
+    // Antes de que salga ninguno, la tanza va hasta la boya hundida.
+    if (!anyOut) g.lineBetween(tip.x, tip.y, bx, by);
+    if (!anyOut) {
+      g.fillStyle(0xe63946, 1);
+      g.fillCircle(bx, by + 2 + Math.sin(t * 70) * 1.5, 2.5);
+    }
+
+    if (this.reelLeft === 0) this.endReel();
+  }
+
+  /** Caña doblada hacia el agua (`bend` 0–1); devuelve dónde queda la punta (de ahí sale la tanza). */
+  private drawBentRod(bend: number): { x: number; y: number } {
+    const base = { x: 26, y: -42 };
+    const tip = { x: ROD_TIP.x + bend * 4, y: ROD_TIP.y + bend * ROD_BEND_PX };
+    // Curva: el punto de control queda sobre la recta de la caña recta, así se arquea hacia abajo.
+    const control = { x: (base.x + ROD_TIP.x) / 2 + 4, y: (base.y + ROD_TIP.y) / 2 - 6 };
+    const g = this.rod.clear();
+    g.lineStyle(2.5, this.rodColor, 1);
+    const curve = new Phaser.Curves.QuadraticBezier(new Phaser.Math.Vector2(base.x, base.y), new Phaser.Math.Vector2(control.x, control.y), new Phaser.Math.Vector2(tip.x, tip.y));
+    curve.draw(g, 12);
+    g.fillStyle(0x2b2b30, 1);
+    g.fillCircle(30, -47, 2.5);
+    return tip;
+  }
+
+  /** Salpicadura en (x, y): ondas que se abren en el agua y gotas que saltan y caen. */
+  private drawSplash(g: Phaser.GameObjects.Graphics, x: number, y: number, t: number) {
+    for (const delay of [0, 0.18, REEL_LEAP_FROM]) {
+      const ring = (t - delay) / 0.55;
+      if (ring <= 0 || ring >= 1) continue;
+      g.lineStyle(2, SPLASH_COLOR, (1 - ring) * 0.9);
+      g.strokeEllipse(x, y + 2, 8 + ring * 34, 4 + ring * 16);
+    }
+    // Gotas: al empezar y cuando el pez sale del agua.
+    for (const start of [0, REEL_LEAP_FROM]) {
+      const life = (t - start) / 0.35;
+      if (life <= 0 || life >= 1) continue;
+      g.fillStyle(SPLASH_COLOR, 1 - life);
+      for (const [angle, speed] of DROPS) {
+        const distance = life * 20 * speed;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance + life * life * 24;
+        g.fillCircle(x + dx, y + dy, 2.2);
+      }
+    }
+  }
+
+  /** Pez (de costado, mirando hacia +x en su dibujo): cuerpo, cola, aleta y ojo. */
+  private drawCaughtFish(fish: Phaser.GameObjects.Graphics, color: number) {
+    const g = fish.clear();
+    g.fillStyle(shade(color, -25), 1);
+    g.fillTriangle(-7, 0, -12, -4.5, -12, 4.5);
+    g.fillStyle(color, 1);
+    g.fillEllipse(0, 0, 16, 7);
+    g.fillStyle(shade(color, 30), 1);
+    g.fillEllipse(1, 1.4, 10, 2.6);
+    g.fillStyle(shade(color, -25), 1);
+    g.fillTriangle(-1, -3, 3, -3, 0, -6);
+    g.fillStyle(0x111111, 1);
+    g.fillCircle(5, -0.8, 1);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeEllipse(0, 0, 16, 7);
+  }
+
   /** De frente con el carrito a la derecha; cada tanto levanta el brazo para ofrecer. */
   private poseVending(delta: number) {
     this.setBackView(false);
@@ -695,6 +1095,311 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.vendTime += delta;
     const phase = this.vendTime % VEND_WAVE_EVERY_MS;
     if (phase < VEND_WAVE_MS) this.arms[1].rotation = Math.sin((phase / VEND_WAVE_MS) * Math.PI) * VEND_WAVE_ANGLE;
+  }
+
+  /**
+   * Pose del gesto: los brazos (rotación y escala, que acorta el brazo como si se doblara hacia la
+   * cámara), lo que tiene en la mano y los efectos y, en los de parado, piernas, cadera y saltos.
+   * Entra suave en `GESTURE_BLEND_MS`; al terminar, `poseLimbs` lo devuelve a la pose normal.
+   */
+  private poseGesture(gesture: AnyGestureId, delta: number) {
+    this.gestureTime += delta;
+    const time = this.gestureTime;
+    const blend = Math.min(1, time / GESTURE_BLEND_MS);
+    const [far, near] = this.arms;
+    const aim = (arm: Phaser.GameObjects.Container, rotation: number, scale: number) => {
+      arm.rotation = Phaser.Math.Linear(arm.rotation, rotation, blend);
+      arm.scaleY = Phaser.Math.Linear(arm.scaleY, scale, blend);
+    };
+    const aimAt = (arm: Phaser.GameObjects.Container, hand: { x: number; y: number }) => {
+      const target = reach(hand);
+      aim(arm, target.rotation, target.scale);
+    };
+    this.setBackView(false);
+    this.prop.setVisible(false);
+    this.termo.setVisible(false);
+    this.drum.setVisible(false);
+    const g = this.fx.clear();
+
+    switch (gesture) {
+      case "mate": {
+        const up = mateLift(time);
+        aim(near, Phaser.Math.Linear(MATE_REST.rotation, MATE_MOUTH.rotation, up), Phaser.Math.Linear(MATE_REST.scale, MATE_MOUTH.scale, up));
+        this.holdProp("mate");
+        this.termo.setVisible(true);
+        break;
+      }
+      case "candombe": {
+        // Con el tamboril colgado: la mano con el palo sube y pega en el parche a cada golpe; el
+        // cuerpo marca el paso y la cadera se mece.
+        const beat = (time % CANDOMBE_BEAT_MS) / CANDOMBE_BEAT_MS;
+        const down = beat < 0.35 ? smooth(beat / 0.35) : 1 - smooth((beat - 0.35) / 0.65);
+        aimAt(near, { x: Phaser.Math.Linear(DRUM_UP.x, DRUM_HIT.x, down), y: Phaser.Math.Linear(DRUM_UP.y, DRUM_HIT.y, down) });
+        aim(far, -0.45 + Math.sin(time / 180) * 0.15, 0.9);
+        const step = Math.sin((time / CANDOMBE_BEAT_MS) * Math.PI);
+        this.legs[0].rotation = step * 0.22 * blend;
+        this.legs[1].rotation = -step * 0.22 * blend;
+        this.body_.y = -Math.abs(step) * 2.5 * blend;
+        this.body_.rotation = Math.sin((time / CANDOMBE_BEAT_MS) * Math.PI * 0.5) * 0.07 * blend;
+        this.drum.setVisible(true);
+        this.holdProp("stick");
+        // El golpe en el parche: unas rayitas que saltan.
+        if (beat > 0.3 && beat < 0.55) {
+          const head = { x: DRUM_AT.x - 4, y: DRUM_AT.y - 11 };
+          g.lineStyle(1.5, SPARK_COLOR, 1 - (beat - 0.3) / 0.25);
+          for (const angle of [-2.4, -1.6, -0.8]) {
+            g.lineBetween(head.x + Math.cos(angle) * 5, head.y + Math.sin(angle) * 5, head.x + Math.cos(angle) * 9, head.y + Math.sin(angle) * 9);
+          }
+        }
+        this.showExpression("happy");
+        break;
+      }
+      case "goal": {
+        // Salta con los dos brazos arriba, revoleando la bandera.
+        const shake = Math.sin(time / 90) * 0.15;
+        aim(near, -2.75 + shake, 1);
+        aim(far, 2.75 - shake, 1);
+        this.body_.y = -Math.abs(Math.sin((time / GOAL_JUMP_MS) * Math.PI)) * GOAL_JUMP_PX * blend;
+        this.holdProp("flag");
+        this.prop.setRotation(Math.sin(time / 140) * 0.35);
+        this.showExpression("happy");
+        break;
+      }
+      case "wave": {
+        const swing = Math.sin((time / WAVE_MS) * Math.PI);
+        aim(near, -2.6 + swing * 0.35, 0.95);
+        // Rayitas de movimiento a los costados de la mano.
+        const hand = this.handOf(near, ARM_X);
+        g.lineStyle(1.2, 0xffffff, 0.6);
+        const side = swing > 0 ? 1 : -1;
+        g.beginPath();
+        g.arc(hand.x - side * 2, hand.y, 8, side > 0 ? Math.PI * 0.75 : -Math.PI * 0.25, side > 0 ? Math.PI * 1.25 : Math.PI * 0.25);
+        g.strokePath();
+        this.showExpression("happy");
+        break;
+      }
+      case "clap": {
+        // Abre y junta las manos frente al pecho (el golpe, rápido; abrir, más lento) y saltan chispitas.
+        const closed = Math.pow((1 - Math.cos(((time % CLAP_MS) / CLAP_MS) * Math.PI * 2)) / 2, 0.6);
+        const hand = (side: "near" | "far") => ({
+          x: Phaser.Math.Linear(CLAP_OPEN[side].x, CLAP_CLOSED[side].x, closed),
+          y: Phaser.Math.Linear(CLAP_OPEN[side].y, CLAP_CLOSED[side].y, closed),
+        });
+        aimAt(near, hand("near"));
+        aimAt(far, hand("far"));
+        if (closed > 0.9) this.drawSparks(g, this.handOf(near, ARM_X), (closed - 0.9) * 10);
+        this.showExpression("happy");
+        break;
+      }
+      case "shush":
+        aim(near, SHUSH_ARM.rotation, SHUSH_ARM.scale);
+        this.holdProp("finger");
+        break;
+      case "highFive":
+      case "hug":
+      case "shareMate":
+        this.posePair(gesture, time, blend, aim, aimAt, g);
+        break;
+    }
+
+    // Lo que tiene en la mano va donde está la mano del brazo cercano.
+    const hand = this.handOf(near, ARM_X);
+    this.prop.setPosition(hand.x, hand.y);
+    if (gesture === "mate" || (gesture === "shareMate" && this.prop.visible)) this.drawSteam(g, hand, time);
+  }
+
+  /**
+   * Gestos de a dos: los dos se miran (cada uno con el brazo cercano hacia el otro), se acercan y
+   * hacen lo suyo. `dx` es hacia dónde está el otro en el mundo; los efectos que están entre los dos
+   * (chispas, corazones) los dibuja sólo el que invitó, para que no salgan dobles.
+   */
+  private posePair(
+    gesture: "highFive" | "hug" | "shareMate",
+    time: number,
+    blend: number,
+    aim: (arm: Phaser.GameObjects.Container, rotation: number, scale: number) => void,
+    aimAt: (arm: Phaser.GameObjects.Container, hand: { x: number; y: number }) => void,
+    g: Phaser.GameObjects.Graphics,
+  ) {
+    const [far, near] = this.arms;
+    const partner = this.partner;
+    const dx = partner ? partner.x - this.x : this.lead ? 40 : -40;
+    const dy = partner ? partner.y - this.y : 0;
+    // Uno arriba del otro en pantalla: igual se miran (el que invitó, a la derecha).
+    const side = Math.abs(dx) > 4 ? Math.sign(dx) : this.lead ? 1 : -1;
+    this.body_.scaleX = side;
+    const distance = Math.max(Math.abs(dx), 1);
+    /** Se acerca hasta que entre los dos queden `gap` px (cada uno hace la mitad del camino). */
+    const lean = (gap: number) => {
+      const move = Math.max(0, (distance - gap) / 2) * blend;
+      this.body_.x = side * move;
+      this.body_.y = dy * 0.25 * blend;
+      return distance - 2 * Math.max(0, (distance - gap) / 2);
+    };
+
+    if (gesture === "highFive") {
+      // Levanta la mano hacia atrás, la tira hacia el otro y las manos chocan arriba, entre los dos.
+      const gap = lean(46);
+      const t = time / PAIR_GESTURES.highFive.durationMs;
+      const meet = { x: gap / 2 - ARM_X, y: -22 };
+      const wind = { x: meet.x - 8, y: -24 };
+      const swing = t < 0.3 ? 0 : t < HIGH_FIVE_HIT ? smooth((t - 0.3) / (HIGH_FIVE_HIT - 0.3)) : 1;
+      const lower = t > 0.7 ? smooth((t - 0.7) / 0.3) : 0;
+      aimAt(near, {
+        x: Phaser.Math.Linear(Phaser.Math.Linear(wind.x, meet.x, swing), 6, lower),
+        y: Phaser.Math.Linear(Phaser.Math.Linear(wind.y, meet.y, swing), 18, lower),
+      });
+      if (this.lead && t >= HIGH_FIVE_HIT && t < HIGH_FIVE_HIT + 0.15) {
+        this.drawSparks(g, { x: ARM_X + meet.x, y: SHOULDER_Y + meet.y - 4 }, (t - HIGH_FIVE_HIT) / 0.15, 1.8);
+      }
+      this.showExpression("happy");
+      return;
+    }
+
+    if (gesture === "hug") {
+      // Se juntan, se rodean con los dos brazos y se mecen; arriba, unos corazones.
+      const gap = lean(HUG_GAP_PX);
+      aimAt(near, { x: gap + 2 - ARM_X, y: 8 });
+      aimAt(far, { x: gap + 6 + ARM_X, y: 10 });
+      this.body_.rotation = Math.sin(time / 320) * 0.05 * blend * side;
+      if (this.lead) {
+        for (let i = 0; i < 2; i++) {
+          const life = ((time / 1400 + i * 0.5) % 1);
+          g.fillStyle(HEART_COLOR, 1 - life);
+          drawHeart(g, gap / 2 + (i === 0 ? -6 : 7), -110 - life * 18, 4.5);
+        }
+      }
+      this.showExpression("happy");
+      return;
+    }
+
+    // Pasar el mate: el que convida tiene el termo y estira el mate hasta el medio; el otro lo agarra
+    // y se lo toma. Cuando pasa de mano, se ve en la del que lo recibió.
+    const gap = lean(34);
+    const middle = { x: gap / 2 - ARM_X + 2, y: 12 };
+    const passed = time >= SHARE_MATE_PASS_MS;
+    if (this.lead) {
+      this.termo.setVisible(true);
+      const out = smooth(Math.min(1, time / (SHARE_MATE_PASS_MS * 0.8)));
+      const back = passed ? smooth(Math.min(1, (time - SHARE_MATE_PASS_MS) / 500)) : 0;
+      aimAt(near, { x: Phaser.Math.Linear(Phaser.Math.Linear(8, middle.x, out), 4, back), y: Phaser.Math.Linear(Phaser.Math.Linear(14, middle.y, out), 18, back) });
+      if (!passed) this.holdProp("mate");
+    } else if (!passed) {
+      const out = smooth(Math.max(0, Math.min(1, (time - SHARE_MATE_PASS_MS * 0.45) / (SHARE_MATE_PASS_MS * 0.5))));
+      aimAt(near, { x: Phaser.Math.Linear(4, middle.x, out), y: Phaser.Math.Linear(18, middle.y, out) });
+    } else {
+      // Lo trae y se lo toma (como el mate solo, desde que lo recibió).
+      const up = mateLift(time - SHARE_MATE_PASS_MS + MATE_SIP_EVERY_MS - MATE_RAISE_MS * 0.2);
+      aim(near, Phaser.Math.Linear(MATE_REST.rotation, MATE_MOUTH.rotation, up), Phaser.Math.Linear(MATE_REST.scale, MATE_MOUTH.scale, up));
+      this.holdProp("mate");
+    }
+  }
+
+  /** Dónde queda la mano de `arm` (que sale de `shoulderX`), en coordenadas del cuerpo. */
+  private handOf(arm: Phaser.GameObjects.Container, shoulderX: number): { x: number; y: number } {
+    const length = ARM_LENGTH * arm.scaleY;
+    return { x: shoulderX - Math.sin(arm.rotation) * length, y: SHOULDER_Y + Math.cos(arm.rotation) * length };
+  }
+
+  /** Chispitas que salen de `at` (`life` 0 → 1: se abren y se apagan). */
+  private drawSparks(g: Phaser.GameObjects.Graphics, at: { x: number; y: number }, life: number, size = 1) {
+    g.lineStyle(1.4, SPARK_COLOR, 1 - life);
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + 0.3;
+      const r0 = (3 + life * 4) * size;
+      const r1 = r0 + 3 * size;
+      g.lineBetween(at.x + Math.cos(angle) * r0, at.y + Math.sin(angle) * r0, at.x + Math.cos(angle) * r1, at.y + Math.sin(angle) * r1);
+    }
+  }
+
+  /** Vapor del mate: dos o tres volutas que suben de la calabaza y se desvanecen. */
+  private drawSteam(g: Phaser.GameObjects.Graphics, hand: { x: number; y: number }, time: number) {
+    for (let i = 0; i < 3; i++) {
+      const life = (time / 1100 + i / 3) % 1;
+      g.fillStyle(STEAM_COLOR, 0.45 * (1 - life));
+      g.fillCircle(hand.x + Math.sin(life * 6 + i) * 2, hand.y - 9 - life * 12, 1.6 + life * 1.6);
+    }
+  }
+
+  /** Mate (en la mano, con la bombilla hacia la boca): calabaza, yerba y bombilla. */
+  private drawMate() {
+    const g = this.prop.clear().setRotation(0);
+    g.lineStyle(1.6, BOMBILLA_COLOR, 1);
+    g.lineBetween(-0.5, -6, -7, -9.5);
+    g.fillStyle(GOURD_COLOR, 1);
+    g.fillEllipse(0, -2.5, 8, 9);
+    g.fillStyle(shade(GOURD_COLOR, -30), 1);
+    g.fillEllipse(0, -6.5, 6.5, 2.4);
+    g.fillStyle(YERBA_COLOR, 1);
+    g.fillEllipse(0, -6.7, 5, 1.6);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeEllipse(0, -2.5, 8, 9);
+  }
+
+  /** Índice levantado (pedir silencio), del color de la piel. */
+  private drawFinger() {
+    const g = this.prop.clear().setRotation(0);
+    g.fillStyle(this.look.skin, 1);
+    g.fillRoundedRect(-1.4, -9, 2.8, 8, 1.4);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeRoundedRect(-1.4, -9, 2.8, 8, 1.4);
+  }
+
+  /** Bandera uruguaya chiquita en un palito: franjas blancas y celestes y el sol en la esquina. */
+  private drawFlag() {
+    const g = this.prop.clear();
+    g.lineStyle(2.2, 0x5a3b1e, 1);
+    g.lineBetween(0, 4, 0, -24);
+    for (let i = 0; i < 5; i++) {
+      g.fillStyle(i % 2 === 0 ? 0xffffff : FLAG_BLUE, 1);
+      g.fillRect(0.8, -24 + i * 2, 15, 2);
+    }
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(0.8, -24, 5, 6);
+    g.fillStyle(FLAG_SUN, 1);
+    g.fillCircle(3.3, -21, 1.8);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeRect(0.8, -24, 15, 10);
+  }
+
+  /** Palo del tamboril en la mano, apuntando al parche. */
+  private drawStick() {
+    const g = this.prop.clear().setRotation(0);
+    g.lineStyle(2, 0x5a3b1e, 1);
+    g.lineBetween(1, -2, -4, 8);
+  }
+
+  /** Tamboril de candombe (de costado, colgado): barril de madera con flejes y el parche arriba. */
+  private drawDrum() {
+    const g = this.drum;
+    g.fillStyle(DRUM_WOOD, 1);
+    g.fillRoundedRect(-5, -11, 10, 22, 3);
+    g.fillStyle(shade(DRUM_WOOD, -25), 1);
+    g.fillRect(-5, -4, 10, 1.6);
+    g.fillRect(-5, 4, 10, 1.6);
+    g.fillStyle(shade(DRUM_WOOD, 20), 1);
+    g.fillRect(-3.5, -9, 1.6, 18);
+    g.fillStyle(DRUM_HEAD, 1);
+    g.fillEllipse(0, -11, 10, 3.6);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeRoundedRect(-5, -11, 10, 22, 3);
+    // La correa que lo cuelga del hombro.
+    g.lineStyle(1.4, 0x3a2a1a, 0.8);
+    g.lineBetween(-4, -8, -14, -28);
+  }
+
+  /** Termo bajo el brazo cercano (sólo con el mate): cuerpo de color, tapa y pico metálicos. */
+  private drawTermo() {
+    const g = this.termo;
+    g.fillStyle(TERMO_COLOR, 1);
+    g.fillRoundedRect(9, -50, 8, 20, 2.5);
+    g.fillStyle(shade(TERMO_COLOR, 25), 1);
+    g.fillRect(10, -47, 2, 14);
+    g.fillStyle(BOMBILLA_COLOR, 1);
+    g.fillRoundedRect(9.5, -54, 7, 4.5, 1.5);
+    g.fillRect(15.5, -53, 3, 2);
+    g.lineStyle(1, OUTLINE, OUTLINE_ALPHA);
+    g.strokeRoundedRect(9, -50, 8, 20, 2.5);
   }
 
   private updateBlink(delta: number) {
@@ -774,4 +1479,33 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.overlay.destroy();
     super.destroy(fromScene);
   }
+}
+
+/** 0 → 1 con arranque y llegada suaves. */
+function smooth(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
+}
+
+/** Rotación y escala de un brazo para que la mano quede en `hand` (px desde el hombro). */
+function reach(hand: { x: number; y: number }): { rotation: number; scale: number } {
+  return { rotation: Math.atan2(-hand.x, hand.y), scale: Math.min(1.25, Math.max(0.3, Math.hypot(hand.x, hand.y) / ARM_LENGTH)) };
+}
+
+/**
+ * Cuánto tiene el mate levantado (0 = a la altura del pecho, 1 = en la boca) a los `time` ms: lo sube,
+ * chupa la bombilla y lo baja, una vez cada `MATE_SIP_EVERY_MS`.
+ */
+function mateLift(time: number): number {
+  const phase = ((time % MATE_SIP_EVERY_MS) + MATE_SIP_EVERY_MS) % MATE_SIP_EVERY_MS;
+  if (phase < MATE_RAISE_MS) return smooth(phase / MATE_RAISE_MS);
+  if (phase < MATE_RAISE_MS + MATE_SIP_MS) return 1;
+  return smooth(1 - (phase - MATE_RAISE_MS - MATE_SIP_MS) / MATE_RAISE_MS);
+}
+
+/** Corazoncito (dos círculos y un triángulo) centrado en (x, y). */
+function drawHeart(g: Phaser.GameObjects.Graphics, x: number, y: number, size: number) {
+  g.fillCircle(x - size * 0.5, y, size * 0.6);
+  g.fillCircle(x + size * 0.5, y, size * 0.6);
+  g.fillTriangle(x - size * 1.1, y + size * 0.15, x + size * 1.1, y + size * 0.15, x, y + size * 1.4);
 }

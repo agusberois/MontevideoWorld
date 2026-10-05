@@ -20,6 +20,8 @@ export class Player extends Schema {
   @type("uint8") y = 0;
   /** Sentado en el banco del tile actual. */
   @type("boolean") sitting = false;
+  /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */
+  @type("boolean") bathing = false;
   /** Pescando desde la escollera (los demás lo ven con la caña). */
   @type("boolean") fishing = false;
   /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
@@ -33,12 +35,15 @@ export class Player extends Schema {
   @type("string") petName = "";
   /** Preso en el COMCAR (`/ban`): segundos que le quedan (0 = libre). */
   @type("uint32") jailLeft = 0;
-  /** Hincha que se acerca al carrito (`CustomerState`: nadie, llegando, compró, siguió de largo). */
-  @type("uint8") customer = 0;
   /** Sube en cada venta: los clientes muestran "¡Vendido!" sobre el vendedor. */
   @type("uint16") sales = 0;
   /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
   @type("uint16") kicks = 0;
+  /** Gesto que está haciendo (id de `GESTURES`; "" = ninguno). Lo pone y lo saca el server (`systems/gestures.ts`). */
+  @type("string") gesture = "";
+  /** Gesto de a dos (`PAIR_GESTURES`): con quién (sessionId) y si lo invitó él (en el mate, el que convida). */
+  @type("string") gesturePartner = "";
+  @type("boolean") gestureLead = false;
   /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
   @type("uint8") energy = 100;
   /** Cansado: camina `TIRED_STEP_TICKS` veces más lento (lo decide el server; todos lo ven así). */

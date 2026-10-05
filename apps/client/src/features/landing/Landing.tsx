@@ -2,7 +2,7 @@
 import { CITY_INFOS, ITEMS, MAX_PLAYERS_PER_ROOM } from "@montevideo-world/shared";
 
 /** Los barrios que se muestran (la cárcel, no). */
-const LANDING_CITIES = CITY_INFOS.filter((city) => !city.prison);
+const LANDING_CITIES = CITY_INFOS.filter((city) => !city.prison && !city.access);
 import { PlayButton } from "./PlayButton";
 import styles from "./Landing.module.css";
 
@@ -35,7 +35,7 @@ const CONTROLS = [
   { keys: "Clic / WASD", action: "caminar" },
   { keys: "F", action: "interactuar, pescar o vender" },
   { keys: "M", action: "barrios" },
-  { keys: "H", action: "mochila" },
+  { keys: "I", action: "mochila" },
   { keys: "1–9", action: "barra rápida" },
 ];
 

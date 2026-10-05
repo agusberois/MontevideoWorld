@@ -2,7 +2,7 @@ import type { Landmark, LandmarkKind } from "@montevideo-world/shared";
 import { casasReus } from "./barrioDeLosJudios/casasReus";
 import { eac } from "./barrioDeLosJudios/eac";
 import { sanPancracio } from "./barrioDeLosJudios/sanPancracio";
-import { sinagoga } from "./barrioDeLosJudios/sinagoga";
+import { mercadoAgricola } from "./barrioDeLosJudios/mercadoAgricola";
 import { cabildo } from "./ciudadVieja/cabildo";
 import { catedral } from "./ciudadVieja/catedral";
 import { farola } from "./ciudadVieja/farola";
@@ -12,6 +12,12 @@ import { monumentoArtigas } from "./ciudadVieja/monumentoArtigas";
 import { palacioSalvo } from "./ciudadVieja/palacioSalvo";
 import { puertaCiudadela } from "./ciudadVieja/puertaCiudadela";
 import { teatroSolis } from "./ciudadVieja/teatroSolis";
+import { termas } from "./ciudadVieja/termas";
+import { casino } from "./ciudadVieja/casino";
+import { blackjackTable, rouletteTable, slotMachine } from "./casino/juegos";
+import { torreEjecutiva } from "./ciudadVieja/torreEjecutiva";
+import { palacio } from "./ciudadVieja/palacio";
+import { flowers, lamp, planta, pottedPalm } from "./termas/planta";
 import { garita } from "./comcar/garita";
 import { pabellon } from "./comcar/pabellon";
 import { estadioCentenario } from "./tresCruces/estadioCentenario";
@@ -54,9 +60,21 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   watchtower: garita,
   // Barrio de los Judíos (Villa Muñoz)
   reusHouses: casasReus,
-  synagogue: sinagoga,
+  agriMarket: mercadoAgricola,
   church: sanPancracio,
   artCenter: eac,
+  // Termas del Donador (el edificio de Ciudad Vieja y las plantas de adentro)
+  termas,
+  executiveTower: torreEjecutiva,
+  palace: palacio,
+  plant: planta,
+  pottedPalm,
+  flowers,
+  lamp,
+  casino,
+  slotMachine,
+  rouletteTable,
+  blackjackTable,
 };
 
 export type { PlacedPiece, RoofSpot };

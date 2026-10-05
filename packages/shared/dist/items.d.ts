@@ -35,6 +35,11 @@ export interface ClothingOf<S extends ItemSlot> extends ItemBase {
     category: "clothing";
     slot: S;
     style: SlotStyle<S>;
+    /**
+     * Calzado: cuánto más rápido se camina con él puesto (1,2 = 20 % más rápido; sin el campo, 1).
+     * Lo aplican el server al mover (`walkSpeed`) y el cliente al animar.
+     */
+    speed?: number;
 }
 export type ClothingItem = {
     [S in ItemSlot]: ClothingOf<S>;
@@ -158,6 +163,15 @@ export declare const CLOTHING: readonly ClothingItem[];
  * roperías ("todo el catálogo") no las tengan.
  */
 export declare const KOREAN_FASHION: readonly ClothingItem[];
+/**
+ * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
+ * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ */
+export declare const WALKING_SHOES: readonly ClothingItem[];
+/** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
+export declare function walkSpeed(shoesId: string | undefined): number;
+/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+export declare function speedPerk(item: ClothingItem): string[];
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).

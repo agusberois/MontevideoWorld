@@ -2,9 +2,11 @@ import type { ComponentType } from "react";
 import type { PanelId } from "@/lib/gameStore";
 import type { CityRoom } from "@/lib/network";
 import { AdminPanel } from "../features/admin/AdminPanel";
+import { CalendarPanel } from "../features/calendar/CalendarPanel";
 import { Backpack } from "../features/inventory/Backpack";
 import { CityMenu } from "../features/cities/CityMenu";
 import { CommandsPanel } from "../features/chat/CommandsPanel";
+import { GesturesPanel } from "../features/gestures/GesturesPanel";
 import { MakerPanel } from "../features/admin/MakerPanel";
 import { PlayerDetails } from "../features/players/PlayerDetails";
 import { PlayersPanel } from "../features/players/PlayersPanel";
@@ -31,11 +33,13 @@ interface PanelEntry {
  */
 export const PANELS: Record<PanelId, PanelEntry> = {
   cities: { component: CityMenu, shortcut: "KeyM" },
-  backpack: { component: Backpack, shortcut: "KeyH" },
+  backpack: { component: Backpack, shortcut: "KeyI" },
   commands: { component: CommandsPanel, shortcut: "KeyC" },
+  gestures: { component: GesturesPanel, shortcut: "KeyE" },
+  calendar: { component: CalendarPanel, shortcut: "KeyK" },
   players: { component: PlayersPanel, shortcut: "Tab" },
   admin: { component: AdminPanel, shortcut: "KeyP", adminOnly: true },
-  maker: { component: MakerPanel, shortcut: "KeyI", adminOnly: true },
+  maker: { component: MakerPanel, shortcut: "KeyH", adminOnly: true },
   shop: { component: ShopPanel },
   // Del jugador `detailsId`: desde su menú o con un clic en tu avatar (`openPlayerDetails`).
   playerDetails: { component: PlayerDetails },

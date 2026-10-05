@@ -23,12 +23,15 @@ import { Hud } from "../ui/Hud";
 import { Notices } from "../ui/Notices";
 import { JoinScreen } from "../features/join/JoinScreen";
 import { LoginScreen } from "../features/join/LoginScreen";
+import { CharacterSelect } from "../features/join/CharacterSelect";
+import { Character, listCharacters } from "@/lib/characters";
 import { PANELS, panelForKey } from "./panels";
 import { PhaserGame } from "./PhaserGame";
 import { PlayerMenu } from "../features/players/PlayerMenu";
 import { TradeInvites } from "../features/trade/TradeInvites";
+import { PairGestureInvites } from "../features/gestures/PairGestureInvites";
 import { TradePanel } from "../features/trade/TradePanel";
-import { TRAVEL_MS, TravelOverlay } from "../features/cities/TravelOverlay";
+import { DOOR_MS, DoorOverlay, TRAVEL_MS, TravelOverlay } from "../features/cities/TravelOverlay";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./App.module.css";
 
@@ -54,6 +57,9 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   /** Pasó por la pantalla de inicio de sesión (todavía sin cuentas: el botón sólo avanza). */
   const [signedIn, setSignedIn] = useState(false);
+  /** Personajes guardados en este navegador (se leen al iniciar sesión) y si se eligió crear uno. */
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [creating, setCreating] = useState(false);
   const room = session?.room ?? null;
   const panel = useGame((state) => state.panel);
   const isAdmin = useGame((state) => state.isAdmin);
@@ -70,6 +76,9 @@ export function App() {
   const handleJoined = useCallback((joined: CitySession) => {
     setNotice(null);
     setSession(joined);
+    // Al salir del juego se vuelve a elegir, ya con el personaje recién creado en la lista.
+    setCharacters(listCharacters());
+    setCreating(false);
   }, []);
 
   useEffect(() => {
@@ -98,7 +107,7 @@ export function App() {
     };
   }, [room]);
 
-  // Paneles (teclas en `PANELS`: M, H, C, Tab y, sólo admin, P e I), F: interactuar / pescar / vender,
+  // Paneles (teclas en `PANELS`: M, I, E, K, C, Tab y, sólo admin, P y H), F: interactuar / pescar / vender,
   // 1–9: barra rápida, Esc: cerrar. Con un intercambio abierto no anda ninguno.
   // No interfiere mientras se escribe en el chat (ahí Tab sigue moviendo el foco).
   useEffect(() => {
@@ -132,16 +141,17 @@ export function App() {
    * server sólo deja entrar a otro barrio con un boleto vigente.
    */
   const travel = useCallback(
-    async (cityId: string, roomId?: string, ambulance?: boolean) => {
+    async (cityId: string, roomId?: string, ambulance?: boolean, door?: boolean) => {
       // `roomId` (de `/trace`) puede ser otra copia del mismo barrio.
       if (!room || gameStore.getState().traveling || (roomId ? roomId === room.roomId : cityId === session?.cityId)) return;
-      gameStore.setState({ traveling: { from: cityName(session?.cityId), to: cityName(cityId), ambulance } });
+      gameStore.setState({ traveling: { from: cityName(session?.cityId), to: cityName(cityId), ambulance, door } });
       gameStore.resetCity();
       const startedAt = Date.now();
       try {
         await room.leave(true);
         // El viaje dura al menos TRAVEL_MS (la animación del ómnibus); si el server tarda más, se espera.
-        const [next] = await Promise.all([travelTo(cityId, roomId), wait(TRAVEL_MS - (Date.now() - startedAt))]);
+        // Por una puerta (las Termas) es un fundido corto, no el ómnibus.
+        const [next] = await Promise.all([travelTo(cityId, roomId), wait((door ? DOOR_MS : TRAVEL_MS) - (Date.now() - startedAt))]);
         setSession(next);
       } catch (error) {
         console.error("[Montevideo World] travel failed", error);
@@ -156,7 +166,7 @@ export function App() {
 
   // El server aprobó el boleto: recién ahí se viaja.
   useEffect(
-    () => eventBus.on("travel:approved", ({ cityId, roomId, ambulance }) => void travel(cityId, roomId, ambulance)),
+    () => eventBus.on("travel:approved", ({ cityId, roomId, ambulance, door }) => void travel(cityId, roomId, ambulance, door)),
     [travel],
   );
 
@@ -164,10 +174,24 @@ export function App() {
     room?.leave(true);
   }, [room]);
 
-  // Inicio de sesión → crear el personaje → juego. Al salir del juego se vuelve a crear el personaje.
+  // Inicio de sesión → elegir un personaje (si hay guardados) o crear uno → juego. Al salir del juego
+  // se vuelve a elegir.
   if (!session || !room) {
-    if (!signedIn) return <LoginScreen onSignIn={() => setSignedIn(true)} />;
-    return <JoinScreen onJoined={handleJoined} notice={notice} />;
+    if (!signedIn) {
+      return (
+        <LoginScreen
+          onSignIn={() => {
+            setCharacters(listCharacters());
+            setCreating(false);
+            setSignedIn(true);
+          }}
+        />
+      );
+    }
+    if (characters.length > 0 && !creating) {
+      return <CharacterSelect characters={characters} onJoined={handleJoined} onCreate={() => setCreating(true)} notice={notice} />;
+    }
+    return <JoinScreen onJoined={handleJoined} notice={notice} onBack={characters.length > 0 ? () => setCreating(false) : undefined} />;
   }
 
   const panelEntry = panel ? PANELS[panel] : null;
@@ -195,11 +219,17 @@ export function App() {
       <BoxReveal />
       <PlayerMenu room={room} />
       <TradeInvites room={room} />
+      <PairGestureInvites room={room} />
       <TradePanel room={room} />
       <Announcement />
       <JailBanner />
       {Panel && <Panel room={room} cityId={session.cityId} onClose={closePanel} />}
-      {traveling && <TravelOverlay from={traveling.from} to={traveling.to} ambulance={traveling.ambulance} />}
+      {traveling &&
+        (traveling.door ? (
+          <DoorOverlay to={traveling.to} />
+        ) : (
+          <TravelOverlay from={traveling.from} to={traveling.to} ambulance={traveling.ambulance} />
+        ))}
       <FaintOverlay />
     </>
   );

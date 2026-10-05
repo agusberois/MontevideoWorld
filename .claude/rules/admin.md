@@ -28,7 +28,7 @@ horario). Es global como el reloj (`gameClock.forceMatch`); el modo va en `state
 sobre el piso con "x,y" cada 5 tiles y, junto al mouse, la coordenada y qué hay en ese tile
 (`describeTile`); **Shift + clic** la copia al portapapeles ("39,21") para pedir dónde edificar. Es
 sólo visual y del cliente.
-**Maker** (botón **Maker (I)**, sólo admin → `MakerPanel`): todo el catálogo (`ITEMS`) en pestañas
+**Maker** (botón **Maker (H)**, sólo admin → `MakerPanel`): todo el catálogo (`ITEMS`) en pestañas
 plegables por categoría (arrancan todas cerradas cada vez que se abre; se abren/cierran de a una
 o todas juntas; al buscar se abren las que tienen resultados), con buscador y cantidad (1 a `MAKER_MAX_QUANTITY`). Destino: vos o un jugador a
 `MAKER_RANGE` tiles o menos; la lista la pide el panel con `admin:nearby:get` → `admin:nearby`

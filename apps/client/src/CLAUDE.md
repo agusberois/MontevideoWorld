@@ -23,7 +23,7 @@ hoja) está en `app/globals.css`; los ajustes de cada componente, en su CSS Modu
   `--hud-height`. Celular parado: los paneles salen desde abajo como hoja. Acostado: HUD en una fila
   y el dock en fila (chat a la derecha).
 - **Táctil** = `(hover: none) and (pointer: coarse)` (`isTouchDevice()`): se ocultan `kbd` y
-  `.key-hint` (textos tipo "Apretá H o Esc"), los inputs van a 16px (si no, iOS hace zoom) y se
+  `.key-hint` (textos tipo "Apretá I o Esc"), los inputs van a 16px (si no, iOS hace zoom) y se
   desactiva el arrastre nativo (no anda con el dedo).
 - **Mapa** (`CityScene`): un toque corto camina al **soltar** (`TAP_SLOP`), no al apoyar; arrastrar
   con un dedo mueve la cámara y dos dedos hacen zoom (ver "Cámara"). En pantallas chicas el zoom

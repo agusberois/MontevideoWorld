@@ -41,6 +41,11 @@ export interface CommandHost {
    * barrio u otra copia) le da un pase gratis a esa sala y aparece al lado al entrar.
    */
   traceTo(client: Client, to: OnlinePlayer): void;
+  /**
+   * Trae a `to` al tile del admin (`/mover`): en la misma sala lo teletransporta; si está en otra
+   * (otro barrio u otra copia) su sala le da un pase gratis a esta sala y aparece en ese tile.
+   */
+  summon(client: Client, to: OnlinePlayer): void;
   /** Llena energía, hambre y salud (y se las reenvía). */
   healFully(client: Client): void;
   /** Vuelve a abrir la guía de bienvenida (`/guia`). */

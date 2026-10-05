@@ -31,7 +31,7 @@ const CATEGORY_ORDER = ITEM_CATEGORY_IDS;
 const QUICK_QUANTITIES = [1, 5, 10];
 
 /**
- * Maker del admin (tecla I): crea cualquier ítem del catálogo en tu mochila o en la de un jugador
+ * Maker del admin (tecla H): crea cualquier ítem del catálogo en tu mochila o en la de un jugador
  * cercano (a `MAKER_RANGE` tiles). La lista de cercanos la arma el server, que además vuelve a
  * validar todo (que seas admin, la distancia, el lugar en la mochila) y avisa con un `notice`.
  */
@@ -214,7 +214,7 @@ export function MakerPanel({ room, onClose }: MakerPanelProps) {
           Tocá un ítem para crear {quantity} para {target?.name ?? "vos"}
           <span className={cx("key-hint")}>
             {" "}
-            · <kbd>I</kbd> o <kbd>Esc</kbd> para cerrar
+            · <kbd>H</kbd> o <kbd>Esc</kbd> para cerrar
           </span>
         </footer>
       </section>

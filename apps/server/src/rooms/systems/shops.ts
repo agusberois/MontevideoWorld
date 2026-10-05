@@ -6,7 +6,9 @@ import {
   MessageType,
   SHOP_MAX_QUANTITY,
   Shop,
+  CartLine,
   ShopResultMessage,
+  ShopSellManyMessage,
   ShopTradeMessage,
   buyPrice,
   fishWithArticle,
@@ -24,7 +26,7 @@ import {
   sellPrice,
 } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
-import { PlayerSession, halt, oncePerTick } from "../session";
+import { PlayerSession, halt, oncePerTick, standUp } from "../session";
 import { stopActivities } from "./activities";
 import { tutorialEvent } from "./tutorial";
 import type { MessageRoutes } from "./types";
@@ -48,7 +50,7 @@ export function shopRoutes(room: CityRoom) {
       const approach = room.map.shopApproach(shop, { x: player.x, y: player.y });
       const path = approach ? room.map.findPath({ x: player.x, y: player.y }, approach) : [];
       if (path.length === 0) return;
-      player.sitting = false;
+      standUp(player);
       session.path = path;
       session.pending = { kind: "shop", shop };
     }),
@@ -167,6 +169,49 @@ export function shopRoutes(room: CityRoom) {
         tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category: item.category });
       } else {
         shopResult(room, session, false, `🙅 No aceptaron: te quedaste sin ${item.name} y sin cobrar nada.`);
+      }
+    },
+
+    /**
+     * Vender de una todo lo elegido (como el carrito al comprar): todo o nada. Cada herramienta paga
+     * según su desgaste (se venden de la más gastada a la menos, como de a una).
+     */
+    [MessageType.ShopSellMany]: (session, message) => {
+      const quote = saleQuote(room, session, message);
+      if (!quote) return;
+      const { shop, lines, total } = quote;
+      if (!session.wallet.credit(total)) return shopResult(room, session, false, "No podés tener más plata.");
+      for (const { item, quantity } of lines) for (let i = 0; i < quantity; i++) session.inventory.remove(item.id);
+      room.markWallet(session);
+      room.markInventory(session);
+      shopResult(room, session, true, `Vendiste ${saleList(lines)} por ${formatMoney(total)}.`, { action: "sell", sold: soldLines(lines) });
+      for (const category of new Set(lines.map(({ item }) => item.category))) tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category });
+    },
+
+    /**
+     * Regatear el lote entero: un precio por todo, todo o nada (`haggleChance` sobre lo que pagarían
+     * vendiendo normal). Si aceptan se cobra lo pedido; si no, se pierde todo lo elegido sin cobrar.
+     */
+    [MessageType.ShopHaggleMany]: (session, message) => {
+      const quote = saleQuote(room, session, message);
+      if (!quote) return;
+      const { shop, lines, total } = quote;
+      const { wallet, inventory } = session;
+      if (!isValidHagglePrice(total, message.price)) {
+        return shopResult(room, session, false, `Podés pedir entre ${formatMoney(total + 1)} y ${formatMoney(maxHagglePrice(total))}.`);
+      }
+      if (wallet.balance + message.price > MAX_MONEY) return shopResult(room, session, false, "No podés tener más plata.");
+
+      const accepted = Math.random() < haggleChance(total, message.price);
+      for (const { item, quantity } of lines) for (let i = 0; i < quantity; i++) inventory.remove(item.id);
+      if (accepted) wallet.credit(message.price);
+      room.markWallet(session);
+      room.markInventory(session);
+      if (accepted) {
+        shopResult(room, session, true, `🤝 ¡Aceptaron! Vendiste ${saleList(lines)} por ${formatMoney(message.price)}.`, { action: "sell", sold: soldLines(lines) });
+        for (const category of new Set(lines.map(({ item }) => item.category))) tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category });
+      } else {
+        shopResult(room, session, false, `🙅 No aceptaron: te quedaste sin ${saleList(lines)} y sin cobrar nada.`, { action: "sell" });
       }
     },
 
@@ -353,6 +398,53 @@ function validateTrade(room: CityRoom, session: PlayerSession, message: ShopTrad
   return { shop, item, quantity: message.quantity ?? 1 };
 }
 
+/**
+ * Lo común a vender lo elegido y a regatearlo: tienda al lado, que compre cada cosa, que esté todo en
+ * la mochila y cuánto pagarían vendiendo normal (cada herramienta según su desgaste, de la más gastada
+ * a la menos, probado sobre una copia de la mochila). null con el aviso de por qué no.
+ */
+function saleQuote(room: CityRoom, session: PlayerSession, message: ShopSellManyMessage) {
+  const shop = room.map.getShop(message.shopId);
+  if (!shop) return null;
+  if (!room.map.isNearShop(shop, session.player.x, session.player.y)) {
+    shopResult(room, session, false, `Acercate a ${shop.name} para vender.`);
+    return null;
+  }
+  const merged = new Map<string, number>();
+  for (const { itemId, quantity } of message.items) merged.set(itemId, (merged.get(itemId) ?? 0) + quantity);
+  const lines: Array<{ item: ItemDefinition; quantity: number }> = [];
+  const trial = session.inventory.clone();
+  let total = 0;
+  for (const [itemId, quantity] of merged) {
+    const item = getItem(itemId);
+    if (!item) return null;
+    if (!shop.buys.includes(item.category)) {
+      shopResult(room, session, false, `En ${shop.name} no compran ${ITEM_CATEGORIES[item.category].label}.`);
+      return null;
+    }
+    if (trial.count(item.id) < quantity) {
+      shopResult(room, session, false, `No tenés tantas unidades de ${item.name} en la mochila.`);
+      return null;
+    }
+    for (let i = 0; i < quantity; i++) {
+      total += sellPrice(item, trial.nextUses(item.id)[0]);
+      trial.remove(item.id);
+    }
+    lines.push({ item, quantity });
+  }
+  if (lines.length === 0) return null;
+  return { shop, lines, total };
+}
+
+/** "3 × Pejerrey, Corvina": lo que se vende, para los avisos. */
+function saleList(lines: ReadonlyArray<{ item: ItemDefinition; quantity: number }>): string {
+  return lines.map(({ item, quantity }) => (quantity > 1 ? `${quantity} × ${item.name}` : item.name)).join(", ");
+}
+
+function soldLines(lines: ReadonlyArray<{ item: ItemDefinition; quantity: number }>): CartLine[] {
+  return lines.map(({ item, quantity }) => ({ itemId: item.id, quantity }));
+}
+
 /** La veterinaria donde está parado el jugador (pegado a ella), o null con el aviso de por qué no. */
 function petShop(room: CityRoom, session: PlayerSession, shopId: string): Shop | null {
   const shop = room.map.getShop(shopId);
@@ -370,7 +462,7 @@ function shopResult(
   session: PlayerSession,
   ok: boolean,
   text: string,
-  detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought">,
+  detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought" | "sold">,
 ) {
   room.sendTo(session, MessageType.ShopResult, { ok, text, ...detail });
 }

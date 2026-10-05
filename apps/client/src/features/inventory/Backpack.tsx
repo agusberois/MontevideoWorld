@@ -64,7 +64,7 @@ interface CellView {
 }
 
 /**
- * Mochila (tecla H): arriba lo que tenés puesto, abajo una grilla de casilleros con un ítem (o una
+ * Mochila (tecla I): arriba lo que tenés puesto, abajo una grilla de casilleros con un ítem (o una
  * pila de ítems iguales, ×2, ×3…) en cada uno. Clic en un casillero = ponértelo; "Quitar" lo guarda.
  * Las prendas se pueden arrastrar a la barra de acceso rápido (1–9).
  * Son intenciones: el server valida y la UI se actualiza con el Schema y el mensaje de inventario.
@@ -357,7 +357,7 @@ export function Backpack({ room, onClose }: PanelProps) {
         </div>
 
         <footer className={cx("key-hint")}>
-          Apretá <kbd>H</kbd> o <kbd>Esc</kbd> para cerrar
+          Apretá <kbd>I</kbd> o <kbd>Esc</kbd> para cerrar
         </footer>
       </section>
     </div>

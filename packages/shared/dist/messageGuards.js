@@ -9,6 +9,8 @@ exports.isInventoryMoveMessage = isInventoryMoveMessage;
 exports.isShopIdMessage = isShopIdMessage;
 exports.isShopTradeMessage = isShopTradeMessage;
 exports.isShopHaggleMessage = isShopHaggleMessage;
+exports.isShopSellManyMessage = isShopSellManyMessage;
+exports.isShopHaggleManyMessage = isShopHaggleManyMessage;
 exports.isShopCheckoutMessage = isShopCheckoutMessage;
 exports.isItemIdMessage = isItemIdMessage;
 exports.isAdminSetTimeMessage = isAdminSetTimeMessage;
@@ -18,10 +20,19 @@ exports.isAdminWeatherMessage = isAdminWeatherMessage;
 exports.isTravelMessage = isTravelMessage;
 exports.isWeevilKickMessage = isWeevilKickMessage;
 exports.isTargetPlayerMessage = isTargetPlayerMessage;
+exports.isGestureMessage = isGestureMessage;
+exports.isCasinoSlotsMessage = isCasinoSlotsMessage;
+exports.isCasinoRouletteMessage = isCasinoRouletteMessage;
+exports.isCasinoBlackjackMessage = isCasinoBlackjackMessage;
+exports.isDoorEnterMessage = isDoorEnterMessage;
+exports.isGesturePairRequestMessage = isGesturePairRequestMessage;
+exports.isGesturePairRespondMessage = isGesturePairRespondMessage;
 exports.isPetAdoptMessage = isPetAdoptMessage;
 exports.isPetRenameMessage = isPetRenameMessage;
 exports.isTradeRespondMessage = isTradeRespondMessage;
 exports.isTradeOfferMessage = isTradeOfferMessage;
+const casino_1 = require("./casino");
+const gestures_1 = require("./gestures");
 const items_1 = require("./items");
 const weather_1 = require("./weather");
 const messages_1 = require("./messages");
@@ -65,6 +76,12 @@ function isShopTradeMessage(message) {
 function isShopHaggleMessage(message) {
     return isShopTradeMessage(message) && typeof message.price === "number";
 }
+function isShopSellManyMessage(message) {
+    return isShopCheckoutMessage(message);
+}
+function isShopHaggleManyMessage(message) {
+    return isShopCheckoutMessage(message) && typeof message.price === "number";
+}
 function isShopCheckoutMessage(message) {
     if (!isObject(message))
         return false;
@@ -106,6 +123,30 @@ function isWeevilKickMessage(message) {
 function isTargetPlayerMessage(message) {
     return isObject(message) && typeof message.targetId === "string";
 }
+function isGestureMessage(message) {
+    return isObject(message) && (0, gestures_1.isGestureId)(message.gesture);
+}
+function isCasinoSlotsMessage(message) {
+    return isObject(message) && typeof message.shopId === "string" && typeof message.bet === "number";
+}
+function isCasinoRouletteMessage(message) {
+    return isCasinoSlotsMessage(message) && (0, casino_1.isRouletteBet)(message.choice);
+}
+function isCasinoBlackjackMessage(message) {
+    if (!isObject(message) || typeof message.shopId !== "string")
+        return false;
+    const { action, bet } = message;
+    return (action === "deal" && typeof bet === "number") || action === "hit" || action === "stand";
+}
+function isDoorEnterMessage(message) {
+    return isObject(message) && typeof message.doorId === "string" && message.doorId.length <= 40;
+}
+function isGesturePairRequestMessage(message) {
+    return isObject(message) && typeof message.targetId === "string" && (0, gestures_1.isPairGestureId)(message.gesture);
+}
+function isGesturePairRespondMessage(message) {
+    return isObject(message) && typeof message.fromId === "string" && typeof message.accept === "boolean";
+}
 function isPetAdoptMessage(message) {
     return isObject(message) && typeof message.shopId === "string" && typeof message.petId === "string" && typeof message.name === "string";
 }
@@ -141,6 +182,11 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.ShopCheckout]: isShopCheckoutMessage,
     [messages_1.MessageType.ShopSell]: isShopTradeMessage,
     [messages_1.MessageType.ShopHaggle]: isShopHaggleMessage,
+    [messages_1.MessageType.ShopSellMany]: isShopSellManyMessage,
+    [messages_1.MessageType.CasinoSlots]: isCasinoSlotsMessage,
+    [messages_1.MessageType.CasinoRoulette]: isCasinoRouletteMessage,
+    [messages_1.MessageType.CasinoBlackjack]: isCasinoBlackjackMessage,
+    [messages_1.MessageType.ShopHaggleMany]: isShopHaggleManyMessage,
     [messages_1.MessageType.FishCast]: noPayload,
     [messages_1.MessageType.FishStop]: noPayload,
     [messages_1.MessageType.FoodEat]: isItemIdMessage,
@@ -157,6 +203,11 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.PalmShake]: isTileMessage,
     [messages_1.MessageType.WeevilKick]: isWeevilKickMessage,
     [messages_1.MessageType.Greet]: isTargetPlayerMessage,
+    [messages_1.MessageType.Gesture]: isGestureMessage,
+    [messages_1.MessageType.DoorEnter]: isDoorEnterMessage,
+    [messages_1.MessageType.JacuzziEnter]: isTileMessage,
+    [messages_1.MessageType.GesturePairRequest]: isGesturePairRequestMessage,
+    [messages_1.MessageType.GesturePairRespond]: isGesturePairRespondMessage,
     [messages_1.MessageType.PetAdopt]: isPetAdoptMessage,
     [messages_1.MessageType.PetRename]: isPetRenameMessage,
     [messages_1.MessageType.PetRelease]: isShopIdMessage,

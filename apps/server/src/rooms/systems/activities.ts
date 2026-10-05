@@ -8,6 +8,7 @@ import {
   ToolItem,
   VEND_ENERGY_COST,
   VEND_HUNGER_COST,
+  VendCustomerMessage,
   bestCart,
   bestRod,
   cartInWeather,
@@ -23,7 +24,7 @@ import { gameClock } from "../../gameClock";
 import { rollSale } from "../../vending";
 import { weather } from "../../weather";
 import type { CityRoom } from "../CityRoom";
-import { PlayerSession, isWalking } from "../session";
+import { PlayerSession, isWalking, standUp } from "../session";
 import { tutorialEvent, tutorialWants } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
@@ -83,7 +84,7 @@ function castLine(room: CityRoom, session: PlayerSession) {
 
   // El clima cambia cuánto se espera y cuánto pica; el uso se le cobra a la caña de verdad.
   const { fish, durationMs } = rollCatch(rodInWeather(rod, weather.current()));
-  player.sitting = false;
+  standUp(player);
   player.fishing = true;
   player.rod = rod.id;
   session.pending = null;
@@ -108,7 +109,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
 
   if (kept.length === 0) {
     const it = fish.length > 1 ? "los" : fish[0].gender === "f" ? "la" : "lo";
-    return fishResult(room, session, false, `Picó ${names(fish)}, pero tenés la mochila llena: ${it} devolviste al río.`);
+    return fishResult(room, session, false, `Picó ${names(fish)}, pero tenés la mochila llena: ${it} devolviste al río.`, undefined, fish);
   }
   room.markInventory(session);
   const total = kept.reduce((sum, f) => sum + f.price, 0);
@@ -120,6 +121,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
     true,
     `${prefix}¡Sacaste ${names(kept)}! En el Mercado del Puerto pagan ${formatMoney(total)}.${full}`,
     kept.map((f) => f.id),
+    fish,
   );
   tutorialEvent(room, session, { kind: "catch" });
   const rare = kept.filter((f) => f.difficulty >= 4);
@@ -153,16 +155,18 @@ function startVending(room: CityRoom, session: PlayerSession) {
 
   const match = gameClock.currentMatch();
   const sale = rollSale(cartInWeather(cart, weather.current()), Boolean(match));
-  player.sitting = false;
+  standUp(player);
   player.vending = true;
   player.cart = cart.id;
   session.pending = null;
   room.sendTo(session, MessageType.VendStarted, { durationMs: sale.durationMs });
 
   // El hincha sale a caminar un rato antes del resultado, así llega justo para comprar (o no).
+  // Sólo lo ve el vendedor (es dibujo nada más: así no se le dibuja a todo el barrio).
   session.customerTimer = room.clock.setTimeout(() => {
     session.customerTimer = null;
-    player.customer = CustomerState.Arriving;
+    session.customerOut = true;
+    room.sendTo(session, MessageType.VendCustomer, { state: CustomerState.Arriving });
   }, Math.max(0, sale.durationMs - CUSTOMER_LEAD_MS));
 
   session.vendingTimer = room.clock.setTimeout(() => {
@@ -172,7 +176,8 @@ function startVending(room: CityRoom, session: PlayerSession) {
     const finished = finishAttempt(room, session, cart, VEND_ENERGY_COST, VEND_HUNGER_COST, "En el Kiosco del Parque, al lado del estadio, venden carritos nuevos.");
     const sold = finished && resolveSale(room, session, cart.product, sale.earned, sale.giftId, Boolean(match));
     if (!finished) vendResult(room, session, false, "Ya no tenés ese carrito: el intento no cuenta.");
-    player.customer = sold ? CustomerState.Bought : CustomerState.Passed;
+    session.customerOut = false;
+    room.sendTo(session, MessageType.VendCustomer, sold ? { state: CustomerState.Bought, cartId: cart.id } : { state: CustomerState.Passed });
   }, sale.durationMs);
 }
 
@@ -241,8 +246,13 @@ export function stopVending(session: PlayerSession) {
   const { player } = session;
   player.vending = false;
   player.cart = "";
-  // Si el hincha estaba llegando, se va (si ya compró o pasó de largo, ya se está yendo).
-  if (player.customer === CustomerState.Arriving) player.customer = CustomerState.None;
+  // Si el hincha estaba llegando, se va (si ya compró o pasó de largo, ya se está yendo). Es sólo
+  // dibujo: va directo al socket (no hay plata ni mochila que mandar antes).
+  if (session.customerOut) {
+    session.customerOut = false;
+    const message: VendCustomerMessage = { state: CustomerState.None };
+    session.client.send(MessageType.VendCustomer, message);
+  }
 }
 
 /** Cortar lo que esté haciendo el jugador (pescar o vender): moverse, sentarse, ir a una tienda, salir. */
@@ -255,6 +265,7 @@ function vendResult(room: CityRoom, session: PlayerSession, ok: boolean, text: s
   room.sendTo(session, MessageType.VendResult, { ok, text, earned, giftId });
 }
 
-function fishResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, itemIds?: string[]) {
-  room.sendTo(session, MessageType.FishResult, { ok, text, itemIds });
+/** `hooked`: lo que picó (el cliente lo anima saliendo del agua, `Avatar.reelIn`). */
+function fishResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, itemIds?: string[], hooked?: FishItem[]) {
+  room.sendTo(session, MessageType.FishResult, { ok, text, itemIds, hooked: hooked?.map((f) => f.id) });
 }

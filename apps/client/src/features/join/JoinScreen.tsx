@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Appearance,
   EYE_COLORS,
@@ -17,21 +17,17 @@ import {
   PLAYER_COLORS,
   SKIN_TONES,
   randomAppearance,
-  sanitizeAppearance,
   sanitizeName,
 } from "@montevideo-world/shared";
 import { CitySession, describeJoinError, getServerUrl, joinCity } from "@/lib/network";
 import { AvatarPreview } from "./AvatarPreview";
+import { createCharacter } from "@/lib/characters";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./join.module.css";
 
 const cx = moduleClasses(styles);
 
 const noopSubscribe = () => () => {};
-
-/** Último aspecto y nombre elegidos: se recuerdan en este navegador para la próxima vez. */
-const APPEARANCE_STORAGE_KEY = "mw:appearance";
-const NAME_STORAGE_KEY = "mw:name";
 
 /** Aspecto fijo para el primer render (SSR); al montar se reemplaza por el guardado o uno al azar. */
 const INITIAL_APPEARANCE: Appearance = {
@@ -45,51 +41,28 @@ const INITIAL_APPEARANCE: Appearance = {
   color: PLAYER_COLORS[3],
 };
 
-function loadAppearance(): Appearance {
-  try {
-    const saved = window.localStorage.getItem(APPEARANCE_STORAGE_KEY);
-    return (saved && sanitizeAppearance(JSON.parse(saved))) || randomAppearance();
-  } catch {
-    return randomAppearance();
-  }
-}
-
-function loadName(): string {
-  try {
-    return sanitizeName(window.localStorage.getItem(NAME_STORAGE_KEY) ?? "");
-  } catch {
-    return "";
-  }
-}
-
-function saveCharacter(name: string, appearance: Appearance) {
-  try {
-    window.localStorage.setItem(NAME_STORAGE_KEY, name);
-    window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance));
-  } catch {
-    // Sin almacenamiento (modo privado, bloqueado): sólo no se recuerda.
-  }
-}
-
 interface JoinScreenProps {
   onJoined: (session: CitySession) => void;
   notice: string | null;
+  /** Hay personajes guardados: botón para volver a elegir uno. */
+  onBack?: () => void;
 }
 
-export function JoinScreen({ onJoined, notice }: JoinScreenProps) {
+/** Crear un personaje nuevo (nombre y aspecto): queda guardado en este navegador con su clave. */
+export function JoinScreen({ onJoined, notice, onBack }: JoinScreenProps) {
   const [name, setName] = useState("");
   const [appearance, setAppearance] = useState<Appearance>(INITIAL_APPEARANCE);
   /** Cambia en cada tirada del dado para reiniciar la animación. */
   const [rolls, setRolls] = useState(0);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const created = useRef(false);
   // La URL depende de window.location: en SSR queda vacía para no romper la hidratación.
   const serverUrl = useSyncExternalStore(noopSubscribe, getServerUrl, () => "");
 
-  // Se lee al montar (no en el render) para que SSR y cliente arranquen iguales.
+  // Al azar al montar (no en el render) para que SSR y cliente arranquen iguales.
   useEffect(() => {
-    setAppearance(loadAppearance());
-    setName(loadName());
+    setAppearance(randomAppearance());
   }, []);
 
   const update = (change: Partial<Appearance>) => setAppearance((current) => ({ ...current, ...change }));
@@ -105,7 +78,9 @@ export function JoinScreen({ onJoined, notice }: JoinScreenProps) {
 
     setConnecting(true);
     setError(null);
-    saveCharacter(sanitizeName(name), appearance);
+    // Guardado con su propia clave (el progreso de cada personaje va aparte). Si la entrada falla y
+    // se reintenta, no se crea otro.
+    if (!created.current) created.current = createCharacter(sanitizeName(name), appearance) !== null;
     try {
       onJoined(await joinCity(sanitizeName(name), appearance));
     } catch (err) {
@@ -124,6 +99,11 @@ export function JoinScreen({ onJoined, notice }: JoinScreenProps) {
         <img className={cx("join-logo")} src="/mw-logo.svg" alt="" width={84} height={84} />
         <h1>Montevideo World</h1>
         <p>Armá tu personaje y aparecé en la Ciudad Vieja</p>
+        {onBack && (
+          <button type="button" className={cx("join-back")} onClick={onBack}>
+            ← Volver a mis personajes
+          </button>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className={cx("join-creator")}>

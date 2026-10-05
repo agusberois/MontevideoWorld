@@ -15,7 +15,7 @@ exports.MATCHES = [
     { name: "Uruguay – Argentina", start: 21 * 60, end: 23 * 60 },
 ];
 /**
- * El hincha que se acerca al carrito mientras se espera la venta (`Player.customer`, lo ven todos):
+ * El hincha que se acerca al carrito mientras se espera la venta (`vend:customer`, sólo lo ve el vendedor):
  * sale a caminar `CUSTOMER_LEAD_MS` antes del resultado y, al saberse, compra o sigue de largo.
  * Cancelar la venta (moverse, etc.) lo vuelve a `None` y se va sin decir nada.
  */

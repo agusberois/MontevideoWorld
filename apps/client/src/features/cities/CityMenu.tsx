@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CITY_INFOS, CityOccupancy, MessageType, TICKET_ID, formatJailLeft, whereToBuy } from "@montevideo-world/shared";
+import { CITY_INFOS, CityOccupancy, MessageType, TICKET_ID, formatJailLeft, isPublicCity, whereToBuy } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { requestTravel } from "@/lib/gameActions";
 import { useGame } from "@/lib/gameStore";
@@ -69,7 +69,7 @@ export function CityMenu({ room, cityId: currentCityId, onClose }: PanelProps) {
           </button>
         </header>
         <ul>
-          {CITY_INFOS.map((city) => (
+          {CITY_INFOS.filter(isPublicCity).map((city) => (
             <li key={city.id} className={cx(city.id === currentCityId ? "current" : undefined)}>
               <div className={cx("city-menu-title")}>
                 <strong>{city.name}</strong>

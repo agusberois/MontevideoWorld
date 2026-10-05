@@ -12,7 +12,10 @@ import {
   MESSAGE_GUARDS,
   MessageType,
   MessageTypeName,
+  RESUME_CITY_CODE,
   SPAWN_CITY_ID,
+  TICKET_ID,
+  TRAVEL_TICKET_MS,
   STARTER_INVENTORY,
   STARTER_KIT,
   STARTING_MONEY,
@@ -46,7 +49,7 @@ import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
 import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
 import { Needs } from "../needs";
-import { SessionOwner, activeSessions, playerStore, travelTickets } from "../playerStore";
+import { SavedLocation, SessionOwner, activeSessions, issueTravelTicket, playerStore, travelTickets } from "../playerStore";
 import { weather } from "../weather";
 import { RateLimiter, UNKNOWN_MESSAGE_TYPE } from "../rateLimit";
 import { TradeManager } from "../trades";
@@ -56,6 +59,9 @@ import { PlayerSession, createSession } from "./session";
 import { activityRoutes, stopActivities } from "./systems/activities";
 import { adminRoutes } from "./systems/admin";
 import { lifeRoutes, tickNeeds } from "./systems/life";
+import { casinoRoutes } from "./systems/casino";
+import { doorRoutes } from "./systems/doors";
+import { gestureRoutes, stepGestures } from "./systems/gestures";
 import { movementRoutes, stepPlayers } from "./systems/movement";
 import { shopRoutes } from "./systems/shops";
 import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes } from "./systems/social";
@@ -121,6 +127,36 @@ const openRooms = new Set<CityRoom>();
 /** Guarda a todos los jugadores conectados en todas las salas (antes de un cierre de emergencia). */
 export function saveEveryone() {
   for (const room of openRooms) room.saveConnectedPlayers();
+}
+
+/** ¿Tiene algún boleto STM en la mochila guardada? */
+function hasTicket(key: string): boolean {
+  return (playerStore.get(key)?.inventory ?? []).some((stack) => stack.itemId === TICKET_ID);
+}
+
+/** ¿Puede entrar a una sala de acceso restringido (las Termas)? Donador guardado o el admin. */
+function hasDonorAccess(key: string | null, name: string): boolean {
+  return (key !== null && playerStore.get(key)?.donor === true) || isAdminName(name);
+}
+
+/**
+ * ¿Al volver a entrar se lo lleva adonde quedó? A las Termas, si sigue siendo donador (se sale por la
+ * puerta, sin boleto); a otro barrio, si tiene un boleto para volver (sólo se venden en Ciudad Vieja).
+ */
+function canResumeTo(key: string, location: SavedLocation, name: string): boolean {
+  const city = getCityMap(location.cityId)?.city;
+  if (city?.access === "donor") return hasDonorAccess(key, name);
+  // Las salas de puerta abierta (el casino): se vuelve sin boleto.
+  if (city?.access === "door") return true;
+  return hasTicket(key);
+}
+
+/** Dónde quedó la clave (barrio que existe y tile entero), o nada si no hay guardado válido. */
+function savedLocation(key: string): SavedLocation | undefined {
+  const location = playerStore.get(key)?.location;
+  if (!location || typeof location.cityId !== "string" || location.cityId === JAIL_CITY_ID || !getCityMap(location.cityId)) return undefined;
+  if (!Number.isInteger(location.x) || !Number.isInteger(location.y)) return undefined;
+  return location;
 }
 
 /**
@@ -194,6 +230,18 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     const key = isPlayerKey(options?.playerKey) ? options.playerKey : null;
     const refusedKey = key && !playerStore.get(key) ? admitNewKey(ip, key) : null;
     if (refusedKey) throw new ServerError(TOO_MANY_JOINS_CODE, refusedKey);
+    // Volver a donde quedó: si entra desde la pantalla de ingreso al barrio de spawn pero había quedado
+    // en otro, se le da un pase hasta ese tile y se lo manda ahí (el cliente reintenta con ese barrio).
+    // Sin boleto en la mochila, no (los boletos sólo se venden en Ciudad Vieja: quedaría trancado); a
+    // las Termas, sólo si sigue siendo donador (`canResumeTo`).
+    const saved = options?.resume && options.cityId === SPAWN_CITY_ID && key ? savedLocation(key) : undefined;
+    const location = saved && canResumeTo(key!, saved, sanitizeName(options?.name)) ? saved : undefined;
+    // Un pase vigente (de un viaje o un `/trace` en curso) no se pisa.
+    const pending = key ? travelTickets.get(key) : undefined;
+    if (location && location.cityId !== SPAWN_CITY_ID && !(pending && pending.expiresAt >= Date.now())) {
+      issueTravelTicket(key!, location.cityId, Date.now() + TRAVEL_TICKET_MS, Date.now(), { at: { x: location.x, y: location.y } });
+      throw new ServerError(RESUME_CITY_CODE, location.cityId);
+    }
     return { ip };
   }
 
@@ -224,6 +272,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       ...lifeRoutes(this),
       ...tradeRoutes(this),
       ...socialRoutes(this),
+      ...gestureRoutes(this),
+      ...doorRoutes(this),
+      ...casinoRoutes(this),
       ...adminRoutes(this),
       ...travelRoutes(this),
       ...tutorialRoutes(this),
@@ -239,6 +290,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     this.clock.setInterval(() => {
       const started = performance.now();
       stepPlayers(this);
+      stepGestures(this);
       tickNeeds(this);
       tickMetrics.players.record(performance.now() - started, this.label);
     }, STEP_MS);
@@ -321,6 +373,10 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     if (this.map.city.id !== SPAWN_CITY_ID && !ticket && !(inJail && jailedUntil)) {
       throw new Error(`Para entrar a ${this.map.city.name} necesitás un boleto.`);
     }
+    // Las Termas: el pase solo no alcanza, tiene que ser donador (guardado) o el admin.
+    if (this.map.city.access === "donor" && !hasDonorAccess(key, wantedName)) {
+      throw new Error(`${this.map.city.name}: sólo entran los donadores del proyecto.`);
+    }
     if (jailedUntil) {
       player.jailLeft = Math.ceil((jailedUntil - Date.now()) / 1000);
       // Preso: aparece adentro, en el patio (las visitas aparecen afuera, del otro lado de la reja).
@@ -329,6 +385,13 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
         player.x = cell.x;
         player.y = cell.y;
       }
+    }
+    // Vuelve a entrar al barrio donde había quedado (Ciudad Vieja; a los otros llega con el pase de
+    // `onAuth`): aparece en el mismo tile, si se puede caminar.
+    const location = options.resume && !ticket && !jailedUntil && key ? savedLocation(key) : undefined;
+    if (location && location.cityId === this.map.city.id && this.map.isWalkable(location.x, location.y)) {
+      player.x = location.x;
+      player.y = location.y;
     }
     if (ticket) {
       travelTickets.delete(key!);
@@ -393,6 +456,18 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
     auditJoin(session, this.label, saved !== undefined);
+    // Había quedado en otro barrio pero sin boleto para volver a Ciudad Vieja: se lo trajo acá.
+    const stranded = options.resume && key && !ticket && !jailedUntil ? savedLocation(key) : undefined;
+    if (stranded && stranded.cityId !== this.map.city.id) {
+      const city = getCityMap(stranded.cityId)?.city;
+      const text =
+        city?.access === "donor"
+          ? `♥ Habías quedado en ${city.name}, pero ya no tenés acceso: apareciste en ${this.map.city.name}.`
+          : `🚌 Habías quedado en ${city?.name ?? "otro barrio"}, pero sin boleto para volver: apareciste en ${this.map.city.name}.`;
+      this.clock.setTimeout(() => {
+        if (!session.closed && this.sessions.get(client.sessionId) === session) this.notice(session, text);
+      }, RENAME_NOTICE_DELAY_MS);
+    }
     if (player.name !== wantedName) {
       const why = reserved ? "Ese nombre está reservado" : "Ya hay alguien conectado con ese nombre (o uno muy parecido)";
       // Con demora: el cliente registra sus handlers después de entrar (si no, el aviso se pierde).
@@ -422,6 +497,9 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   onDispose() {
     liveRooms.delete(this);
     openRooms.delete(this);
+    // `onCreate` tiró antes de cargar el mapa (barrio desconocido o con todas sus copias): no tomó
+    // número de copia ni se suscribió a nada.
+    if (!this.map) return;
     releaseCopyNumber(this.map.city.id, this.state.copy);
     this.presence.unsubscribe(ANNOUNCEMENT_TOPIC, this.relayAnnouncement);
     console.log(`[CityRoom ${this.roomId}] disposed`);
@@ -441,6 +519,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       pet: player.pet ? { id: player.pet, name: player.petName } : undefined,
       needs: session.needs.snapshot(),
       tutorial: session.tutorial,
+      // En el COMCAR (preso o de visita) se conserva el lugar de antes: al volver no aparece en la cárcel.
+      location: this.map.city.id === JAIL_CITY_ID ? playerStore.get(key)?.location : { cityId: this.map.city.id, x: player.x, y: player.y },
     });
   }
 
@@ -689,6 +769,21 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   jail(sessionId: string, until: number) {
     const session = this.sessions.get(sessionId);
     if (session) jail(this, session, until);
+  }
+
+  summon(sessionId: string, place: { cityId: string; roomId: string; at: TilePoint; by: string }): string | null {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.closed) return "ya no está conectado.";
+    if (!session.key) return "su navegador no guarda datos del sitio (no puede viajar).";
+    if (bans.until(session.key, session.player.name)) return "está preso: liberalo antes con /ban 0.";
+    const city = getCityMap(place.cityId)?.city;
+    if (city?.access === "donor" && !session.player.donor && !session.player.admin) return `no es donador y no puede entrar a ${city.name}.`;
+    stopActivities(session);
+    this.savePlayer(session);
+    issueTravelTicket(session.key, place.cityId, Date.now() + TRAVEL_TICKET_MS, Date.now(), { at: place.at });
+    this.sendTo(session, MessageType.TravelApproved, { cityId: place.cityId, roomId: place.roomId });
+    this.notice(session, `🧲 ${place.by} te está trayendo a su lado.`);
+    return null;
   }
 
   mute(sessionId: string, until: number) {

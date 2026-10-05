@@ -10,6 +10,9 @@ import type {
   FishStartedMessage,
   VendResultMessage,
   VendStartedMessage,
+  VendCustomerMessage,
+  GesturePairInviteMessage,
+  CasinoResultMessage,
   InventoryMessage,
   MatchMode,
   TileRect,
@@ -61,6 +64,12 @@ export interface GameEvents {
   "vending:started": VendStartedMessage;
   /** Red → React: cómo salió la venta. */
   "vending:result": VendResultMessage;
+  /** Sólo al vendedor: su hincha llega, compra (con qué carrito), pasa o se va. */
+  "vending:customer": VendCustomerMessage;
+  /** Te invitan a un gesto de a dos (chocar los cinco, abrazo, pasar el mate). */
+  "gesture:invite": GesturePairInviteMessage;
+  /** Cómo salió la jugada en el casino (sólo al que juega). */
+  "casino:result": CasinoResultMessage;
   /** Phaser → React: energía del avatar propio (0–100), cada vez que cambia. */
   "player:energy": number;
   /** Red → React: necesidades privadas del jugador (hambre). */

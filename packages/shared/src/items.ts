@@ -49,6 +49,11 @@ export interface ClothingOf<S extends ItemSlot> extends ItemBase {
   category: "clothing";
   slot: S;
   style: SlotStyle<S>;
+  /**
+   * Calzado: cuánto más rápido se camina con él puesto (1,2 = 20 % más rápido; sin el campo, 1).
+   * Lo aplican el server al mover (`walkSpeed`) y el cliente al animar.
+   */
+  speed?: number;
 }
 
 export type ClothingItem = { [S in ItemSlot]: ClothingOf<S> }[ItemSlot];
@@ -225,6 +230,29 @@ export const KOREAN_FASHION: readonly ClothingItem[] = clothing([
 ]);
 
 /**
+ * Calzado para caminar rápido: sólo lo vende Calzados Sarandí (Ciudad Vieja). Cuanto más caro, más
+ * rápido se camina (`speed`). No están en `CLOTHING`, así las roperías no los tienen.
+ */
+export const WALKING_SHOES: readonly ClothingItem[] = clothing([
+  { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 15 },
+  { id: "championes-caminata", name: "Championes de caminata", slot: "shoes", style: "sneakers", color: "#8fa3ad", price: 90, speed: 1.1 },
+  { id: "championes-deportivos", name: "Championes deportivos", slot: "shoes", style: "sneakers", color: "#2a9d8f", price: 240, speed: 1.2 },
+  { id: "championes-running", name: "Championes de running", slot: "shoes", style: "sneakers", color: "#f28c28", price: 560, speed: 1.35 },
+  { id: "championes-atleta", name: "Championes de atleta", slot: "shoes", style: "sneakers", color: "#e9b10a", price: 1300, speed: 1.5 },
+]);
+
+/** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
+export function walkSpeed(shoesId: string | undefined): number {
+  const item = shoesId ? ITEMS.find((candidate) => candidate.id === shoesId) : undefined;
+  return item?.category === "clothing" && item.speed ? item.speed : 1;
+}
+
+/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+export function speedPerk(item: ClothingItem): string[] {
+  return item.speed && item.speed > 1 ? [`👟 Caminás ${Math.round((item.speed - 1) * 100)} % más rápido`] : [];
+}
+
+/**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
  * pica (`catchWeight`), más tarda en picar y más paga el Mercado del Puerto (`price`).
  */
@@ -325,7 +353,7 @@ export const TICKETS: readonly TicketItem[] = [
   { id: TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: TRAVEL_FARE },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...WALKING_SHOES, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...BOXES, ...TICKETS];
 
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 export const SELL_RATIO = 0.5;

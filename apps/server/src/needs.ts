@@ -12,6 +12,8 @@ import {
   REVIVE_HEALTH,
   REVIVE_HUNGER,
   SIT_ENERGY_REGEN,
+  JACUZZI_ENERGY_REGEN,
+  JACUZZI_HEALTH_REGEN,
   SIT_HEALTH_REGEN,
   STARVE_HEALTH_PER_SECOND,
   SavedNeeds,
@@ -28,6 +30,8 @@ export interface NeedsTick {
   resting: boolean;
   /** Sentado en un banco: descansa mucho más rápido. */
   sitting: boolean;
+  /** Metido en el jacuzzi (las Termas del Donador): recupera mucho más rápido que sentado. */
+  bathing?: boolean;
   /** Preso en el COMCAR: el hambre queda congelada (y no hace daño). */
   jailed: boolean;
   /** Del clima (`Weather.hungerFactor`): con calor el hambre baja más rápido. */
@@ -176,15 +180,15 @@ export class Needs {
    * recupera energía (más rápido sentado y más lento cuanto más hambre, `energyRegenFactor`) y, con
    * la panza llena, también salud.
    */
-  tick(seconds: number, { resting, sitting, jailed, hungerFactor = 1 }: NeedsTick) {
+  tick(seconds: number, { resting, sitting, bathing = false, jailed, hungerFactor = 1 }: NeedsTick) {
     if (!jailed) {
       this.drainHunger(HUNGER_PER_SECOND * hungerFactor * seconds);
       if (this.hungerAmount <= 0) this.hurt(STARVE_HEALTH_PER_SECOND * seconds);
     }
     if (resting) {
-      const regen = (sitting ? SIT_ENERGY_REGEN : IDLE_ENERGY_REGEN) * energyRegenFactor(this.hungerAmount);
+      const regen = (bathing ? JACUZZI_ENERGY_REGEN : sitting ? SIT_ENERGY_REGEN : IDLE_ENERGY_REGEN) * energyRegenFactor(this.hungerAmount);
       this.recoverEnergy(regen * seconds);
-      if (this.hungerAmount >= HUNGRY) this.heal((sitting ? SIT_HEALTH_REGEN : IDLE_HEALTH_REGEN) * seconds);
+      if (this.hungerAmount >= HUNGRY) this.heal((bathing ? JACUZZI_HEALTH_REGEN : sitting ? SIT_HEALTH_REGEN : IDLE_HEALTH_REGEN) * seconds);
     }
   }
 

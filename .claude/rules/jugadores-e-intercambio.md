@@ -16,7 +16,8 @@ paths:
 
 Jugadores: clic sobre un avatar (`CityScene.playerAt` con `Avatar.containsWorldPoint`, el de más
 adelante; no se camina; los picudos van antes y los gestos de cámara no son clic). Sobre **otro** →
-la escena emite `player:click` → `PlayerMenu` (Saludar, Intercambiar, Burlarse si está preso,
+la escena emite `player:click` → `PlayerMenu` (Saludar, gestos de a dos —chocar los cinco, abrazo,
+pasar el mate, ver `gestos.md`—, Intercambiar, Burlarse si está preso,
 Detalles del jugador, Bloquear). Sobre **el propio** → `player:details` → directo a tus detalles.
 
 **Detalles del jugador** = panel registrado `playerDetails` (`PlayerDetails.tsx`; `openPlayerDetails(id)`
@@ -32,7 +33,8 @@ formas que el juego (`lib/avatar/head.ts` y `clothing.ts`), sin dibujo propio. L
 De otro jugador tiene los botones Saludar, Intercambiar y Bloquear / Desbloquear.
 
  **Saludar** = `greet { targetId }`: el server lo publica como
-mensaje de chat propio ("👋 ¡Hola, X!", con el cooldown del chat). **Intercambiar** =
+mensaje de chat propio ("👋 ¡Hola, X!", con el cooldown del chat) y el avatar saluda con la mano
+(gesto `wave`, ver `gestos.md`). **Intercambiar** =
 `trade:request` → al otro le llega `trade:invite` (vence en `TRADE_INVITE_MS`; si los dos se
 invitan, arranca directo) → `trade:respond { fromId, accept }`. Con el intercambio abierto
 (`TradeManager`, uno por jugador) cada uno manda su oferta completa con `trade:offer { items,

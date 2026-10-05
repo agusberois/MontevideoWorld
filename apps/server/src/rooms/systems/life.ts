@@ -45,6 +45,7 @@ export function tickNeeds(room: CityRoom) {
     needs.tick(seconds, {
       resting: !isWalking(session) && !player.fishing && !player.vending,
       sitting: player.sitting,
+      bathing: player.bathing,
       jailed: player.jailLeft > 0,
       hungerFactor,
     });

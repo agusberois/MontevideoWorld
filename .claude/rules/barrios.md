@@ -29,10 +29,30 @@ paths:
 - **Tamaño**: cada barrio está pensado para 25–50 jugadores a la vez sin amontonarse: spawn amplio,
   muchos bancos, escollera / explanada grandes. `Player.x/y` son `uint8`: ningún mapa puede pasar
   de 255 tiles de ancho ni de alto (quedarse muy por debajo, ~120).
-- Diseño de Ciudad Vieja (74×58, río desde la fila 44): manzanas como **parques de pasto caminable** con pocas casas sueltas y
-  árboles (sólo donde no cortan el paso); los edificios emblemáticos son los protagonistas. Plazas:
-  Independencia (spawn, con canteros y palmeras), Matriz, Zabala y España; rambla Gran Bretaña de dos
-  tiles con bancos mirando al río; Escollera Sarandí de 3 tiles de ancho con plataforma en la punta.
+- Diseño de Ciudad Vieja (150×96): **sobre el plano real** (OpenStreetMap, 12 m por tile, grilla girada
+  como las calles; `ciudadVieja/grid.ts` tiene las calles en metros reales y el paso a tiles, y el
+  relevamiento está en `docs/finished/ciudad-vieja-mapa-real.md`). **Cada calle es una franja de 4
+  tiles** (`streetBand`: vereda `TileChar.Sidewalk`, calzada de 2 y vereda; la peatonal Sarandí, toda
+  `Pedestrian`), en su orden real: filas `ROW_STREETS` (Rambla 25 de Agosto … Reconquista), columnas
+  `COLUMN_STREETS` (Juan Lindolfo Cuestas … Florida). **En los cruces no hay vereda**: un tile de
+  vereda con calzada a los dos lados pasa a calzada (las esquinas quedan), y las calles que cruzan la
+  peatonal Pérez Castellano siguen derecho. Entre franjas quedan manzanas de ~4 tiles con
+  **edificios de relleno de 2 × 2** (`CityDefinition.fillers`, `Filler` sobre tiles `Building`:
+  `bigHouseSpec` en el casco, `bigTowerSpec` al este de Florida) y algún lote de patio con árboles:
+  ~450 objetos. Puerto al norte con barcos pesqueros en la bahía (`CityDefinition.boats`: sólo decorado,
+  `boatSpec` escalado a 3 × 3, se mecen con un tween), faroles en las ramblas (`streetLamps`: decorado
+  que no ocupa el tile, se prenden de noche; los bancos ya no tienen luz), bancos simples y dobles
+  (`Bench.pair`, `doubleBench`: dos lugares que se dibujan como un banco largo), casas coloniales del
+  1800 (`bigHouseSpec`: cal de color, rejas, balconcitos, azotea con balaustrada, tejas o mirador) y
+  edificios del 900 al este de Florida (`bigTowerSpec`); el Palacio Salvo ocupa 6 × 6 con la torre en
+  la esquina noroeste y sus "cohetes"; costa sur en diagonal (`southCoast`) con rambla de 2 tiles y dos
+  escolleras iguales sobre la rambla oeste: la Sarandí, al final de la peatonal (`ESCOLLERA_PLATFORM`),
+  y la norte, en las filas 14–16 (`ESCOLLERA_NORTE_PLATFORM`, farola en 1,10). Plaza Independencia
+  (spawn) con la Puerta de la Ciudadela al oeste (dos arcos sobre Sarandí), el Monumento a Artigas, el
+  Palacio Salvo en la esquina este (18 de Julio sale de ahí) y la Torre Ejecutiva y el Palacio Estévez
+  al sur; Teatro Solís al suroeste; Plaza Matriz con la Catedral (oeste) y el Cabildo (este); Plaza
+  Zabala con el Palacio Taranco; Mercado del Puerto frente a la bahía; Templo Inglés y Plaza España
+  sobre la rambla sur. La guía de bienvenida toma sus áreas de `CIUDAD_VIEJA_INFO` (por id).
 - Tres Cruces (84×64, spawn en la explanada del shopping): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
   sobre el borde (`LayoutBuilder.edges`), Bulevar Artigas y Av. Italia, el Shopping (con la
   terminal y la tienda `building: "none"` "Moda Tres Cruces"), el Sanatorio Americano, el Obelisco y
@@ -42,12 +62,15 @@ paths:
   Pancracio): grilla de manzanas de casas bajas (`edges` al 40 % del borde, pocos árboles: ~730
   objetos, como Tres Cruces; con el borde lleno pasaba los 1.500), Arenal Grande doble mano con
   veredas anchas y la peatonal Emilio Reus (3 tiles, con bancos) entre las **Casas de Reus al Norte**
-  (`reusHouses`: una pieza 1×1 pastel por tile, color por `tileHash`). Emblemáticos: Sinagoga
-  (`synagogue`), Iglesia de San Pancracio (`church`) y el Espacio de Arte Contemporáneo en la ex
+  (`reusHouses`: una pieza 1×1 pastel por tile, color por `tileHash`). Emblemáticos: Mercado Agrícola
+  (el MAM, `agriMarket`: bóveda de hierro y vidrio), Iglesia de San Pancracio (`church`) y el Espacio de Arte Contemporáneo en la ex
   Cárcel de Miguelete (`artCenter`, con el cartel "MW"). Es **el barrio con más tiendas** (9):
   mayoristas de ropa (`wholesale`, `shoes`, con `priceFactor` 0,75), Moda Coreana (ropa exclusiva,
   `KOREAN_FASHION`), panadería (`bakery`), rotisería (`rotisserie`), farmacia y un puesto de tortas
   fritas. Sin zona de venta: la venta con carrito es de los hinchas del Centenario.
+- Salas con acceso (`CityInfo.access`, hoy las Termas del Donador): no salen en la lista ni en la
+  landing, no se llega en ómnibus y se entra por una `Door` (ver `termas.md`). `indoor`: sin noche
+  ni lluvia. Tiles de interior: `Floor` e `InnerWall`.
 - Antes de `scatter` de árboles, poner `Plaza` bajo el área de cada emblemático: si no, le crecen
   árboles adentro.
 - Logo: `CityDefinition.logoSign = { landmarkId }` pone el cartel "MW" sobre el techo de ese edificio
@@ -88,7 +111,7 @@ paths:
    Mientras tanto se ve `TravelOverlay` (ómnibus de STM animado en SVG/CSS); el viaje dura como
    mínimo `TRAVEL_MS` (5 s) aunque el server responda antes.
    `CityRoom.onJoin` rechaza entrar a un barrio que no sea el de spawn sin boleto vigente para ese
-   barrio (y lo consume): no se puede viajar gratis pidiendo otra sala desde el cliente. Sin clave
+   barrio (y lo consume; al volver a entrar al juego, el pase lo da `onAuth`, ver `ingreso.md`): no se puede viajar gratis pidiendo otra sala desde el cliente. Sin clave
    (navegador sin almacenamiento) no se puede viajar.
    **Paradas de ómnibus** (`CityDefinition.busStops`: un tile no caminable con `name` y `facing`,
    como los bancos): clic en una → la escena camina al avatar a un tile pegado (`approachTile`) y al

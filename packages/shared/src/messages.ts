@@ -1,9 +1,11 @@
 import type { Appearance } from "./appearance";
+import type { Card, CasinoGame, RouletteBet, SlotSymbol } from "./casino";
+import type { GestureId, PairGestureId } from "./gestures";
 import type { InventoryStack, ItemSlot } from "./items";
 import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
 import type { TutorialState } from "./tutorial";
-import type { MatchMode } from "./vending";
+import type { CustomerState, MatchMode } from "./vending";
 import type { WeatherMode } from "./weather";
 
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
@@ -44,8 +46,17 @@ export const MessageType = {
   ShopSell: "shop:sell",
   /** Cliente → Servidor: vender regateando, todo o nada (ver `haggle.ts`). */
   ShopHaggle: "shop:haggle",
+  /** Cliente → Servidor: vender de una todo lo elegido en la pestaña Vender (como el carrito al comprar). */
+  ShopSellMany: "shop:sell-many",
+  /** Cliente → Servidor: regatear el lote elegido entero: un precio por todo, todo o nada. */
+  ShopHaggleMany: "shop:haggle-many",
   /** Servidor → Cliente: resultado de una compra o venta (para mostrar al jugador). */
   ShopResult: "shop:result",
+  /** Cliente → Servidor: casino (en la máquina o la mesa `shopId`). Servidor → Cliente: `casino:result`. */
+  CasinoSlots: "casino:slots",
+  CasinoRoulette: "casino:roulette",
+  CasinoBlackjack: "casino:blackjack",
+  CasinoResult: "casino:result",
   /** Cliente → Servidor: tirar la línea (hay que estar parado en la escollera). */
   FishCast: "fish:cast",
   /** Cliente → Servidor: recoger la línea sin esperar (cancela la pesca). */
@@ -64,6 +75,8 @@ export const MessageType = {
   VendStarted: "vend:started",
   /** Servidor → Cliente: cómo salió la venta. */
   VendResult: "vend:result",
+  /** Servidor → Cliente (sólo al vendedor): el hincha que se acerca al carrito (`CustomerState`). */
+  VendCustomer: "vend:customer",
   /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
   Notice: "notice",
   /** Cliente (admin) → Servidor: mover el reloj del juego. */
@@ -97,6 +110,18 @@ export const MessageType = {
   WeevilKick: "weevil:kick",
   /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
   Greet: "greet",
+  /** Cliente → Servidor: cruzar una puerta (`Door`: las Termas del Donador); si está lejos, camina hasta ella. */
+  DoorEnter: "door:enter",
+  /** Cliente → Servidor: meterse al jacuzzi del tile (x, y) (camina hasta el borde y ocupa un lugar libre). */
+  JacuzziEnter: "jacuzzi:enter",
+  /** Cliente → Servidor: hacer un gesto (tomar mate, aplaudir…; ver `gestures.ts`). Lo ven todos en el Schema. */
+  Gesture: "gesture",
+  /** Cliente → Servidor: invitar a quien tenés al lado a un gesto de a dos (`PAIR_GESTURES`). */
+  GesturePairRequest: "gesture:pair",
+  /** Servidor → Cliente (sólo al invitado): alguien te invita a un gesto de a dos. */
+  GesturePairInvite: "gesture:invite",
+  /** Cliente → Servidor: aceptar o no la invitación. */
+  GesturePairRespond: "gesture:respond",
   /** Cliente → Servidor: en la veterinaria, adoptar una mascota con nombre, cambiarle el nombre o despedirse. */
   PetAdopt: "pet:adopt",
   PetRename: "pet:rename",
@@ -135,7 +160,18 @@ export interface JoinOptions {
    * con ella la mochila, la plata y la ropa, y se las devuelve al volver a entrar. Ver `isPlayerKey`.
    */
   playerKey?: string;
+  /**
+   * Entrada desde la pantalla de ingreso (no un viaje): si el jugador había quedado en otro barrio,
+   * el server le emite un pase hasta ahí y rechaza con `RESUME_CITY_CODE` (el motivo es el `cityId`).
+   */
+  resume?: boolean;
 }
+
+/**
+ * Código con el que el server rechaza la entrada al barrio de spawn de quien había quedado en otro
+ * (`JoinOptions.resume`): el mensaje es el `cityId` y el cliente entra ahí (ya tiene el pase).
+ */
+export const RESUME_CITY_CODE = 4031;
 
 /** Clave de jugador válida: 32 a 64 caracteres de [A-Za-z0-9_-] (p. ej. un UUID sin guiones). */
 export function isPlayerKey(value: unknown): value is string {
@@ -280,9 +316,55 @@ export interface ShopCheckoutMessage {
   items: CartLine[];
 }
 
+/**
+ * Cliente → Servidor: vender lo elegido en la tienda `shopId` (líneas de la mochila), todo junto. Es
+ * todo o nada: si falta algo o la tienda no compra una cosa, no se vende nada.
+ */
+export interface ShopSellManyMessage {
+  shopId: string;
+  items: CartLine[];
+}
+
+/** Cliente → Servidor: regatear el lote entero pidiendo `price` por todo (todo o nada, ver `haggle.ts`). */
+export interface ShopHaggleManyMessage extends ShopSellManyMessage {
+  price: number;
+}
+
 /** Cliente → Servidor: vender una unidad de `itemId` pidiendo `price` (todo o nada). */
 export interface ShopHaggleMessage extends ShopTradeMessage {
   price: number;
+}
+
+/** Cliente → Servidor: una tirada de la tragamonedas `shopId` apostando `bet`. */
+export interface CasinoSlotsMessage {
+  shopId: string;
+  bet: number;
+}
+
+/** Cliente → Servidor: una bola de la ruleta `shopId`. */
+export interface CasinoRouletteMessage {
+  shopId: string;
+  bet: number;
+  choice: RouletteBet;
+}
+
+/** Cliente → Servidor: blackjack en la mesa `shopId`: repartir (con `bet`), pedir o plantarse. */
+export interface CasinoBlackjackMessage {
+  shopId: string;
+  action: "deal" | "hit" | "stand";
+  bet?: number;
+}
+
+/** Servidor → Cliente: cómo salió la jugada (ya se cobró y pagó; el saldo llega aparte). */
+export interface CasinoResultMessage {
+  game: CasinoGame;
+  ok: boolean;
+  text: string;
+  /** Lo que se cobró de vuelta (0 si perdió). */
+  payout: number;
+  slots?: SlotSymbol[];
+  roulette?: number;
+  blackjack?: { player: Card[]; dealer: Card[]; done: boolean };
 }
 
 /** Servidor → Cliente: cómo salió la compra/venta. */
@@ -295,6 +377,8 @@ export interface ShopResultMessage {
   quantity?: number;
   /** Compra del carrito: lo que se compró, para resaltar cada fila. */
   bought?: CartLine[];
+  /** Venta (o regateo aceptado) de lo elegido: lo que se vendió, para resaltar cada fila. */
+  sold?: CartLine[];
 }
 
 /** Cliente → Servidor: comerse una unidad de `itemId` (comida o pescado). */
@@ -312,6 +396,11 @@ export interface FishResultMessage {
   ok: boolean;
   text: string;
   itemIds?: string[];
+  /**
+   * Todo lo que picó (ids de `FISH`), también lo que no entró en la mochila: el cliente lo anima
+   * saliendo del agua (uno por pez; con doble, dos). Sólo lo ve el que pesca.
+   */
+  hooked?: string[];
 }
 
 /** Servidor → Cliente: estás ofreciendo; el resultado llega en `durationMs`. */
@@ -328,6 +417,15 @@ export interface VendResultMessage {
   text: string;
   earned: number;
   giftId?: string;
+}
+
+/**
+ * Servidor → Cliente (sólo al vendedor): su hincha llega, compra, sigue de largo o se va (venta
+ * cortada). Al comprar, `cartId` es el carrito con el que vendió (para dibujar lo que le da).
+ */
+export interface VendCustomerMessage {
+  state: CustomerState;
+  cartId?: string;
 }
 
 /** Servidor → Cliente: aviso breve que sólo ve ese jugador. */
@@ -394,6 +492,13 @@ export interface TravelMessage {
   roomId?: string;
   /** Sólo Servidor → Cliente: te lleva la ambulancia (desmayo), no el ómnibus. */
   ambulance?: boolean;
+  /** Sólo Servidor → Cliente: cruzaste una puerta (las Termas): un fundido corto, sin ómnibus. */
+  door?: boolean;
+}
+
+/** Cliente → Servidor: cruzar la puerta `doorId` del barrio. */
+export interface DoorEnterMessage {
+  doorId: string;
 }
 
 /** Servidor → Cliente: te desmayaste (pantalla negra con `text`; si hay que viajar, llega `travel:ok`). */
@@ -409,6 +514,31 @@ export interface WeevilKickMessage {
 /** Cliente → Servidor: saludar o invitar a intercambiar al jugador `targetId` (su sessionId). */
 export interface TargetPlayerMessage {
   targetId: string;
+}
+
+/** Cliente → Servidor: hacer el gesto `gesture` (id de `GESTURES`). */
+export interface GestureMessage {
+  gesture: GestureId;
+}
+
+/** Cliente → Servidor: invitar a `targetId` al gesto de a dos `gesture`. */
+export interface GesturePairRequestMessage {
+  targetId: string;
+  gesture: PairGestureId;
+}
+
+/** Servidor → Cliente: `fromName` te invita al gesto `gesture`; vence en `expiresInMs`. */
+export interface GesturePairInviteMessage {
+  fromId: string;
+  fromName: string;
+  gesture: PairGestureId;
+  expiresInMs: number;
+}
+
+/** Cliente → Servidor: respuesta a la invitación de `fromId`. */
+export interface GesturePairRespondMessage {
+  fromId: string;
+  accept: boolean;
 }
 
 /** Servidor → Cliente: `fromName` te invita a intercambiar; vence en `expiresInMs`. */
@@ -491,6 +621,11 @@ export interface ClientToServerMessages {
   [MessageType.ShopCheckout]: ShopCheckoutMessage;
   [MessageType.ShopSell]: ShopTradeMessage;
   [MessageType.ShopHaggle]: ShopHaggleMessage;
+  [MessageType.ShopSellMany]: ShopSellManyMessage;
+  [MessageType.CasinoSlots]: CasinoSlotsMessage;
+  [MessageType.CasinoRoulette]: CasinoRouletteMessage;
+  [MessageType.CasinoBlackjack]: CasinoBlackjackMessage;
+  [MessageType.ShopHaggleMany]: ShopHaggleManyMessage;
   [MessageType.FishCast]: undefined;
   [MessageType.FishStop]: undefined;
   [MessageType.FoodEat]: FoodEatMessage;
@@ -507,6 +642,11 @@ export interface ClientToServerMessages {
   [MessageType.PalmShake]: { x: number; y: number };
   [MessageType.WeevilKick]: WeevilKickMessage;
   [MessageType.Greet]: TargetPlayerMessage;
+  [MessageType.Gesture]: GestureMessage;
+  [MessageType.DoorEnter]: DoorEnterMessage;
+  [MessageType.JacuzziEnter]: SitMessage;
+  [MessageType.GesturePairRequest]: GesturePairRequestMessage;
+  [MessageType.GesturePairRespond]: GesturePairRespondMessage;
   [MessageType.PetAdopt]: PetAdoptMessage;
   [MessageType.PetRename]: PetRenameMessage;
   [MessageType.PetRelease]: { shopId: string };
@@ -531,6 +671,9 @@ export interface ServerToClientMessages {
   [MessageType.FishResult]: FishResultMessage;
   [MessageType.VendStarted]: VendStartedMessage;
   [MessageType.VendResult]: VendResultMessage;
+  [MessageType.VendCustomer]: VendCustomerMessage;
+  [MessageType.CasinoResult]: CasinoResultMessage;
+  [MessageType.GesturePairInvite]: GesturePairInviteMessage;
   [MessageType.Notice]: NoticeMessage;
   [MessageType.AdminNearby]: AdminNearbyMessage;
   [MessageType.Announcement]: AnnouncementMessage;

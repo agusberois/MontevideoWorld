@@ -299,9 +299,12 @@ export function fenceSpec(alongX: boolean): PieceSpec {
   };
 }
 
-export function benchSpec(facing: "south" | "east"): PieceSpec {
+export function benchSpec(facing: "south" | "east", pair?: "start" | "end"): PieceSpec {
+  // Banco doble: cada mitad se estira hasta el borde que comparte con la otra (sin patas ahí).
+  const a0 = pair === "end" ? -0.5 : -0.4;
+  const a1 = pair === "start" ? 0.5 : 0.4;
   return {
-    key: `bench-${facing}`,
+    key: `bench-${facing}-${pair ?? "single"}`,
     width: 1,
     height: 1,
     maxZ: 30,
@@ -309,23 +312,23 @@ export function benchSpec(facing: "south" | "east"): PieceSpec {
       const wood = boxColors(BENCH_WOOD);
       const iron = boxColors(BENCH_IRON);
       // En coordenadas "a lo largo" (a) y "a lo ancho" (b) del banco; se rotan según facing.
-      const box = (a0: number, a1: number, b0: number, b1: number, z0: number, z1: number, colors: typeof wood) => {
-        if (facing === "south") p.box(a0, b0, a1, b1, z0, z1, colors);
-        else p.box(b0, a0, b1, a1, z0, z1, colors);
+      const box = (x0: number, x1: number, b0: number, b1: number, z0: number, z1: number, colors: typeof wood) => {
+        if (facing === "south") p.box(x0, b0, x1, b1, z0, z1, colors);
+        else p.box(b0, x0, b1, x1, z0, z1, colors);
       };
       const legsAt = (b: number) => {
-        box(-0.36, -0.3, b - 0.03, b + 0.03, 0, 10, iron);
-        box(0.3, 0.36, b - 0.03, b + 0.03, 0, 10, iron);
+        if (pair !== "end") box(-0.36, -0.3, b - 0.03, b + 0.03, 0, 10, iron);
+        if (pair !== "start") box(0.3, 0.36, b - 0.03, b + 0.03, 0, 10, iron);
       };
 
       legsAt(-0.12);
       // Respaldo: dos tablas sobre parantes.
-      box(-0.36, -0.32, -0.24, -0.19, 10, 28, iron);
-      box(0.32, 0.36, -0.24, -0.19, 10, 28, iron);
-      box(-0.4, 0.4, -0.24, -0.19, 15, 20, wood);
-      box(-0.4, 0.4, -0.24, -0.19, 22, 27, wood);
+      if (pair !== "end") box(-0.36, -0.32, -0.24, -0.19, 10, 28, iron);
+      if (pair !== "start") box(0.32, 0.36, -0.24, -0.19, 10, 28, iron);
+      box(a0, a1, -0.24, -0.19, 15, 20, wood);
+      box(a0, a1, -0.24, -0.19, 22, 27, wood);
       // Asiento.
-      box(-0.4, 0.4, -0.17, 0.17, 10, 13, wood);
+      box(a0, a1, -0.17, 0.17, 10, 13, wood);
       legsAt(0.12);
     },
   };
@@ -680,6 +683,339 @@ export function shopBuildingSpec(building: Exclude<ShopBuilding, "none">): Piece
         p.windows(face, -0.45, 1.45, 40, 52, 3, 1, { color: 0x2b3442, widthRatio: 0.35, heightRatio: 0.8, shutters: style.trim });
         p.faceRect(face, -0.5, 1.5, 50, 53, shade(style.facade, 15));
       }
+    },
+  };
+}
+
+const INNER_WALL = 0xefe6d6;
+const INNER_TILES = 0x5fb3c9;
+const INNER_WALL_HEIGHT = 40;
+const JACUZZI_STONE = 0xd8d0c2;
+const JACUZZI_WATER = 0x5ec4e0;
+
+/**
+ * Pared de adentro (las Termas, `TileChar.InnerWall`): revoque claro con zócalo de azulejos
+ * celestes. Sólo hay paredes al norte y al oeste, así que se ven sus caras de adentro (sur y este).
+ * Con `door`, en la cara que da a la sala va una puerta de madera (la salida).
+ */
+export function innerWallSpec(door: boolean): PieceSpec {
+  return {
+    key: `inner-wall-${door ? "door" : "plain"}`,
+    width: 1,
+    height: 1,
+    maxZ: INNER_WALL_HEIGHT + 4,
+    draw: (p) => {
+      p.box(-0.5, -0.5, 0.5, 0.5, 0, INNER_WALL_HEIGHT, boxColors(INNER_WALL), false);
+      for (const face of [
+        { side: "south", y: 0.5 },
+        { side: "east", x: 0.5 },
+      ] as const) {
+        p.faceRect(face, -0.5, 0.5, 0, 14, INNER_TILES);
+        p.faceRect(face, -0.5, 0.5, 14, 15.5, shade(INNER_TILES, -25));
+        p.faceRect(face, -0.5, 0.5, INNER_WALL_HEIGHT - 2, INNER_WALL_HEIGHT, shade(INNER_WALL, -12));
+      }
+      if (door) {
+        const east = { side: "east", x: 0.5 } as const;
+        p.faceArch(east, -0.32, 0.32, 0, 30, DOOR_COLOR);
+        p.faceRect(east, -0.02, 0.02, 2, 26, shade(DOOR_COLOR, -20));
+        p.faceRect(east, -0.38, 0.38, 31, 34, 0xe2b53e);
+      }
+    },
+  };
+}
+
+/**
+ * Jacuzzi termal de `size` × `size` (el spa del Hotel del Donador): borde bajo de piedra clara y el agua celeste adentro, con
+ * reflejos. Es bajo: se dibuja detrás de los avatares (los que se meten se ven por encima, con el
+ * agua por delante, `Avatar.setBathing`).
+ */
+export function jacuzziSpec(size = 3): PieceSpec {
+  const e = size - 0.55;
+  const w = size - 0.8;
+  return {
+    key: `jacuzzi-${size}`,
+    width: size,
+    height: size,
+    maxZ: 12,
+    draw: (p) => {
+      // Borde de mármol con una franja dorada y el agua celeste con reflejos y burbujas.
+      p.box(-0.45, -0.45, e, e, 0, 8, boxColors(JACUZZI_STONE));
+      p.box(-0.45, -0.45, e, e, 8, 9, boxColors(0xd4a52c));
+      p.fill(JACUZZI_WATER, [p.p(-0.2, -0.2, 8), p.p(w, -0.2, 8), p.p(w, w, 8), p.p(-0.2, w, 8)]);
+      p.fill(shade(JACUZZI_WATER, 18), [p.p(0.1, 0.1, 8), p.p(size * 0.45, 0.1, 8), p.p(size * 0.2, size * 0.3, 8), p.p(0.1, size * 0.2, 8)], 0.6);
+      for (let i = 0; i < size * 2; i++) {
+        const c = p.p(((i * 7) % (size * 10)) / 10 + 0.2, ((i * 13) % (size * 10)) / 10 + 0.2, 8);
+        p.g.lineStyle(1, 0xffffff, 0.6);
+        p.g.strokeEllipse(c.x, c.y, 12, 5);
+      }
+    },
+  };
+}
+
+/** Fachadas coloniales: cal blanca y pasteles de época (ocre, salmón, terracota, celeste, verde agua). */
+const COLONIAL_COLORS = [0xf4efe4, 0xe9d3a6, 0xe8b9a0, 0xc98c6b, 0xb7cfd6, 0xbfd3b6, 0xf0dca8, 0xe6c7c0];
+const COLONIAL_SHUTTERS = [0x3f6b4f, 0x5a3e2b, 0x2f4f6b];
+const TILE_ROOF = 0xa24b2e;
+const IRON_WORK = 0x262626;
+
+/**
+ * Casa colonial del casco viejo (relleno de 2 × 2, `Filler`), como las del 1800: de 1 a 3 pisos, cal
+ * de color con zócalo y cornisa moldurada, ventanas altas y angostas (con reja en planta baja y
+ * balconcito de hierro arriba), el portón del zaguán con arco y, arriba, azotea con pretil y
+ * balaustrada, techo de tejas o, en algunas, el mirador.
+ */
+export function bigHouseSpec(x: number, y: number): PieceSpec {
+  const hash = tileHash(x, y, 5);
+  const floors = 1 + (hash % 3);
+  const colorIndex = (hash >>> 4) % COLONIAL_COLORS.length;
+  const shutterIndex = (hash >>> 8) % COLONIAL_SHUTTERS.length;
+  /** 0: azotea con balaustrada, 1: techo de tejas a cuatro aguas, 2: azotea con mirador. */
+  const roof = (hash >>> 10) % 3;
+  const height = 6 + floors * 22;
+
+  return {
+    key: `colonial-${floors}-${colorIndex}-${shutterIndex}-${roof}`,
+    width: 2,
+    height: 2,
+    maxZ: height + (roof === 1 ? 20 : roof === 2 ? 26 : 8),
+    draw: (p) => {
+      const facade = COLONIAL_COLORS[colorIndex];
+      const shutters = COLONIAL_SHUTTERS[shutterIndex];
+      p.box(-0.45, -0.45, 1.45, 1.45, 0, height, boxColors(facade, shade(facade, -8)));
+      for (const face of [
+        { side: "south", y: 1.45 },
+        { side: "east", x: 1.45 },
+      ] as const) {
+        // Zócalo y pilastras en las esquinas.
+        p.faceRect(face, -0.45, 1.45, 0, 5, shade(facade, -28));
+        p.faceRect(face, -0.45, -0.33, 5, height, shade(facade, 10));
+        p.faceRect(face, 1.33, 1.45, 5, height, shade(facade, 10));
+        // Cornisa moldurada (dos líneas) y una moldura entre pisos.
+        p.faceRect(face, -0.45, 1.45, height - 7, height - 4, shade(facade, 18));
+        p.faceRect(face, -0.45, 1.45, height - 3, height - 1, shade(facade, -12));
+        for (let floor = 0; floor < floors; floor++) {
+          const z0 = 5 + floor * 22;
+          if (floor > 0) p.faceRect(face, -0.33, 1.33, z0 - 1.5, z0, shade(facade, 12));
+          if (floor === 0 && face.side === "south") {
+            // Portón del zaguán con arco y una ventana enrejada al costado.
+            p.faceArch(face, 0.05, 0.5, 0, 19, DOOR_COLOR);
+            p.faceRect(face, 0.27, 0.28, 2, 15, shade(DOOR_COLOR, -25));
+            p.faceRect(face, 0.85, 1.2, 5, 18, WINDOW_COLOR);
+            for (let u = 0.89; u < 1.2; u += 0.07) p.faceRect(face, u, u + 0.015, 5, 18, IRON_WORK);
+            continue;
+          }
+          // Ventanas altas y angostas con postigos; en planta baja con reja, arriba con balconcito.
+          p.windows(face, -0.33, 1.33, z0 + 2, z0 + 20, 3, 1, {
+            color: WINDOW_COLOR,
+            widthRatio: 0.34,
+            heightRatio: 0.8,
+            arched: floor === floors - 1 && (hash & 1) === 1,
+            shutters,
+            balcony: floor > 0 ? IRON_WORK : undefined,
+          });
+          if (floor === 0) {
+            for (const [u0, u1] of [
+              [-0.17, 0.11],
+              [0.39, 0.67],
+              [0.95, 1.23],
+            ]) {
+              for (let u = u0; u < u1; u += 0.07) p.faceRect(face, u, u + 0.015, z0 + 4, z0 + 18, IRON_WORK);
+            }
+          }
+        }
+      }
+      if (roof === 1) {
+        // Techo de tejas a cuatro aguas.
+        p.pyramid(-0.5, -0.5, 1.5, 1.5, height, height + 18, TILE_ROOF, shade(TILE_ROOF, -18));
+        return;
+      }
+      // Azotea con pretil y balaustrada (columnitas) sobre la cornisa.
+      p.box(-0.45, -0.45, 1.45, -0.37, height, height + 6, boxColors(shade(facade, 6)));
+      p.box(-0.45, -0.37, -0.37, 1.45, height, height + 6, boxColors(shade(facade, 6)));
+      for (const face of [
+        { side: "south", y: 1.45 },
+        { side: "east", x: 1.45 },
+      ] as const) {
+        p.faceRect(face, -0.45, 1.45, height, height + 1.5, shade(facade, 14));
+        for (let u = -0.35; u < 1.4; u += 0.12) p.faceRect(face, u, u + 0.05, height + 1.5, height + 5, shade(facade, 4));
+        p.faceRect(face, -0.45, 1.45, height + 5, height + 6.5, shade(facade, 14));
+      }
+      if (roof === 2) {
+        // Mirador: torrecita con ventanas en arco y techito de tejas.
+        p.box(0.2, 0.2, 0.8, 0.8, height, height + 16, boxColors(facade));
+        for (const face of [
+          { side: "south", y: 0.8 },
+          { side: "east", x: 0.8 },
+        ] as const) {
+          p.windows(face, 0.24, 0.76, height + 3, height + 14, 2, 1, { color: WINDOW_COLOR, arched: true, widthRatio: 0.5, heightRatio: 0.85 });
+        }
+        p.pyramid(0.15, 0.15, 0.85, 0.85, height + 16, height + 25, TILE_ROOF, shade(TILE_ROOF, -18));
+      }
+    },
+  };
+}
+
+/** Piedra y revoques de los edificios de principios del 1900 (eclécticos, art nouveau). */
+const ECLECTIC_COLORS = [0xe6dcc8, 0xd8c7a6, 0xcbb38f, 0xe3d2bf, 0xc9b9a5, 0xd6cab0];
+const MANSARD = 0x5d6b78;
+
+/**
+ * Edificio de principios del 1900 (relleno de 2 × 2 del Centro, al este de Florida): de 4 a 7 pisos
+ * de piedra clara, basamento con locales, balcones de hierro, pilastras, cornisa y, a veces, mansarda
+ * de pizarra con lucarnas. Nada de vidrio: es el Montevideo del 900.
+ */
+export function bigTowerSpec(x: number, y: number): PieceSpec {
+  const hash = tileHash(x, y, 6);
+  const floors = 4 + (hash % 4);
+  const colorIndex = (hash >>> 4) % ECLECTIC_COLORS.length;
+  const mansard = ((hash >>> 8) & 1) === 1;
+  const height = 14 + floors * 17;
+
+  return {
+    key: `eclectic-${floors}-${colorIndex}-${mansard ? 1 : 0}`,
+    width: 2,
+    height: 2,
+    maxZ: height + (mansard ? 20 : 8),
+    draw: (p) => {
+      const stone = ECLECTIC_COLORS[colorIndex];
+      p.box(-0.42, -0.42, 1.42, 1.42, 0, height, boxColors(stone, shade(stone, -10)));
+      for (const face of [
+        { side: "south", y: 1.42 },
+        { side: "east", x: 1.42 },
+      ] as const) {
+        // Basamento con vidrieras de locales bajo arcos.
+        p.faceRect(face, -0.42, 1.42, 0, 14, shade(stone, -26));
+        p.windows(face, -0.35, 1.35, 1, 13, 3, 1, { color: WINDOW_COLOR, arched: true, widthRatio: 0.7, heightRatio: 0.9 });
+        p.faceRect(face, -0.42, 1.42, 14, 16, shade(stone, 14));
+        for (let floor = 0; floor < floors; floor++) {
+          const z0 = 16 + floor * 17;
+          p.windows(face, -0.36, 1.36, z0, z0 + 16, 4, 1, {
+            color: WINDOW_COLOR,
+            widthRatio: 0.4,
+            heightRatio: 0.7,
+            arched: floor === floors - 1,
+            balcony: floor % 2 === 0 ? IRON_WORK : undefined,
+          });
+        }
+        for (const u of [-0.42, 0.5, 1.36]) p.faceRect(face, u, u + 0.06, 16, height - 4, shade(stone, 12));
+        p.faceRect(face, -0.42, 1.42, height - 5, height - 2, shade(stone, 18));
+      }
+      p.box(-0.46, -0.46, 1.46, 1.46, height, height + 3, boxColors(shade(stone, 12)));
+      if (mansard) {
+        p.pyramid(-0.38, -0.38, 1.38, 1.38, height + 3, height + 19, MANSARD, shade(MANSARD, -14));
+        for (const [u, v] of [
+          [0.5, 1.2],
+          [1.2, 0.5],
+        ]) {
+          const c = p.p(u, v, height + 9);
+          p.g.fillStyle(0xe8e2d4, 1).fillRect(c.x - 3, c.y - 5, 6, 6);
+          p.g.fillStyle(WINDOW_COLOR, 1).fillRect(c.x - 2, c.y - 4, 4, 4);
+        }
+      } else {
+        p.box(-0.42, -0.42, 1.42, -0.34, height + 3, height + 7, boxColors(shade(stone, 6)));
+        p.box(-0.42, -0.34, -0.34, 1.42, height + 3, height + 7, boxColors(shade(stone, 6)));
+      }
+    },
+  };
+}
+
+/** Colores de los barcos pesqueros del puerto: casco, franja y cabina. */
+const BOAT_COLORS: ReadonlyArray<readonly [number, number, number]> = [
+  [0xc0392b, 0xf4f1ea, 0xf4f1ea],
+  [0x1f5fa8, 0xf2c94c, 0xf4f1ea],
+  [0x2a9d8f, 0xf4f1ea, 0xe8e2d4],
+  [0xf4f1ea, 0xc0392b, 0xf4f1ea],
+  [0x264653, 0xe76f51, 0xf4f1ea],
+  [0xe9b10a, 0x1f5fa8, 0xf4f1ea],
+];
+
+/**
+ * Barco pesquero (la bahía de Montevideo), dibujado en 2 × 2 y escalado a 3 × 3: casco con proa en punta y franja de
+ * color, cabina blanca con ventanas a popa, mástil con los cables, las redes amontonadas en cubierta,
+ * una boya naranja y la banderita. `facing` = hacia dónde apunta la proa.
+ */
+export function boatSpec(variant: number, facing: "east" | "south"): PieceSpec {
+  const [hull, stripe, cabin] = BOAT_COLORS[variant % BOAT_COLORS.length];
+  return {
+    key: `boat-${variant % BOAT_COLORS.length}-${facing}`,
+    width: 2,
+    height: 2,
+    maxZ: 62,
+    // Ocupa 3 × 3 tiles en el mapa: al lado de las casas de 2 × 2, un pesquero chico se perdía.
+    scale: 1.5,
+    draw: (p) => {
+      // En coordenadas del barco: a = a lo largo (de popa, -0.4, a proa, 1.4), b = a lo ancho.
+      const at = (a: number, b: number, z: number) => (facing === "east" ? p.p(a, b, z) : p.p(b, a, z));
+      const box = (a0: number, a1: number, b0: number, b1: number, z0: number, z1: number, color: number) => {
+        if (facing === "east") p.box(a0, b0, a1, b1, z0, z1, boxColors(color));
+        else p.box(b0, a0, b1, a1, z0, z1, boxColors(color));
+      };
+      const b0 = 0.2;
+      const b1 = 0.8;
+      const g = p.g;
+      // Sombra en el agua.
+      g.fillStyle(0x000000, 0.18);
+      g.fillPoints([at(-0.45, b0 - 0.05, 0), at(1.1, b0 - 0.05, 0), at(1.5, 0.5, 0), at(1.1, b1 + 0.05, 0), at(-0.45, b1 + 0.05, 0)], true);
+      // Casco: la parte recta y la proa en punta.
+      box(-0.4, 1.0, b0, b1, 0, 9, hull);
+      p.fill(shade(hull, -10), [at(1.0, b0, 0), at(1.4, 0.5, 2), at(1.0, b1, 0)]);
+      p.fill(shade(hull, -6), [at(1.0, b1, 0), at(1.4, 0.5, 2), at(1.4, 0.5, 11), at(1.0, b1, 9)]);
+      p.fill(shade(hull, 8), [at(1.0, b0, 9), at(1.4, 0.5, 11), at(1.0, b1, 9)]);
+      // Franja de color y línea de flotación.
+      p.fill(stripe, [at(-0.4, b1, 6), at(1.0, b1, 6), at(1.0, b1, 8), at(-0.4, b1, 8)]);
+      p.fill(0x1b1b1f, [at(-0.4, b1, 0), at(1.0, b1, 0), at(1.0, b1, 1.6), at(-0.4, b1, 1.6)]);
+      // Cubierta, cabina con ventanas a popa y las redes.
+      box(-0.35, 0.95, b0 + 0.04, b1 - 0.04, 9, 9.6, 0x9c7a55);
+      box(-0.3, 0.25, b0 + 0.1, b1 - 0.1, 9.6, 22, cabin);
+      p.fill(0x2f3946, [at(0.25, b0 + 0.18, 15), at(0.25, b1 - 0.18, 15), at(0.25, b1 - 0.18, 19), at(0.25, b0 + 0.18, 19)]);
+      box(-0.34, 0.29, b0 + 0.06, b1 - 0.06, 22, 23.5, shade(cabin, -15));
+      const net = at(0.65, 0.5, 11);
+      g.fillStyle(0x3d6b4f, 1);
+      g.fillEllipse(net.x, net.y, 14, 6);
+      g.lineStyle(1, 0x24412f, 0.7);
+      g.strokeEllipse(net.x, net.y, 14, 6);
+      const buoy = at(0.85, b0 + 0.1, 11);
+      g.fillStyle(0xf28c28, 1);
+      g.fillCircle(buoy.x, buoy.y - 1, 2.2);
+      // Mástil con los cables a proa y popa, y la banderita.
+      const mastBase = at(0.45, 0.5, 9.6);
+      const mastTop = at(0.45, 0.5, 52);
+      g.lineStyle(2, 0x5a4632, 1);
+      g.lineBetween(mastBase.x, mastBase.y, mastTop.x, mastTop.y);
+      g.lineStyle(1, 0x2b2b30, 0.6);
+      for (const [a, z] of [
+        [1.35, 11],
+        [-0.38, 10],
+      ]) {
+        const end = at(a, 0.5, z);
+        g.lineBetween(mastTop.x, mastTop.y, end.x, end.y);
+      }
+      g.fillStyle(0x4f86c6, 1);
+      g.fillTriangle(mastTop.x, mastTop.y, mastTop.x + 7, mastTop.y + 2, mastTop.x, mastTop.y + 5);
+    },
+  };
+}
+
+/**
+ * Farol de la rambla (decorado, `CityDefinition.streetLamps`): columna de hierro negra con base,
+ * brazo y el farol de vidrio; de noche lo ilumina `CityRenderer.nightLights`.
+ */
+export function streetLampSpec(): PieceSpec {
+  return {
+    key: "street-lamp",
+    width: 1,
+    height: 1,
+    maxZ: 66,
+    draw: (p) => {
+      p.box(0.25, 0.25, 0.4, 0.4, 0, 5, boxColors(0x2b2b30));
+      const g = p.g;
+      const base = p.p(0.32, 0.32, 5);
+      const top = p.p(0.32, 0.32, 56);
+      g.lineStyle(2.5, 0x1f1f22, 1).lineBetween(base.x, base.y, top.x, top.y);
+      g.fillStyle(0x1f1f22, 1).fillRect(top.x - 4, top.y - 2, 8, 3);
+      g.fillStyle(0xfff3b0, 1).fillRect(top.x - 3, top.y - 11, 6, 9);
+      g.lineStyle(1, 0x1f1f22, 1).strokeRect(top.x - 3, top.y - 11, 6, 9);
+      g.fillStyle(0x1f1f22, 1).fillTriangle(top.x - 5, top.y - 11, top.x + 5, top.y - 11, top.x, top.y - 16);
     },
   };
 }

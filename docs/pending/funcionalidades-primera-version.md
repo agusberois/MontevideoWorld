@@ -141,7 +141,7 @@ Hoy todo se hace solo. Una actividad que pida juntarse, por ejemplo:
 
 Así las barras (2.2) tienen sentido desde el primer día.
 
-### 2.9 Gestos y expresiones — S
+### 2.9 Gestos y expresiones — S ✅ hecho (2026-10-05, ver `.claude/rules/gestos.md`; tecla E)
 
 Hoy el avatar sólo camina, se sienta, pesca y patea. Gestos que se activan con una tecla o desde un
 menú, y que ven todos: **tomar mate** (con el termo bajo el brazo), **bailar candombe**, **festejar
@@ -166,6 +166,10 @@ un intercambio cara a cara. Abre sólo los domingos (del juego o reales). Necesi
 calle nueva (Cordón) y que el server guarde los puestos.
 
 ### 3.2 Calendario de eventos uruguayos — M (cada uno S)
+
+> ✅ Primera parte hecha (2026-10-05, ver `.claude/rules/calendario.md`): panel **Calendario** (tecla K)
+> con los feriados y fechas reales de Uruguay. Falta lo de abajo: que cada fecha cambie el mapa y dé
+> premios.
 
 Fechas que cambian el mapa por unos días y dan ropa o premios únicos:
 

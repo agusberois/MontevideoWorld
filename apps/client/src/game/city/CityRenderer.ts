@@ -2,7 +2,7 @@ import * as Phaser from "phaser";
 import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { PieceSpec, benchSpec, busStopSpec, houseSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
+import { PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
 import { landmarkPieces, roofSpot } from "./landmarks";
@@ -44,6 +44,10 @@ const GROUND_COLORS: Record<string, readonly [number, number]> = {
   [TileChar.Jetty]: [0x8f8b83, 0x87837b],
   [TileChar.Wall]: [0x6d6a64, 0x6d6a64],
   [TileChar.Fence]: [0xd9cdb4, 0xd2c6ac],
+  [TileChar.Floor]: [0xe2d6c0, 0xd6c8ae],
+  [TileChar.Sidewalk]: [0xc9c3b8, 0xc1bbb0],
+  [TileChar.Building]: [0x77746e, 0x77746e],
+  [TileChar.InnerWall]: [0xd6c8ae, 0xd6c8ae],
 };
 
 /**
@@ -92,8 +96,8 @@ export class CityRenderer {
       // Si lleva el cartel "MW", el nombre del edificio va por encima del cartel.
       const buildingTop = Math.max(...placed.map(({ spec }) => spec.maxZ * (spec.scale ?? 1)));
       const maxZ = logo?.landmark === landmark ? Math.max(buildingTop, logo.topZ) : buildingTop;
-      // Las garitas son cuatro iguales: sin cartel.
-      if (landmark.kind !== "watchtower" && !signed.has(landmark.name)) {
+      // Las garitas y las plantas son decorado: sin cartel.
+      if (landmark.kind !== "watchtower" && !["plant", "pottedPalm", "flowers", "lamp"].includes(landmark.kind) && !signed.has(landmark.name)) {
         signed.add(landmark.name);
         this.addSign(landmark.name, landmark.area, maxZ, "#ffd166", "rgba(18, 21, 31, 0.78)");
       }
@@ -106,6 +110,8 @@ export class CityRenderer {
         this.placePiece(shop.area, spec);
         signZ = spec.maxZ;
       }
+      // Las máquinas y mesas del casino ya tienen el cartel de su dibujo (landmark): sin "Tienda".
+      if (shop.casino) continue;
       this.addSign(`Tienda · ${shop.name}`, shop.area, signZ, "#9ef0c9", "rgba(20, 60, 48, 0.88)");
     }
     for (const stop of this.map.city.busStops) {
@@ -166,6 +172,11 @@ export class CityRenderer {
   nightLights(): NightLight[] {
     const lights: NightLight[] = [];
     for (const landmark of this.map.city.landmarks) {
+      if (landmark.kind === "lamp") {
+        // Faroles del spa del hotel: luz cálida que se prende de noche.
+        lights.push({ ...isoPoint(landmark.area.x, landmark.area.y, 44), radius: 80, color: 0xffd98a });
+        continue;
+      }
       if (landmark.kind !== "lighthouse") continue;
       const lantern = isoPoint(landmark.area.x, landmark.area.y, 70);
       lights.push({ ...lantern, radius: 90, color: 0xffd166 });
@@ -178,8 +189,9 @@ export class CityRenderer {
     }
     const logo = this.logoPlacement();
     if (logo) lights.push({ x: logo.roof.x, y: logo.roof.y - LOGO_POST_HEIGHT - LOGO_SIZE / 2, radius: 60, color: 0x9fd3ff });
-    for (const bench of this.map.city.benches) {
-      lights.push({ ...isoPoint(bench.x, bench.y, 34), radius: 55, color: 0xffcf7a });
+    // Faroles de la rambla.
+    for (const lamp of this.map.city.streetLamps ?? []) {
+      lights.push({ ...isoPoint(lamp.x + 0.32, lamp.y + 0.32, 50), radius: 85, color: 0xffd98a });
     }
     for (const stop of this.map.city.busStops) {
       lights.push({ ...isoPoint(stop.x, stop.y, 30), radius: 50, color: 0xdff1ff });
@@ -382,16 +394,43 @@ export class CityRenderer {
         else if (char === TileChar.Wall) {
           const isWall = (tx: number, ty: number) => this.map.tileAt(tx, ty) === TileChar.Wall;
           this.placePiece({ x, y }, wallSpec(isWall(x - 1, y) || isWall(x + 1, y), isWall(x, y - 1) || isWall(x, y + 1)));
+        } else if (char === TileChar.InnerWall) {
+          this.placePiece({ x, y }, innerWallSpec(this.map.doorAt(x, y) !== undefined));
         } else if (char === TileChar.Fence) {
           const isBarrier = (tx: number, ty: number) => [TileChar.Fence, TileChar.Wall].includes(this.map.tileAt(tx, ty) as "F" | "W");
           this.placePiece({ x, y }, fenceSpec(isBarrier(x - 1, y) || isBarrier(x + 1, y)));
         }
       }
     }
-    for (const bench of this.map.city.benches) this.placePiece(bench, benchSpec(bench.facing));
+    // Edificios de relleno grandes (2 × 2): casas en el casco viejo, en altura en el Centro.
+    for (const filler of this.map.city.fillers ?? []) {
+      this.placePiece(filler, filler.kind === "tower" ? bigTowerSpec(filler.x, filler.y) : bigHouseSpec(filler.x, filler.y));
+    }
+    for (const bench of this.map.city.benches) this.placePiece(bench, benchSpec(bench.facing, bench.pair));
+    for (const lamp of this.map.city.streetLamps ?? []) this.placePiece(lamp, streetLampSpec(), { occludes: false });
+    // Barcos pesqueros en la bahía: se mecen despacio (cada uno a su ritmo) y no tapan a nadie.
+    for (const boat of this.map.city.boats ?? []) {
+      const image = this.placePiece(boat, boatSpec(boat.variant, boat.facing), { occludes: false });
+      const phase = (boat.x * 7 + boat.y * 13) % 10;
+      this.scene.tweens.add({
+        targets: image,
+        y: image.y + 2,
+        duration: 1700 + phase * 90,
+        delay: phase * 120,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.InOut",
+      });
+    }
+    // El jacuzzi es bajo: queda detrás de todos los avatares (los de adentro se dibujan encima, con
+    // el agua por delante) y no se vuelve transparente.
+    for (const jacuzzi of this.map.city.jacuzzis ?? []) {
+      const { x, y } = jacuzzi.area;
+      this.placePiece({ x, y }, jacuzziSpec(jacuzzi.area.width), { depth: (x + y) * HALF_H - HALF_H * 2, occludes: false });
+    }
   }
 
-  private placePiece(tile: TilePoint, spec: PieceSpec) {
+  private placePiece(tile: TilePoint, spec: PieceSpec, options: { depth?: number; occludes?: boolean } = {}): Phaser.GameObjects.Image {
     const scale = spec.scale ?? 1;
     const x1 = spec.width - 0.5;
     const y1 = spec.height - 0.5;
@@ -419,7 +458,8 @@ export class CityRenderer {
     const height = spec.height * scale;
     // Áreas cuadradas: el borde frontal (x + w - 1) + y separa lo que queda delante y detrás.
     const frontSum = tile.x + width - 1 + tile.y;
-    image.setDepth(frontSum * HALF_H + 1);
+    image.setDepth(options.depth ?? frontSum * HALF_H + 1);
+    if (options.occludes === false) return image;
 
     const maxZ = spec.maxZ * scale;
     const corners: Array<[number, number, number]> = [
@@ -437,6 +477,7 @@ export class CityRenderer {
       }),
     );
     this.pieces.push({ image, silhouette, bounds: Phaser.Geom.Polygon.GetAABB(silhouette) });
+    return image;
   }
 
   /** Nombres pintados sobre el piso, alineados con el eje este-oeste. */

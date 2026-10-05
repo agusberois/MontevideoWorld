@@ -9,6 +9,12 @@ import { round } from "./metrics";
  * Lo que se guarda de cada jugador entre sesiones, por su clave secreta (`JoinOptions.playerKey`).
  * Lo decide y lo escribe sólo el server: el navegador guarda la clave, nunca la mochila ni la plata.
  */
+export interface SavedLocation {
+  cityId: string;
+  x: number;
+  y: number;
+}
+
 export interface PlayerRecord {
   name: string;
   money: number;
@@ -24,6 +30,11 @@ export interface PlayerRecord {
   pet?: { id: string; name: string };
   /** Guía de bienvenida (`TutorialState`). Sin el campo (guardados viejos), la ve desde el principio. */
   tutorial?: TutorialState;
+  /**
+   * Dónde quedó (barrio y tile): al volver a entrar aparece ahí (`CityRoom.onAuth` / `onJoin`). Nunca
+   * el COMCAR: estando ahí se conserva el de antes. Sin el campo (guardados viejos), Ciudad Vieja.
+   */
+  location?: SavedLocation;
   updatedAt: string;
 }
 

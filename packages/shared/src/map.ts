@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
+import { Bench, BusStop, CityDefinition, Door, Jacuzzi, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
 
 export type FishingFacing = "south" | "east" | "west" | "north";
 
@@ -28,6 +28,8 @@ const DIRECTIONS: readonly TilePoint[] = [
  * Para algo nuevo del mapa (puertas, carteles, cajeros…): sumar su `kind` acá y en `interactionAt`.
  */
 export type MapInteraction =
+  | { kind: "door"; target: TilePoint; area: TileRect; door: Door }
+  | { kind: "jacuzzi"; target: TilePoint; area: TileRect; jacuzzi: Jacuzzi }
   | { kind: "busStop"; target: TilePoint; area: TileRect; busStop: BusStop }
   | { kind: "shop"; target: TilePoint; area: TileRect; shop: Shop }
   | { kind: "palm"; target: TilePoint; area: TileRect }
@@ -89,9 +91,10 @@ export class CityMap {
       if (this.inBounds(stop.x, stop.y)) this.walkable[stop.y * this.width + stop.x] = 0;
     }
 
-    // Las tiendas son edificios: se atiende desde un tile pegado a su área.
-    for (const shop of city.shops) {
-      const { x, y, width, height } = shop.area;
+    // Las tiendas son edificios: se atiende desde un tile pegado a su área. Las puertas y los
+    // jacuzzis, igual: se llega a un tile pegado (y al jacuzzi uno se mete desde ahí).
+    for (const { area } of [...city.shops, ...(city.doors ?? []), ...(city.jacuzzis ?? [])]) {
+      const { x, y, width, height } = area;
       for (let ty = y; ty < y + height; ty++) {
         for (let tx = x; tx < x + width; tx++) if (this.inBounds(tx, ty)) this.walkable[ty * this.width + tx] = 0;
       }
@@ -177,20 +180,54 @@ export class CityMap {
 
   /** ¿El tile (x, y) está pegado a la tienda (incluye diagonales)? Desde ahí se puede comprar. */
   isNearShop(shop: Shop, x: number, y: number): boolean {
-    const { area } = shop;
-    const dx = Math.max(area.x - x, 0, x - (area.x + area.width - 1));
-    const dy = Math.max(area.y - y, 0, y - (area.y + area.height - 1));
-    return Math.max(dx, dy) === 1;
+    return isNextToArea(shop.area, x, y);
   }
 
   /** Tile caminable pegado a la tienda más cercano a `from` (adonde camina quien hace clic). */
   shopApproach(shop: Shop, from: TilePoint): TilePoint | undefined {
-    const { x, y, width, height } = shop.area;
+    return this.areaApproach(shop.area, from);
+  }
+
+  doorAt(x: number, y: number): Door | undefined {
+    return this.city.doors?.find((door) => inRect(door.area, x, y));
+  }
+
+  getDoor(id: string): Door | undefined {
+    return this.city.doors?.find((door) => door.id === id);
+  }
+
+  /** ¿El tile (x, y) está pegado a la puerta (incluye diagonales)? Desde ahí se cruza. */
+  isNearDoor(door: Door, x: number, y: number): boolean {
+    return isNextToArea(door.area, x, y);
+  }
+
+  /** Tile caminable pegado a la puerta más cercano a `from`. */
+  doorApproach(door: Door, from: TilePoint): TilePoint | undefined {
+    return this.areaApproach(door.area, from);
+  }
+
+  jacuzziAt(x: number, y: number): Jacuzzi | undefined {
+    return this.city.jacuzzis?.find((jacuzzi) => inRect(jacuzzi.area, x, y));
+  }
+
+  /** ¿(x, y) es un lugar de algún jacuzzi? (Ahí está metido quien tiene `bathing`.) */
+  isJacuzziSeat(x: number, y: number): boolean {
+    return Boolean(this.jacuzziAt(x, y)?.seats.some((seat) => seat.x === x && seat.y === y));
+  }
+
+  /** Tile caminable pegado al lugar `seat` del jacuzzi (desde ahí uno se mete), el más cercano a `from`. */
+  seatApproach(seat: TilePoint, from: TilePoint): TilePoint | undefined {
+    return this.approachTile(seat, from);
+  }
+
+  /** Tile caminable pegado al área más cercano a `from` (el borde de una tienda o una puerta). */
+  private areaApproach(area: TileRect, from: TilePoint): TilePoint | undefined {
+    const { x, y, width, height } = area;
     let best: TilePoint | undefined;
     let bestDistance = Infinity;
     for (let ty = y - 1; ty <= y + height; ty++) {
       for (let tx = x - 1; tx <= x + width; tx++) {
-        if (!this.isWalkable(tx, ty) || !this.isNearShop(shop, tx, ty)) continue;
+        if (!this.isWalkable(tx, ty) || !isNextToArea(area, tx, ty)) continue;
         const distance = Math.abs(tx - from.x) + Math.abs(ty - from.y);
         if (distance < bestDistance) {
           bestDistance = distance;
@@ -217,11 +254,15 @@ export class CityMap {
   }
 
   /**
-   * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+   * Qué hay para hacer en el tile (x, y), en orden de prioridad: puerta, jacuzzi, parada, tienda, palmera, banco,
    * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
    * se mueven y los resuelve quien llama.
    */
   interactionAt(x: number, y: number, { palmReach = 0 }: InteractionOptions = {}): MapInteraction | undefined {
+    const door = this.doorAt(x, y);
+    if (door) return { kind: "door", target: { x, y }, area: door.area, door };
+    const jacuzzi = this.jacuzziAt(x, y);
+    if (jacuzzi) return { kind: "jacuzzi", target: { x, y }, area: jacuzzi.area, jacuzzi };
     const busStop = this.busStopAt(x, y);
     if (busStop) return { kind: "busStop", target: { x, y }, area: tileRect(x, y), busStop };
     const shop = this.shopAt(x, y);
@@ -245,6 +286,8 @@ export class CityMap {
       const hit = this.interactionAt(x + dir.x, y + dir.y);
       if (!hit || hit.kind === "floor") continue;
       if (hit.kind === "shop" && found.some((other) => other.kind === "shop" && other.shop === hit.shop)) continue;
+      if (hit.kind === "door" && found.some((other) => other.kind === "door" && other.door === hit.door)) continue;
+      if (hit.kind === "jacuzzi" && found.some((other) => other.kind === "jacuzzi" && other.jacuzzi === hit.jacuzzi)) continue;
       found.push(hit);
     }
     return found;
@@ -361,6 +404,13 @@ export class CityMap {
     }
     return path.reverse();
   }
+}
+
+/** ¿(x, y) está pegado al área (incluye diagonales), sin estar adentro? */
+function isNextToArea(area: TileRect, x: number, y: number): boolean {
+  const dx = Math.max(area.x - x, 0, x - (area.x + area.width - 1));
+  const dy = Math.max(area.y - y, 0, y - (area.y + area.height - 1));
+  return Math.max(dx, dy) === 1;
 }
 
 function inRect(rect: TileRect, x: number, y: number): boolean {

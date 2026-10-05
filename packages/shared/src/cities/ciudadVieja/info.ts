@@ -1,11 +1,29 @@
-import { FISH, MEDICINES, RODS, TICKET_ID } from "../../items";
+import { CLOTHING, FISH, MEDICINES, RODS, TICKET_ID, WALKING_SHOES } from "../../items";
 import { PETS } from "../../pets";
-import type { CityInfo } from "../types";
+import type { BusStop, CityInfo, TileRect } from "../types";
+import { rect } from "./grid";
 
 /**
  * Ciudad Vieja: nombre, descripción, edificios emblemáticos y tiendas. Es lo liviano del barrio: el
  * cliente lo tiene siempre (lista de barrios, landing, tiendas); el mapa (`map.ts`) se descarga al entrar.
+ *
+ * Las posiciones salen del plano real (OpenStreetMap), a 12 m por tile y con la grilla girada como
+ * las calles (`grid.ts`; ver `docs/finished/ciudad-vieja-mapa-real.md`): cada edificio en su manzana real. Oeste → este: la Escollera Sarandí en la
+ * punta, el Mercado del Puerto, la Plaza Zabala, la Plaza Matriz (Catedral y Cabildo enfrentados), la
+ * Puerta de la Ciudadela y la Plaza Independencia con el Palacio Salvo en la esquina este.
  */
+
+/** Plataforma de la punta de la Escollera Sarandí (donde se pesca; la guía lleva hasta acá). */
+export const ESCOLLERA_PLATFORM: TileRect = { x: 1, y: 45, width: 7, height: 11 };
+/**
+ * Segunda escollera, igual a la de la punta pero más al norte, cerca de la bahía: el brazo sale de
+ * la rambla oeste en la fila 15 (de 14 a 16) hasta esta plataforma.
+ */
+export const ESCOLLERA_NORTE_PLATFORM: TileRect = { x: 1, y: 10, width: 7, height: 11 };
+
+/** Paradas de ómnibus (la de la Plaza Independencia es la de la guía de bienvenida). */
+export const PLAZA_BUS_STOP: BusStop = { name: "Plaza Independencia", x: 136, y: 60, facing: "south" };
+export const MERCADO_BUS_STOP: BusStop = { name: "Mercado del Puerto", x: 52, y: 13, facing: "south" };
 
 export const CIUDAD_VIEJA_INFO = {
   id: "ciudad-vieja",
@@ -13,83 +31,138 @@ export const CIUDAD_VIEJA_INFO = {
   description: "El casco histórico de Montevideo, entre el puerto y la Plaza Independencia.",
   landmarks: [
     {
+      id: "casino",
+      name: "Casino Victoria Plaza",
+      description: "El casino Victoria Plaza: tragamonedas, ruleta y blackjack para probar suerte.",
+      kind: "casino",
+      area: rect(109, 20, 3),
+    },
+    {
+      id: "termas-del-donador",
+      name: "Hotel del Donador",
+      description: "El hotel cinco estrellas de los que bancan el proyecto, con spa y jacuzzi: sólo entran los donadores.",
+      kind: "termas",
+      area: rect(125, 43, 4),
+    },
+    {
       id: "puerta-ciudadela",
       name: "Puerta de la Ciudadela",
-      description: "Único resto de la muralla colonial; separa la Ciudad Vieja de la Plaza Independencia.",
+      description: "Único resto de la muralla colonial: separa la Ciudad Vieja de la Plaza Independencia.",
       kind: "gate",
-      area: { x: 53, y: 22, width: 1, height: 5 },
-      passable: [{ x: 53, y: 24 }],
+      area: rect(124, 47, 1, 6),
+      // Los dos arcos, sobre la peatonal Sarandí.
+      passable: [
+        { x: 124, y: 49 },
+        { x: 124, y: 50 },
+      ],
     },
     {
       id: "monumento-artigas",
       name: "Monumento a Artigas",
-      description: "Estatua ecuestre de José Artigas en el centro de la Plaza Independencia.",
+      description: "Estatua ecuestre de José Artigas en el centro de la Plaza Independencia, sobre su mausoleo.",
       kind: "equestrianMonument",
-      area: { x: 62, y: 24, width: 3, height: 3 },
+      area: rect(129, 53, 3),
     },
     {
       id: "palacio-salvo",
       name: "Palacio Salvo",
-      description: "El rascacielos de 1928 que domina la Plaza Independencia.",
+      description: "El rascacielos de 1928 en la esquina de la Plaza Independencia y 18 de Julio.",
       kind: "palacioSalvo",
-      area: { x: 67, y: 7, width: 5, height: 5 },
+      area: rect(139, 56, 6),
+    },
+    {
+      id: "torre-ejecutiva",
+      name: "Torre Ejecutiva",
+      description: "La sede de la Presidencia, sobre el lado sur de la Plaza Independencia.",
+      kind: "executiveTower",
+      area: rect(125, 61, 4),
+    },
+    {
+      id: "palacio-estevez",
+      name: "Palacio Estévez",
+      description: "Antigua casa de gobierno (1874), al lado de la Torre Ejecutiva; hoy museo.",
+      kind: "palace",
+      area: rect(130, 61, 4),
     },
     {
       id: "teatro-solis",
       name: "Teatro Solís",
-      description: "El teatro más antiguo del país (1856), con su pórtico de columnas.",
+      description: "El teatro más antiguo del país (1856), con su pórtico de columnas, a pasos de la Plaza Independencia.",
       kind: "theater",
-      area: { x: 46, y: 33, width: 5, height: 5 },
+      area: rect(116, 60, 4),
     },
     {
       id: "catedral",
       name: "Catedral Metropolitana",
-      description: "La Iglesia Matriz, frente a la Plaza Matriz, con sus dos torres.",
+      description: "La Iglesia Matriz, del lado oeste de la Plaza Matriz, con sus dos torres.",
       kind: "cathedral",
-      area: { x: 21, y: 18, width: 4, height: 4 },
+      area: rect(92, 43, 4),
     },
     {
       id: "cabildo",
       name: "Cabildo de Montevideo",
-      description: "Sede del gobierno colonial; hoy museo histórico.",
+      description: "Sede del gobierno colonial, enfrente de la Catedral; hoy museo histórico.",
       kind: "cabildo",
-      area: { x: 29, y: 11, width: 4, height: 4 },
+      area: rect(109, 44, 3),
     },
     {
       id: "fuente-plaza-matriz",
       name: "Fuente de la Plaza Matriz",
       description: "La fuente de 1871 en el centro de la plaza más antigua de la ciudad.",
       kind: "fountain",
-      area: { x: 30, y: 19, width: 2, height: 2 },
+      area: rect(101, 44, 2),
+    },
+    {
+      id: "palacio-taranco",
+      name: "Palacio Taranco",
+      description: "Palacio de estilo francés (1910) frente a la Plaza Zabala; hoy Museo de Artes Decorativas.",
+      kind: "palace",
+      area: rect(68, 27, 4),
+    },
+    {
+      id: "templo-ingles",
+      name: "Templo Inglés",
+      description: "La iglesia anglicana de la Santísima Trinidad, sobre la rambla sur.",
+      kind: "church",
+      area: rect(92, 68, 4),
     },
     {
       id: "escollera-sarandi",
       name: "Escollera Sarandí",
-      description: "Espigón sobre el Río de la Plata con su farola. Parado en la escollera se puede pescar.",
+      description: "Espigón que sale de la punta de la Ciudad Vieja hacia el río, con su farola. Parado en la escollera se puede pescar.",
       kind: "lighthouse",
-      area: { x: 16, y: 56, width: 1, height: 1 },
+      area: rect(1, 55, 1),
     },
     {
-      id: "escollera-sarandi-este",
-      name: "Escollera Sarandí (este)",
-      description: "Segundo espigón, frente a la Plaza Independencia, con su farola. También se pesca.",
+      id: "escollera-norte",
+      name: "Escollera norte",
+      description: "Segundo espigón, más al norte sobre la rambla oeste, con su farola. También se pesca.",
       kind: "lighthouse",
-      area: { x: 63, y: 56, width: 1, height: 1 },
+      area: rect(1, 10, 1),
     },
     {
       id: "mercado-puerto",
       name: "Mercado del Puerto",
-      description: "Estructura de hierro de 1868 junto al puerto, famosa por sus parrillas.",
+      description: "Estructura de hierro de 1868 frente al puerto, famosa por sus parrillas.",
       kind: "market",
-      area: { x: 8, y: 3, width: 5, height: 5 },
+      area: rect(44, 11, 4),
     },
   ],
   shops: [
     {
+      id: "calzados-sarandi",
+      name: "Calzados Sarandí",
+      description: "Sobre la peatonal: championes de todo tipo. Los mejores te hacen caminar mucho más rápido.",
+      area: rect(86, 52, 2),
+      building: "shoes",
+      buys: ["clothing"],
+      stock: [...WALKING_SHOES.map((item) => item.id), ...CLOTHING.filter((item) => item.slot === "shoes").map((item) => item.id)],
+    },
+    {
       id: "agencia-stm",
       name: "Agencia STM",
-      description: "Sobre la Rambla 25 de Agosto: vende boletos de ómnibus para viajar entre barrios.",
-      area: { x: 27, y: 3, width: 2, height: 2 },
+      description: "Sobre la Rambla 25 de Agosto, frente al puerto: vende boletos de ómnibus para viajar entre barrios.",
+      area: rect(54, 11, 2),
       building: "stm",
       stock: [TICKET_ID],
       buys: ["ticket"],
@@ -98,7 +171,7 @@ export const CIUDAD_VIEJA_INFO = {
       id: "roperia-sarandi",
       name: "Ropería Sarandí",
       description: "Tienda de ropa de la peatonal: compra y vende prendas.",
-      area: { x: 39, y: 21, width: 2, height: 2 },
+      area: rect(84, 52, 2),
       building: "clothing",
       buys: ["clothing"],
       stock: [
@@ -125,7 +198,7 @@ export const CIUDAD_VIEJA_INFO = {
       id: "kiosco-independencia",
       name: "Kiosco de la Plaza",
       description: "En la Plaza Independencia: tortas fritas, alfajores y mate para seguir laburando.",
-      area: { x: 54, y: 18, width: 2, height: 2 },
+      area: rect(136, 47, 2),
       building: "kiosk",
       stock: ["torta-frita", "alfajor", "mate"],
       buys: [],
@@ -134,7 +207,7 @@ export const CIUDAD_VIEJA_INFO = {
       id: "farmacia-sarandi",
       name: "Farmacia Sarandí",
       description: "Sobre la peatonal, al lado de la veterinaria: Perifar, curitas, vitaminas y botiquines para la salud.",
-      area: { x: 48, y: 22, width: 2, height: 2 },
+      area: rect(118, 52, 2),
       building: "pharmacy",
       stock: MEDICINES.map((item) => item.id),
       buys: [],
@@ -143,7 +216,7 @@ export const CIUDAD_VIEJA_INFO = {
       id: "veterinaria-sarandi",
       name: "Veterinaria Sarandí",
       description: "Sobre la peatonal: adoptá una mascota, ponele nombre y te acompaña a todos lados.",
-      area: { x: 46, y: 22, width: 2, height: 2 },
+      area: rect(116, 52, 2),
       building: "pets",
       stock: [],
       buys: [],
@@ -154,7 +227,7 @@ export const CIUDAD_VIEJA_INFO = {
       name: "Pescadería del Mercado",
       description:
         "En el Mercado del Puerto te compran lo que pescaste a precio completo y venden todos los pescados del río (más caros). En las parrillas, chivito y pescado a la plancha.",
-      area: { x: 8, y: 3, width: 5, height: 5 },
+      area: rect(44, 11, 4),
       building: "none",
       stock: ["chivito", "pescado-plancha", ...FISH.map((fish) => fish.id)],
       buys: ["fish"],
@@ -162,8 +235,8 @@ export const CIUDAD_VIEJA_INFO = {
     {
       id: "tienda-pesca",
       name: "Pesca Sarandí",
-      description: "Frente a la Escollera Sarandí: vende cañas (las mejores pescan mejor) y compra las usadas.",
-      area: { x: 9, y: 40, width: 2, height: 2 },
+      description: "En la punta, frente a la Escollera Sarandí: vende cañas (las mejores pescan mejor) y compra las usadas.",
+      area: rect(20, 52, 2),
       building: "fishing",
       stock: RODS.map((rod) => rod.id),
       buys: ["rod"],

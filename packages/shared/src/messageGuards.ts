@@ -1,3 +1,5 @@
+import { isRouletteBet } from "./casino";
+import { isGestureId, isPairGestureId } from "./gestures";
 import { isItemSlot } from "./items";
 import { isWeatherMode } from "./weather";
 import {
@@ -10,6 +12,13 @@ import {
   ClientToServerMessages,
   EquipMessage,
   FoodEatMessage,
+  GestureMessage,
+  CasinoBlackjackMessage,
+  CasinoRouletteMessage,
+  CasinoSlotsMessage,
+  DoorEnterMessage,
+  GesturePairRequestMessage,
+  GesturePairRespondMessage,
   InventoryMoveMessage,
   MAKER_MAX_QUANTITY,
   MAX_ROUTE_LENGTH,
@@ -20,6 +29,8 @@ import {
   SHOP_MAX_QUANTITY,
   ShopCheckoutMessage,
   ShopHaggleMessage,
+  ShopHaggleManyMessage,
+  ShopSellManyMessage,
   ShopTradeMessage,
   SitMessage,
   TargetPlayerMessage,
@@ -84,6 +95,14 @@ export function isShopHaggleMessage(message: unknown): message is ShopHaggleMess
   return isShopTradeMessage(message) && typeof (message as unknown as Fields).price === "number";
 }
 
+export function isShopSellManyMessage(message: unknown): message is ShopSellManyMessage {
+  return isShopCheckoutMessage(message);
+}
+
+export function isShopHaggleManyMessage(message: unknown): message is ShopHaggleManyMessage {
+  return isShopCheckoutMessage(message) && typeof (message as unknown as Fields).price === "number";
+}
+
 export function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage {
   if (!isObject(message)) return false;
   const { shopId, items } = message;
@@ -136,6 +155,36 @@ export function isTargetPlayerMessage(message: unknown): message is TargetPlayer
   return isObject(message) && typeof message.targetId === "string";
 }
 
+export function isGestureMessage(message: unknown): message is GestureMessage {
+  return isObject(message) && isGestureId(message.gesture);
+}
+
+export function isCasinoSlotsMessage(message: unknown): message is CasinoSlotsMessage {
+  return isObject(message) && typeof message.shopId === "string" && typeof message.bet === "number";
+}
+
+export function isCasinoRouletteMessage(message: unknown): message is CasinoRouletteMessage {
+  return isCasinoSlotsMessage(message) && isRouletteBet((message as unknown as Fields).choice);
+}
+
+export function isCasinoBlackjackMessage(message: unknown): message is CasinoBlackjackMessage {
+  if (!isObject(message) || typeof message.shopId !== "string") return false;
+  const { action, bet } = message;
+  return (action === "deal" && typeof bet === "number") || action === "hit" || action === "stand";
+}
+
+export function isDoorEnterMessage(message: unknown): message is DoorEnterMessage {
+  return isObject(message) && typeof message.doorId === "string" && message.doorId.length <= 40;
+}
+
+export function isGesturePairRequestMessage(message: unknown): message is GesturePairRequestMessage {
+  return isObject(message) && typeof message.targetId === "string" && isPairGestureId(message.gesture);
+}
+
+export function isGesturePairRespondMessage(message: unknown): message is GesturePairRespondMessage {
+  return isObject(message) && typeof message.fromId === "string" && typeof message.accept === "boolean";
+}
+
 export function isPetAdoptMessage(message: unknown): message is PetAdoptMessage {
   return isObject(message) && typeof message.shopId === "string" && typeof message.petId === "string" && typeof message.name === "string";
 }
@@ -178,6 +227,11 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.ShopCheckout]: isShopCheckoutMessage,
   [MessageType.ShopSell]: isShopTradeMessage,
   [MessageType.ShopHaggle]: isShopHaggleMessage,
+  [MessageType.ShopSellMany]: isShopSellManyMessage,
+  [MessageType.CasinoSlots]: isCasinoSlotsMessage,
+  [MessageType.CasinoRoulette]: isCasinoRouletteMessage,
+  [MessageType.CasinoBlackjack]: isCasinoBlackjackMessage,
+  [MessageType.ShopHaggleMany]: isShopHaggleManyMessage,
   [MessageType.FishCast]: noPayload,
   [MessageType.FishStop]: noPayload,
   [MessageType.FoodEat]: isItemIdMessage,
@@ -194,6 +248,11 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.PalmShake]: isTileMessage,
   [MessageType.WeevilKick]: isWeevilKickMessage,
   [MessageType.Greet]: isTargetPlayerMessage,
+  [MessageType.Gesture]: isGestureMessage,
+  [MessageType.DoorEnter]: isDoorEnterMessage,
+  [MessageType.JacuzziEnter]: isTileMessage,
+  [MessageType.GesturePairRequest]: isGesturePairRequestMessage,
+  [MessageType.GesturePairRespond]: isGesturePairRespondMessage,
   [MessageType.PetAdopt]: isPetAdoptMessage,
   [MessageType.PetRename]: isPetRenameMessage,
   [MessageType.PetRelease]: isShopIdMessage,

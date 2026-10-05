@@ -1,4 +1,4 @@
-import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
+import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
 import { TradeOffer } from "./trade";
 /** Un tile (x, y enteros): mover, sentarse, visitar una tienda, sacudir una palmera. */
 export declare function isTileMessage(message: unknown): message is SitMessage;
@@ -13,6 +13,8 @@ export declare function isShopIdMessage(message: unknown): message is {
 };
 export declare function isShopTradeMessage(message: unknown): message is ShopTradeMessage;
 export declare function isShopHaggleMessage(message: unknown): message is ShopHaggleMessage;
+export declare function isShopSellManyMessage(message: unknown): message is ShopSellManyMessage;
+export declare function isShopHaggleManyMessage(message: unknown): message is ShopHaggleManyMessage;
 export declare function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage;
 /** `{ itemId }`: comer algo, abrir una caja. */
 export declare function isItemIdMessage(message: unknown): message is FoodEatMessage & BoxOpenMessage;
@@ -23,6 +25,13 @@ export declare function isAdminWeatherMessage(message: unknown): message is Admi
 export declare function isTravelMessage(message: unknown): message is TravelMessage;
 export declare function isWeevilKickMessage(message: unknown): message is WeevilKickMessage;
 export declare function isTargetPlayerMessage(message: unknown): message is TargetPlayerMessage;
+export declare function isGestureMessage(message: unknown): message is GestureMessage;
+export declare function isCasinoSlotsMessage(message: unknown): message is CasinoSlotsMessage;
+export declare function isCasinoRouletteMessage(message: unknown): message is CasinoRouletteMessage;
+export declare function isCasinoBlackjackMessage(message: unknown): message is CasinoBlackjackMessage;
+export declare function isDoorEnterMessage(message: unknown): message is DoorEnterMessage;
+export declare function isGesturePairRequestMessage(message: unknown): message is GesturePairRequestMessage;
+export declare function isGesturePairRespondMessage(message: unknown): message is GesturePairRespondMessage;
 export declare function isPetAdoptMessage(message: unknown): message is PetAdoptMessage;
 export declare function isPetRenameMessage(message: unknown): message is PetRenameMessage;
 export declare function isTradeRespondMessage(message: unknown): message is TradeRespondMessage;

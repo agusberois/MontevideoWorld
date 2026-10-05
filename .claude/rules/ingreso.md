@@ -26,9 +26,17 @@ donde no hay subdominio). El botón "Jugar" de la landing arma el link con `lib/
 por `LoginScreen` (botón de Google sin efecto por ahora) y después por `JoinScreen`; al salir del
 juego se vuelve a `JoinScreen`. Si agregás `proxy.ts` con `next dev` corriendo, reinicialo.
 
-`JoinScreen` → `joinCity(name, appearance)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID, appearance })`.
+**Personajes** (`lib/characters.ts`, `mw:characters`): este navegador guarda una lista (hasta
+`MAX_CHARACTERS`) de `{ key, name, appearance }`; cada uno tiene **su clave**, así el server guarda
+el progreso de cada personaje aparte. Después de `LoginScreen`, si hay alguno se ve `CharacterSelect`
+(tarjetas con `AvatarPreview`: elegir uno pone su clave como la activa, `setPlayerKey`, y entra) con
+"Crear un personaje nuevo"; si no hay ninguno, `JoinScreen` directo (con "Volver a mis personajes"
+cuando hay). Crear: `createCharacter` (el primero usa la clave que ya había; los siguientes, una nueva
+con `newPlayerKey`). El personaje del formato viejo (`mw:name` / `mw:appearance` + `mw:playerKey`)
+se migra solo a la lista con su clave.
+`JoinScreen` / `CharacterSelect` → `joinCity(name, appearance)` → `client.joinOrCreate("city", { name, cityId: SPAWN_CITY_ID, appearance, resume: true })`.
 El aspecto (sexo, piel, 9 peinados y color de pelo, color de ojos, barba, lentes y color) se arma en
-la pantalla de ingreso (🎲 = `randomAppearance`) y se recuerda en `localStorage` (`mw:appearance`).
+la pantalla de ingreso (🎲 = `randomAppearance`) y se guarda con el personaje (`mw:characters`).
 El server lo valida con `sanitizeAppearance` (si no es válido sortea uno; ojos, barba y lentes, si
 faltan —aspectos guardados antes de que existieran, clientes viejos—, van por defecto) y lo copia al
 Schema (`gender`, `skin`, `hairColor`, `hairStyle`, `eyeColor`, `facialHair`, `glasses`, `color`):
@@ -40,10 +48,17 @@ nuevos se dibujan una sola vez ahí (el `switch` / `Record` no compila si falta 
 (parpadean) → `glasses` → `frontHair` → gorro; de espaldas `headBack`. El avatar pone **cara de
 contento** al patear un picudo y **de dolor** cuando le pica uno (`Avatar.flinch`, desde los `bites`
 del picudo en `CityScene`), y **respira** parado sin hacer nada. El nombre sobre la cabeza va en `Player.color`.
-Siempre se entra a **Ciudad Vieja**. Las salas se separan por `cityId` (`filterBy`); un `cityId`
+Se pide siempre **Ciudad Vieja**, pero se **vuelve a donde se quedó**: `savePlayer` guarda
+`PlayerRecord.location` (`cityId`, `x`, `y`; en el COMCAR conserva el de antes). Con `resume` (sólo
+desde `JoinScreen`; los viajes no lo mandan), el `onAuth` estático, si quedó en otro barrio, **tiene
+un boleto STM en la mochila** (si no, quedaría trancado: sólo se venden en Ciudad Vieja) y no hay un
+pase vigente, emite un pase a ese barrio con `at` = su tile y rechaza con `RESUME_CITY_CODE` (mensaje
+= `cityId`); `joinCity` entra ahí sin `resume` (y si está preso, el `JAILED_JOIN_CODE` de siempre lo
+lleva al COMCAR). Si quedó en Ciudad Vieja, `onJoin` lo pone en su tile (si es caminable). Sin boleto,
+aparece en Ciudad Vieja con un aviso. Las salas se separan por `cityId` (`filterBy`); un `cityId`
 desconocido hace fallar `onCreate`.
 
-`CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (casi toda la Plaza Independencia, ~400 tiles)
+`CityRoom.onJoin` crea un `Player` en un tile caminable al azar de `spawnArea` (casi toda la Plaza Independencia, ~400 tiles; salvo pase o tile guardado)
 y avisa a los demás por chat de sistema.
 **Nombres** (`sanitize.ts`): `sanitizeName` pasa a NFKC, saca control e invisibles (`\p{Cf}`: bidi,
 ancho cero, guion blando, y los "rellenos" que se ven en blanco) y deja a lo sumo una marca
@@ -59,7 +74,7 @@ el cliente todavía no registró sus handlers). Ojo: al viajar se vuelve a pedir
 así que el número puede cambiar o irse.
 **Progreso guardado.** El navegador genera una clave secreta (`lib/playerKey.ts`, `mw:playerKey`
 en localStorage) y la manda en `JoinOptions.playerKey`. Con ella el server guarda en
-`playerStore` (archivo JSON, `PLAYER_DATA_FILE`) la mochila, la plata y la ropa puesta: al
+`playerStore` (archivo JSON, `PLAYER_DATA_FILE`) la mochila, la plata, la ropa puesta y dónde quedó: al
 salir, cada `SAVE_INTERVAL_MS` (15 s) y al apagar (`gameServer.onShutdown` → `flush`). Una clave nueva que
 sigue intacta (`isUntouched`: sin plata de más, sólo el kit, sin mascota…) queda sólo en memoria
 (para viajar, `/trace` u otra pestaña) y no se escribe: se guarda recién cuando tiene algo que perder,
@@ -72,5 +87,4 @@ si algún jugador cambió (huella por clave), de forma asíncrona y sin indentar
 con una clave conocida se restaura todo (validando ítems, cantidades y montos); sin clave, kit
 inicial. En localStorage vive **sólo la clave**, nunca el progreso, así no se puede editar desde
 la consola. Una clave = una sesión: si entra de nuevo (otra pestaña), `activeSessions` cierra la
-vieja con código 4001 después de guardarla. El nombre y el aspecto se recuerdan en el navegador
-(`mw:name`, `mw:appearance`) y vienen prellenados en `JoinScreen`.
+vieja con código 4001 después de guardarla. El nombre y el aspecto de cada personaje van en `mw:characters`.

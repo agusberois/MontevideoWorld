@@ -12,7 +12,7 @@
  * Las lleva el servidor (y las guarda con el progreso); el cliente sólo las muestra.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.TIRED_RECOVERY = exports.TIRED_STEP_TICKS = exports.WALK_ENERGY_FLOOR = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
+exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.JACUZZI_HEALTH_REGEN = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.JACUZZI_ENERGY_REGEN = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.TIRED_RECOVERY = exports.TIRED_STEP_TICKS = exports.WALK_ENERGY_FLOOR = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
 exports.hungerLevel = hungerLevel;
 exports.energyRegenFactor = energyRegenFactor;
 exports.faintFee = faintFee;
@@ -45,6 +45,8 @@ exports.VEND_ENERGY_COST = 6;
 exports.IDLE_ENERGY_REGEN = 2;
 /** Recuperación por segundo sentado en un banco: descansar de verdad rinde mucho más. */
 exports.SIT_ENERGY_REGEN = 10;
+/** Metido en el jacuzzi de las Termas del Donador: recupera energía mucho más rápido (por segundo). */
+exports.JACUZZI_ENERGY_REGEN = 25;
 /**
  * Agotado (se quedó sin energía para la acción): no puede caminar ni pescar hasta recuperar
  * al menos esto. Evita "arrastrarse" gastando lo poco que recupera cada tick.
@@ -82,6 +84,8 @@ exports.STARVE_HEALTH_PER_SECOND = 1 / 10;
 /** Con la saciedad en `HUNGRY` o más y quieto, se recupera esto por segundo (sentado, más). */
 exports.IDLE_HEALTH_REGEN = 1 / 30;
 exports.SIT_HEALTH_REGEN = 1 / 10;
+/** En el jacuzzi también se cura más rápido (el doble que sentado en un banco). */
+exports.JACUZZI_HEALTH_REGEN = exports.SIT_HEALTH_REGEN * 2;
 /** Comer un pescado crudo saca esto de salud, pero nunca la deja por debajo de `RAW_FISH_HEALTH_FLOOR`. */
 exports.RAW_FISH_HEALTH = 2;
 exports.RAW_FISH_HEALTH_FLOOR = 10;

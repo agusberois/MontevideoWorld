@@ -19,6 +19,8 @@ export declare class Player extends Schema {
     y: number;
     /** Sentado en el banco del tile actual. */
     sitting: boolean;
+    /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */
+    bathing: boolean;
     /** Pescando desde la escollera (los demás lo ven con la caña). */
     fishing: boolean;
     /** Caña con la que está pescando (id de `RODS`; "" si no pesca): los demás la ven de su color. */
@@ -32,12 +34,15 @@ export declare class Player extends Schema {
     petName: string;
     /** Preso en el COMCAR (`/ban`): segundos que le quedan (0 = libre). */
     jailLeft: number;
-    /** Hincha que se acerca al carrito (`CustomerState`: nadie, llegando, compró, siguió de largo). */
-    customer: number;
     /** Sube en cada venta: los clientes muestran "¡Vendido!" sobre el vendedor. */
     sales: number;
     /** Sube en cada patada (a un picudo): los clientes animan la patada del avatar. */
     kicks: number;
+    /** Gesto que está haciendo (id de `GESTURES`; "" = ninguno). Lo pone y lo saca el server (`systems/gestures.ts`). */
+    gesture: string;
+    /** Gesto de a dos (`PAIR_GESTURES`): con quién (sessionId) y si lo invitó él (en el mate, el que convida). */
+    gesturePartner: string;
+    gestureLead: boolean;
     /** Energía 0–100 (redondeada; el server lleva el valor exacto). Ver `needs.ts`. */
     energy: number;
     /** Cansado: camina `TIRED_STEP_TICKS` veces más lento (lo decide el server; todos lo ven así). */

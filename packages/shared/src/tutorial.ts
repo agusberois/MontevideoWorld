@@ -1,4 +1,5 @@
 import type { TileRect } from "./cities/types";
+import { CIUDAD_VIEJA_INFO, ESCOLLERA_PLATFORM, PLAZA_BUS_STOP } from "./cities/ciudadVieja/info";
 import { TICKET_ID } from "./items";
 
 /**
@@ -44,47 +45,56 @@ export interface TutorialStep {
   before?: { missingItemId: string; text: string; target: TutorialTarget };
 }
 
-const CIUDAD_VIEJA = "ciudad-vieja";
+const CIUDAD_VIEJA = CIUDAD_VIEJA_INFO.id;
+
+/** Área de un edificio o tienda de Ciudad Vieja (así la guía sigue al mapa si algo se mueve). */
+function cityArea(id: string): TileRect {
+  const found = [...CIUDAD_VIEJA_INFO.landmarks, ...CIUDAD_VIEJA_INFO.shops].find((place) => place.id === id);
+  if (!found) throw new Error(`La guía apunta a algo que no está en Ciudad Vieja: ${id}`);
+  return found.area;
+}
+
+const MONUMENT = cityArea("monumento-artigas");
 
 export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   {
     title: "El Monumento a Artigas",
     text: "Caminá hasta el Monumento a Artigas, en el medio de la Plaza Independencia. Tocá el piso para caminar.",
-    goal: { kind: "reach", cityId: CIUDAD_VIEJA, area: { x: 62, y: 24, width: 3, height: 3 }, within: 2 },
+    goal: { kind: "reach", cityId: CIUDAD_VIEJA, area: MONUMENT, within: 2 },
     reward: 15,
-    target: { cityId: CIUDAD_VIEJA, name: "Monumento a Artigas", area: { x: 62, y: 24, width: 3, height: 3 } },
+    target: { cityId: CIUDAD_VIEJA, name: "Monumento a Artigas", area: MONUMENT },
   },
   {
     title: "Una torta frita",
-    text: "Comprate una torta frita en el Kiosco de la Plaza y comela desde la mochila (H) o la barra rápida.",
+    text: "Comprate una torta frita en el Kiosco de la Plaza y comela desde la mochila (I) o la barra rápida.",
     goal: { kind: "eat", itemId: "torta-frita" },
     reward: 15,
-    target: { cityId: CIUDAD_VIEJA, name: "Kiosco de la Plaza", area: { x: 54, y: 18, width: 2, height: 2 } },
+    target: { cityId: CIUDAD_VIEJA, name: "Kiosco de la Plaza", area: cityArea("kiosco-independencia") },
   },
   {
     title: "A pescar",
     text: "Andá a la Escollera Sarandí, pará en la punta y apretá F (o el botón Pescar) para tirar la caña.",
     goal: { kind: "catch" },
     reward: 20,
-    target: { cityId: CIUDAD_VIEJA, name: "Escollera Sarandí", area: { x: 59, y: 46, width: 3, height: 3 } },
+    target: { cityId: CIUDAD_VIEJA, name: "Escollera Sarandí", area: ESCOLLERA_PLATFORM },
   },
   {
     title: "Al Mercado del Puerto",
     text: "Vendé lo que pescaste en la Pescadería del Mercado: ahí pagan el pescado a precio completo.",
     goal: { kind: "sell", shopId: "pescaderia-mercado", category: "fish" },
     reward: 20,
-    target: { cityId: CIUDAD_VIEJA, name: "Pescadería del Mercado", area: { x: 8, y: 3, width: 5, height: 5 } },
+    target: { cityId: CIUDAD_VIEJA, name: "Pescadería del Mercado", area: cityArea("pescaderia-mercado") },
   },
   {
     title: "Tomate el ómnibus",
     text: "Ya tenés boleto: andá a una parada (como la de la Plaza Independencia) y tomate el ómnibus a otro barrio.",
     goal: { kind: "travel" },
     reward: 30,
-    target: { cityId: CIUDAD_VIEJA, name: "Parada Plaza Independencia", area: { x: 52, y: 37, width: 1, height: 1 } },
+    target: { cityId: CIUDAD_VIEJA, name: "Parada Plaza Independencia", area: { x: PLAZA_BUS_STOP.x, y: PLAZA_BUS_STOP.y, width: 1, height: 1 } },
     before: {
       missingItemId: TICKET_ID,
       text: "Para viajar entre barrios hace falta un boleto STM: comprá uno en la Agencia STM, sobre la Rambla 25 de Agosto.",
-      target: { cityId: CIUDAD_VIEJA, name: "Agencia STM", area: { x: 27, y: 3, width: 2, height: 2 } },
+      target: { cityId: CIUDAD_VIEJA, name: "Agencia STM", area: cityArea("agencia-stm") },
     },
   },
 ];

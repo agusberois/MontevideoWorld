@@ -36,6 +36,8 @@ export declare const VEND_ENERGY_COST = 6;
 export declare const IDLE_ENERGY_REGEN = 2;
 /** Recuperación por segundo sentado en un banco: descansar de verdad rinde mucho más. */
 export declare const SIT_ENERGY_REGEN = 10;
+/** Metido en el jacuzzi de las Termas del Donador: recupera energía mucho más rápido (por segundo). */
+export declare const JACUZZI_ENERGY_REGEN = 25;
 /**
  * Agotado (se quedó sin energía para la acción): no puede caminar ni pescar hasta recuperar
  * al menos esto. Evita "arrastrarse" gastando lo poco que recupera cada tick.
@@ -67,6 +69,8 @@ export declare const STARVE_HEALTH_PER_SECOND: number;
 /** Con la saciedad en `HUNGRY` o más y quieto, se recupera esto por segundo (sentado, más). */
 export declare const IDLE_HEALTH_REGEN: number;
 export declare const SIT_HEALTH_REGEN: number;
+/** En el jacuzzi también se cura más rápido (el doble que sentado en un banco). */
+export declare const JACUZZI_HEALTH_REGEN: number;
 /** Comer un pescado crudo saca esto de salud, pero nunca la deja por debajo de `RAW_FISH_HEALTH_FLOOR`. */
 export declare const RAW_FISH_HEALTH = 2;
 export declare const RAW_FISH_HEALTH_FLOOR = 10;

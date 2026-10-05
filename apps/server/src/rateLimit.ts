@@ -42,6 +42,7 @@ export const MESSAGE_RATE_LIMITS: Partial<Record<MessageTypeName, RateLimit>> = 
   [MessageType.ShopVisit]: UI_RATE_LIMIT,
   [MessageType.ShopBuy]: UI_RATE_LIMIT,
   [MessageType.ShopCheckout]: UI_RATE_LIMIT,
+  [MessageType.ShopSellMany]: UI_RATE_LIMIT,
   [MessageType.ShopSell]: UI_RATE_LIMIT,
   [MessageType.ShopHaggle]: UI_RATE_LIMIT,
   [MessageType.FoodEat]: UI_RATE_LIMIT,

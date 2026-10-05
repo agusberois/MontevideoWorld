@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Shop, TilePoint, TileRect } from "./cities/types";
+import { Bench, BusStop, CityDefinition, Door, Jacuzzi, Shop, TilePoint, TileRect } from "./cities/types";
 export type FishingFacing = "south" | "east" | "west" | "north";
 /** Hacia dónde mira quien pesca y a cuántos tiles cae la boya (ver `CityMap.fishingSpot`). */
 export interface FishingSpot {
@@ -11,6 +11,16 @@ export interface FishingSpot {
  * Para algo nuevo del mapa (puertas, carteles, cajeros…): sumar su `kind` acá y en `interactionAt`.
  */
 export type MapInteraction = {
+    kind: "door";
+    target: TilePoint;
+    area: TileRect;
+    door: Door;
+} | {
+    kind: "jacuzzi";
+    target: TilePoint;
+    area: TileRect;
+    jacuzzi: Jacuzzi;
+} | {
     kind: "busStop";
     target: TilePoint;
     area: TileRect;
@@ -78,12 +88,25 @@ export declare class CityMap {
     isNearShop(shop: Shop, x: number, y: number): boolean;
     /** Tile caminable pegado a la tienda más cercano a `from` (adonde camina quien hace clic). */
     shopApproach(shop: Shop, from: TilePoint): TilePoint | undefined;
+    doorAt(x: number, y: number): Door | undefined;
+    getDoor(id: string): Door | undefined;
+    /** ¿El tile (x, y) está pegado a la puerta (incluye diagonales)? Desde ahí se cruza. */
+    isNearDoor(door: Door, x: number, y: number): boolean;
+    /** Tile caminable pegado a la puerta más cercano a `from`. */
+    doorApproach(door: Door, from: TilePoint): TilePoint | undefined;
+    jacuzziAt(x: number, y: number): Jacuzzi | undefined;
+    /** ¿(x, y) es un lugar de algún jacuzzi? (Ahí está metido quien tiene `bathing`.) */
+    isJacuzziSeat(x: number, y: number): boolean;
+    /** Tile caminable pegado al lugar `seat` del jacuzzi (desde ahí uno se mete), el más cercano a `from`. */
+    seatApproach(seat: TilePoint, from: TilePoint): TilePoint | undefined;
+    /** Tile caminable pegado al área más cercano a `from` (el borde de una tienda o una puerta). */
+    private areaApproach;
     benchAt(x: number, y: number): Bench | undefined;
     /** Tile desde el que uno se sienta: el de enfrente del banco o, si no se puede, uno vecino. */
     benchApproach(bench: Bench): TilePoint | undefined;
     busStopAt(x: number, y: number): BusStop | undefined;
     /**
-     * Qué hay para hacer en el tile (x, y), en orden de prioridad: parada, tienda, palmera, banco,
+     * Qué hay para hacer en el tile (x, y), en orden de prioridad: puerta, jacuzzi, parada, tienda, palmera, banco,
      * piso caminable; undefined si nada (agua, edificios). Sólo lo fijo del mapa: picudos y jugadores
      * se mueven y los resuelve quien llama.
      */

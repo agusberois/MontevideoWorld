@@ -15,6 +15,11 @@ export class LayoutBuilder {
     this.grid = Array.from({ length: height }, () => Array<string>(width).fill(fill));
   }
 
+  /** Lo que hay en (x, y) (undefined fuera del mapa). */
+  get(x: number, y: number): string | undefined {
+    return this.grid[y]?.[x];
+  }
+
   set(x: number, y: number, char: TileCharValue) {
     if (x >= 0 && y >= 0 && x < this.width && y < this.height) this.grid[y][x] = char;
     return this;

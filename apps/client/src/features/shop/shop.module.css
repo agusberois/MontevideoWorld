@@ -337,10 +337,68 @@
   font-size: 0.75rem;
 }
 
-:global(.shop-list) .haggle-go {
+:global(.shop-list) .haggle-go,
+.haggle-go {
   align-self: stretch;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 8px;
   background: var(--system);
   color: #0b0d14;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.haggle-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Regatear lo elegido: el formulario va arriba de la barra de abajo (fuera de la lista). */
+:global(.haggle).shop-haggle-all {
+  width: auto;
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  border-radius: 10px;
+}
+
+.shop-cart .shop-haggle-toggle {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 209, 102, 0.6);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--system);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.shop-cart .shop-haggle-toggle[aria-expanded="true"] {
+  background: rgba(255, 209, 102, 0.15);
+}
+
+.shop-cart .shop-haggle-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Casilla para elegir qué vender. */
+.shop-check {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.shop-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 @media (max-width: 760px), (max-height: 500px) {

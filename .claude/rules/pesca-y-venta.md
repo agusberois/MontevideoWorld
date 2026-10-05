@@ -9,13 +9,16 @@ paths:
   - "apps/client/src/features/activities/FishingWidget.tsx"
   - "apps/client/src/features/activities/VendingWidget.tsx"
   - "apps/client/src/game/objects/Customers.ts"
+  - "apps/client/src/game/objects/Avatar.ts"
 ---
 
 # Pesca y vendedor ambulante
 
 Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río (en
-Ciudad Vieja hay dos iguales, para repartir a los que pescan: la del oeste en x 10–16 y la del este
-frente a la Plaza Independencia, en x 57–63, saliendo de la rambla en (60, 43));
+Ciudad Vieja hay dos iguales, para repartir a los que pescan: una sale de la punta oeste, al final de
+la peatonal Sarandí, hacia el oeste —3 tiles de ancho y una plataforma de 7 × 11, `ESCOLLERA_PLATFORM`—
+y la otra, igual, más al norte cerca de la bahía —brazo en las filas 14 a 16,
+`ESCOLLERA_NORTE_PLATFORM`—, cada una con su farola);
 `CityMap.fishingSpot` dice hacia dónde tirar y a cuántos tiles cae la boya (el agua más cercana, también
 desde el medio de la escollera, donde no hay agua pegada); `Avatar` la dibuja en ese tile.
 `CityMap.canFishAt` = parado en la escollera. Para pescar hace falta una **caña** (`RodItem`,
@@ -30,7 +33,13 @@ escollera, sin camino pendiente, sin estar pescando, con caña), sortea con `rol
 dependiera del pez, tirar y cortar hasta ver una espera larga sería gratis) y al vencer el timer
 (`this.clock.setTimeout`) cobra la tirada (`finishAttempt`: un uso de la caña y `FISH_ENERGY_COST`;
 al empezar sólo se chequea que alcance la energía), agrega los peces a la mochila y manda
-`fish:result { itemIds }`. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan
+`fish:result { itemIds, hooked }`: `hooked` es todo lo que picó (también lo que no entró en la
+mochila). **Sólo el que pesca** ve la captura (no está en el Schema, para no dibujarle a todo el
+barrio los peces de todos): `CityScene` escucha `fishing:result` → `Avatar.reelIn(colores)` durante
+`REEL_MS`: la boya se hunde, el agua salpica (ondas y gotas), la caña se dobla (`drawBentRod`) y sale
+**cada pez** (con doble, dos: el segundo `REEL_FISH_DELAY` después y colgando al lado) en arco hasta
+la punta. Llega con `fishing` ya en false: `setFishing(false)` no esconde la caña mientras dura
+(`endReel` la esconde); caminar o volver a tirar la cortan. Moverse, sentarse, ir a una tienda, salir o `fish:stop` cancelan
 (`stopFishing`) **sin cobrar nada**. Peces de dificultad ≥ 4 se anuncian en el chat. Los peces (`FISH`: pejerrey… corvina
 negra) son ítems `category: "fish"`: no se ponen; se comen desde la barra rápida o se venden a precio completo
 en la **Pescadería del Mercado** (tienda `building: "none"` sobre el área del Mercado del Puerto,
@@ -59,10 +68,15 @@ no lo calcula. La sala del barrio con zona de venta anuncia en el chat cuando
 empieza y termina cada partido (`announceMatch`, desde `syncClock`). (Hubo una hinchada dibujada
 en las gradas los días de partido; se sacó porque redibujar cientos de hinchas cada 90 ms hacía
 lagear el juego.)
-**El hincha**: `CUSTOMER_LEAD_MS` antes del resultado el server pone `player.customer =
-CustomerState.Arriving` y al resolver `Bought` o `Passed` (cancelar la venta → `None`). Cada
-cliente dibuja con eso (`game/objects/Customers.ts`, sólo dibujo, fuera del Schema) un `Avatar`
-"Hincha" que sale de unos tiles más allá, camina hasta el carrito, dice algo, compra o sigue de
-largo y se va desvaneciéndose. Moverse, sentarse, ir a una
+**El hincha** (sólo lo ve el vendedor): `CUSTOMER_LEAD_MS` antes del resultado el server le manda
+a él `vend:customer { state: Arriving }` (`session.customerOut`) y al resolver `Bought` (con
+`cartId`) o `Passed`; cortar la venta → `None`. No va en el Schema: así no se le dibujan a todo el
+barrio los hinchas de todos. `Customers` (`game/objects/Customers.ts`, sólo dibujo) arma un `Avatar`
+"Hincha" que sale de unos tiles más allá, camina hasta el carrito, dice algo y compra o sigue de
+largo. **Al comprar, la entrega** (`handOver`): el vendedor y el hincha estiran el brazo
+(`Avatar.offer`), la comida del carrito (`drawFood` por `tier`: refresco, garrapiñada, pancho o
+choripán) vuela en arco a la mano del hincha, que se la queda (`Avatar.hold`), y una moneda vuelve
+al vendedor (su carrito queda a la vista hasta entonces, `Avatar.keepCart`, aunque la venta ya
+terminó); después agradece y se va desvaneciéndose. "¡Vendido!" (`player.sales`) lo ven todos. Moverse, sentarse, ir a una
 tienda, salir o `vend:stop` cancelan sin cobrar (`stopActivities` corta pesca y venta a la vez).
 La tecla **F** es la misma que para pescar: el cliente hace lo que corresponde al lugar (`toggleActivity`).
