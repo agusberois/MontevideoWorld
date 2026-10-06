@@ -26,11 +26,21 @@ export function PhaserGame({ session }: PhaserGameProps) {
 
   useEffect(() => {
     let cancelled = false;
-    import("@/game/createGame").then(({ createGame, startCity }) => {
+    import("@/game/createGame").then(async ({ createGame, startCity, whenStateReady }) => {
+      await whenStateReady(session.room);
       const parent = containerRef.current;
       if (cancelled || !parent) return;
       gameRef.current ??= createGame(parent);
-      startCity(gameRef.current, session.room, session.cityId);
+      try {
+        startCity(gameRef.current, session.room, session.cityId);
+      } catch (error) {
+        // Si cambiar de escena falla, se rearma el juego de cero (lo de antes del juego persistente)
+        // en vez de quedar trabado en el último cuadro del barrio anterior.
+        console.error("[Montevideo World] no se pudo cambiar de barrio; se rearma el juego", error);
+        gameRef.current.destroy(true);
+        gameRef.current = createGame(parent);
+        startCity(gameRef.current, session.room, session.cityId);
+      }
     });
     return () => {
       cancelled = true;

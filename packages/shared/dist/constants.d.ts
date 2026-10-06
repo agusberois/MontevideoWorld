@@ -17,5 +17,11 @@ export declare const NAME_MAX_LENGTH = 16;
 export declare const CHAT_MAX_LENGTH = 120;
 export declare const CHAT_COOLDOWN_MS = 400;
 export declare const CHAT_BUBBLE_MS = 5000;
+/**
+ * "Está escribiendo" (💬 sobre la cabeza): mientras escribe, el cliente lo vuelve a avisar cada
+ * `TYPING_REFRESH_MS`; si el server no sabe nada en `TYPING_TIMEOUT_MS` (se fue, se cortó), lo apaga.
+ */
+export declare const TYPING_REFRESH_MS = 3000;
+export declare const TYPING_TIMEOUT_MS = 7000;
 export declare const PLAYER_COLORS: readonly ["#e63946", "#f4a261", "#2a9d8f", "#457b9d", "#8338ec", "#ff006e", "#3a86ff", "#06d6a0"];
 //# sourceMappingURL=constants.d.ts.map

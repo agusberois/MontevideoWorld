@@ -28,6 +28,8 @@ class Player extends schema_1.Schema {
         /** Tile actual (coordenadas de grilla, no píxeles). */
         this.x = 0;
         this.y = 0;
+        /** Escribiendo en el chat: los demás ven 💬 sobre su cabeza (lo apaga el server al hablar o si deja de avisar). */
+        this.typing = false;
         /** Sentado en el banco del tile actual. */
         this.sitting = false;
         /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */
@@ -125,6 +127,9 @@ __decorate([
 __decorate([
     (0, schema_1.type)("uint8")
 ], Player.prototype, "y", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "typing", void 0);
 __decorate([
     (0, schema_1.type)("boolean")
 ], Player.prototype, "sitting", void 0);

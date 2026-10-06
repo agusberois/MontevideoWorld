@@ -17,6 +17,8 @@ export declare class Player extends Schema {
     /** Tile actual (coordenadas de grilla, no píxeles). */
     x: number;
     y: number;
+    /** Escribiendo en el chat: los demás ven 💬 sobre su cabeza (lo apaga el server al hablar o si deja de avisar). */
+    typing: boolean;
     /** Sentado en el banco del tile actual. */
     sitting: boolean;
     /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */

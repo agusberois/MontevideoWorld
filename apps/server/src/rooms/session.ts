@@ -53,6 +53,8 @@ export interface PlayerSession {
   crowdTimer: Delayed | null;
   /** Se le mandó que se arrima el público y todavía no dejó plata ni se fue: cortar el tema lo hace irse. */
   crowdOut: boolean;
+  /** Hasta cuándo vale su último aviso de "escribiendo" (`player.typing`; ms, `Date.now()`). */
+  typingUntil: number;
   /** Cuándo termina el gesto de `player.gesture` (ms, `Date.now()`). */
   gestureUntil: number;
   /** Mano de blackjack en curso en el casino (null = ninguna). */
@@ -103,6 +105,7 @@ export function createSession(client: Client, player: Player, inventory: Invento
     buskingTimer: null,
     crowdTimer: null,
     crowdOut: false,
+    typingUntil: 0,
     gestureUntil: 0,
     pairRequest: null,
     blackjack: null,

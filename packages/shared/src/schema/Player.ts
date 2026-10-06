@@ -18,6 +18,8 @@ export class Player extends Schema {
   /** Tile actual (coordenadas de grilla, no píxeles). */
   @type("uint8") x = 0;
   @type("uint8") y = 0;
+  /** Escribiendo en el chat: los demás ven 💬 sobre su cabeza (lo apaga el server al hablar o si deja de avisar). */
+  @type("boolean") typing = false;
   /** Sentado en el banco del tile actual. */
   @type("boolean") sitting = false;
   /** Metido en el jacuzzi (el lugar del tile actual; las Termas del Donador): todos lo ven en el agua. */

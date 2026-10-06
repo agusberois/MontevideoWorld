@@ -21,6 +21,12 @@ export const NAME_MAX_LENGTH = 16;
 export const CHAT_MAX_LENGTH = 120;
 export const CHAT_COOLDOWN_MS = 400;
 export const CHAT_BUBBLE_MS = 5000;
+/**
+ * "Está escribiendo" (💬 sobre la cabeza): mientras escribe, el cliente lo vuelve a avisar cada
+ * `TYPING_REFRESH_MS`; si el server no sabe nada en `TYPING_TIMEOUT_MS` (se fue, se cortó), lo apaga.
+ */
+export const TYPING_REFRESH_MS = 3000;
+export const TYPING_TIMEOUT_MS = 7000;
 
 export const PLAYER_COLORS = [
   "#e63946",

@@ -6,7 +6,7 @@ import type { AvatarLook } from "./avatarLook";
 import { ARM_X, HIP_Y, LEG_X, arm, hat, leg, torso, wornOutfit } from "@/lib/avatar/clothing";
 import { EYE_Y, Expression, OUTLINE, OUTLINE_ALPHA, SHOULDER_Y, eyes, faceFeatures, frontHair, glasses, headBack, headFront } from "@/lib/avatar/head";
 import { SHAPE_RES, ShapeSprite } from "./ShapeSprite";
-import { labelImage } from "./labels";
+import { LABEL_RES, labelImage } from "./labels";
 
 /** Nombre sobre la cabeza (por encima del pelo más alto y de los gorros). */
 const NAME_Y = -92;
@@ -244,6 +244,10 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly nameLabel: Phaser.GameObjects.Text;
   private readonly barraTag: Phaser.GameObjects.Text;
   private bubble: Phaser.GameObjects.Container | null = null;
+  /** 💬 sobre la cabeza mientras escribe en el chat (`Player.typing`); se mece. Con el globo a la vista, no. */
+  private readonly typingIcon: Phaser.GameObjects.Image;
+  private typing = false;
+  private typingTime = 0;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
 
   /** Tile donde está parado (o el último al que llegó). */
@@ -432,7 +436,11 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.water = scene.add.graphics().setVisible(false);
     this.shadow = shadow;
     this.add([shadow, this.body_, this.water]);
-    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, this.barraTag, label]);
+    // Igual para todos: una textura compartida (`labelImage`).
+    this.typingIcon = labelImage(scene, "tag-typing", "💬", { fontFamily: "system-ui, sans-serif", fontSize: "26px" })
+      .setOrigin(0.5, 1)
+      .setVisible(false);
+    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, this.barraTag, label, this.typingIcon]);
     this.syncDepth();
     scene.add.existing(this);
   }
@@ -481,6 +489,26 @@ export class Avatar extends Phaser.GameObjects.Container {
   }
 
   /** Preso en el COMCAR o no (cambia estando conectado: lo banean, cumple). */
+  /** Escribiendo en el chat (o dejó): 💬 sobre la cabeza. */
+  setTyping(typing: boolean) {
+    if (typing === this.typing) return;
+    this.typing = typing;
+    this.typingTime = 0;
+    if (!typing) this.typingIcon.setVisible(false);
+  }
+
+  /** El 💬 se mece arriba del nombre (y de los distintivos); si está el globo del chat, se esconde. */
+  private updateTyping(delta: number) {
+    if (!this.typing) return;
+    const show = this.bubble === null;
+    if (this.typingIcon.visible !== show) this.typingIcon.setVisible(show);
+    if (!show) return;
+    this.typingTime += delta;
+    const t = this.typingTime;
+    this.typingIcon.setY(this.bubbleY() - 2 + Math.sin(t / 220) * 2.5);
+    this.typingIcon.setScale((1 + Math.sin(t / 330) * 0.06) / LABEL_RES);
+  }
+
   setPrisoner(prisoner: boolean) {
     if (this.prisonerTag.visible === prisoner) return;
     this.prisonerTag.setVisible(prisoner);
@@ -823,6 +851,7 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.updateCartHold(delta);
     this.updateBlink(delta);
     this.updateExpression(delta);
+    this.updateTyping(delta);
     if (this.flying) this.poseFlying(delta);
     this.syncDepth();
   }

@@ -36,6 +36,7 @@ import {
   ShopSellManyMessage,
   ShopTradeMessage,
   TargetPlayerMessage,
+  TypingMessage,
   GestureId,
   GestureMessage,
   GesturePairRequestMessage,
@@ -245,6 +246,13 @@ export function sendShopHaggle(room: CityRoom, shopId: string, itemId: string, p
 /** Mandar un mensaje de chat (o un comando "/algo") como si se escribiera en el `ChatBox`. */
 export function sendChat(room: CityRoom, text: string) {
   room.send(MessageType.Chat, { text });
+}
+
+/** Avisar que está escribiendo en el chat (o que dejó). Con la sala ya cerrada (viajando) no se manda. */
+export function sendTyping(room: CityRoom, typing: boolean) {
+  if (!room.connection.isOpen) return;
+  const message: TypingMessage = { typing };
+  room.send(MessageType.Typing, message);
 }
 
 /** Comprar todo el carrito de una tienda (todo o nada: el server responde con `shop:result`). */

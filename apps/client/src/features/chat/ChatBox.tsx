@@ -7,13 +7,14 @@ import {
   ChatBroadcastMessage,
   CommandDefinition,
   MessageType,
+  TYPING_REFRESH_MS,
   canUseCommand,
   getCommand,
   sanitizeChat,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { useGame } from "@/lib/gameStore";
-import type { CityRoom } from "@/lib/network";
+import { type CityRoom, sendTyping } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./chat.module.css";
 
@@ -54,6 +55,24 @@ export function ChatBox({ room }: ChatBoxProps) {
    * al tocar el historial. En escritorio no cambia nada (lo decide el CSS del modo compacto).
    */
   const [expanded, setExpanded] = useState(false);
+  /** El input tiene el foco (para el 💬 "escribiendo" sobre la cabeza). */
+  const [focused, setFocused] = useState(false);
+
+  /**
+   * "Escribiendo": con el foco en el chat y algo escrito que no sea un comando (un "/mensaje" es
+   * privado: no se avisa). Se avisa al empezar, se repite cada `TYPING_REFRESH_MS` (si no, el server
+   * lo apaga solo) y se avisa al terminar (mandó, borró, salió del chat o se fue del barrio).
+   */
+  const typing = focused && text.trim() !== "" && !text.startsWith("/");
+  useEffect(() => {
+    if (!typing) return;
+    sendTyping(room, true);
+    const timer = window.setInterval(() => sendTyping(room, true), TYPING_REFRESH_MS);
+    return () => {
+      window.clearInterval(timer);
+      sendTyping(room, false);
+    };
+  }, [typing, room]);
 
   /**
    * Autoayuda de comandos. Mientras se escribe el nombre ("/", "/me"…) se listan los que empiezan
@@ -242,9 +261,15 @@ export function ChatBox({ room }: ChatBoxProps) {
           onChange={(event) => changeText(event.target.value)}
           aria-autocomplete="list"
           onKeyDown={handleKeyDown}
-          onFocus={() => setExpanded(true)}
+          onFocus={() => {
+            setExpanded(true);
+            setFocused(true);
+          }}
           // Al tocar el mapa (el input pierde el foco) el chat vuelve a achicarse, si no quedó nada escrito.
-          onBlur={() => !text && setExpanded(false)}
+          onBlur={() => {
+            setFocused(false);
+            if (!text) setExpanded(false);
+          }}
           enterKeyHint="send"
           autoComplete="off"
           autoCorrect="off"

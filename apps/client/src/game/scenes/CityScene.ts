@@ -137,6 +137,8 @@ export class CityScene extends Phaser.Scene {
   private jacuzziCounters: JacuzziCounters | null = null;
   /** Medidor de rendimiento (sólo con `?perf=1`). */
   private perf: PerfOverlay | null = null;
+  /** Ya avisó `city:ready` (en su primer frame con estado). */
+  private announcedReady = false;
   /** Calidad gráfica (Opciones; en automática, según los fps). */
   private quality!: QualityWatch;
   /** A quién sigue el avatar propio ("" = a nadie), para avisarle a React sólo cuando cambia. */
@@ -317,6 +319,13 @@ export class CityScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     this.cameraControl.update(delta);
+    // Sin el estado de la sala todavía (no debería pasar: `startCity` lo espera) no hay nada que mover.
+    if (!this.room.state?.players) return;
+    if (!this.announcedReady) {
+      // Armada y con estado: al viajar, React saca la cortina recién ahora (si no, se veía el barrio de antes).
+      this.announcedReady = true;
+      eventBus.emit("city:ready", { cityId: this.map.city.id });
+    }
     // WASD y predicción del avatar propio. Al empezar a caminar con WASD, la cámara vuelve a él.
     const wasWasd = this.mover.isWasdActive();
     if (!this.flying) this.mover.update(this.wasdKeys);
@@ -663,6 +672,7 @@ export class CityScene extends Phaser.Scene {
         this.applyFishing(avatar, player, isLocal);
         this.applyVending(avatar, player, isLocal);
         this.applyBusking(avatar, player, isLocal);
+        avatar.setTyping(player.typing);
         this.avatars.set(sessionId, avatar);
         if (isLocal) {
           this.localAvatar = avatar;
@@ -773,6 +783,7 @@ export class CityScene extends Phaser.Scene {
             this.applyVending(avatar, player, isLocal);
             this.applyBusking(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
+            avatar.setTyping(player.typing);
             if (isLocal) this.emitEnergy(player.energy);
             if (isLocal) this.emitFollowing(player.following);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));

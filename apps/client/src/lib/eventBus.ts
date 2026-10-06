@@ -145,6 +145,8 @@ export interface GameEvents {
   "interact:prompt": { label: string } | null;
   /** React → Phaser: F (o tocar el cartel): interactuar con lo que hay al lado. */
   "interact:use": null;
+  /** Phaser → React: la escena del barrio ya está armada y dibujando (al viajar, recién ahí se saca la cortina). */
+  "city:ready": { cityId: string };
   /** React → Phaser: la calidad gráfica elegida en Opciones. */
   "quality:set": QualitySetting;
   /** Phaser → React: si la escena está dibujando en calidad baja (elegida o, en automática, por fps). */

@@ -66,7 +66,7 @@ import { followRoutes } from "./systems/follow";
 import { gestureRoutes, stepGestures } from "./systems/gestures";
 import { movementRoutes, stepPlayers } from "./systems/movement";
 import { shopRoutes } from "./systems/shops";
-import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes } from "./systems/social";
+import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes, tickTyping } from "./systems/social";
 import { cancelTrade, revalidateTrade, tradeRoutes } from "./systems/trading";
 import { jail, travelRoutes, updateJail } from "./systems/travel";
 import { tutorialRoutes } from "./systems/tutorial";
@@ -298,6 +298,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       stepPlayers(this);
       stepGestures(this);
       tickNeeds(this);
+      tickTyping(this);
       tickMetrics.players.record(performance.now() - started, this.label);
     }, STEP_MS);
     this.weevils = new WeevilManager(this.state.weevils, {

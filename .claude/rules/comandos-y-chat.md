@@ -12,6 +12,14 @@ paths:
 
 # Chat, comandos de chat y cajas sorpresa
 
+**"Escribiendo" (💬 sobre la cabeza)**: con el foco en el chat y algo escrito que no sea un comando
+(`/mensaje` es privado), `ChatBox` manda `chat:typing { typing }` al empezar, lo repite cada
+`TYPING_REFRESH_MS` y manda `false` al terminar (mandó, borró, perdió el foco, viajó; con la sala
+cerrada no manda). El server lo pone en `Player.typing` (Schema: lo ven todos), no a presos ni
+silenciados, lo apaga al hablar (`sayAs`) y si no recibe nada en `TYPING_TIMEOUT_MS` (`tickTyping`).
+El cliente lo dibuja con `Avatar.setTyping` (💬 compartido con `labelImage`, se mece; con el globo
+del chat a la vista se esconde).
+
 Comandos de chat. Todo mensaje que empieza con `/` es un comando y **no va al chat**:
 `handleChat` → `runCommand` (`commands/index.ts`) lo parsea (`parseCommand`), lo busca en
 `COMMANDS` (shared), chequea el rol (`user` o `admin`, contra `player.admin`) y llama a su handler.

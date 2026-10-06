@@ -38,6 +38,7 @@ import {
   ShopTradeMessage,
   SitMessage,
   TargetPlayerMessage,
+  TypingMessage,
   TradeRespondMessage,
   TravelMessage,
   WeevilKickMessage,
@@ -169,6 +170,10 @@ export function isWeevilKickMessage(message: unknown): message is WeevilKickMess
   return isObject(message) && typeof message.id === "string";
 }
 
+export function isTypingMessage(message: unknown): message is TypingMessage {
+  return isObject(message) && typeof message.typing === "boolean";
+}
+
 export function isTargetPlayerMessage(message: unknown): message is TargetPlayerMessage {
   return isObject(message) && typeof message.targetId === "string";
 }
@@ -273,6 +278,7 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.PalmShake]: isTileMessage,
   [MessageType.WeevilKick]: isWeevilKickMessage,
   [MessageType.Greet]: isTargetPlayerMessage,
+  [MessageType.Typing]: isTypingMessage,
   [MessageType.Follow]: isTargetPlayerMessage,
   [MessageType.Unfollow]: noPayload,
   [MessageType.Gesture]: isGestureMessage,

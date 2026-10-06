@@ -22,6 +22,7 @@ exports.isAdminMatchMessage = isAdminMatchMessage;
 exports.isAdminWeatherMessage = isAdminWeatherMessage;
 exports.isTravelMessage = isTravelMessage;
 exports.isWeevilKickMessage = isWeevilKickMessage;
+exports.isTypingMessage = isTypingMessage;
 exports.isTargetPlayerMessage = isTargetPlayerMessage;
 exports.isGestureMessage = isGestureMessage;
 exports.isCasinoSlotsMessage = isCasinoSlotsMessage;
@@ -136,6 +137,9 @@ function isTravelMessage(message) {
 function isWeevilKickMessage(message) {
     return isObject(message) && typeof message.id === "string";
 }
+function isTypingMessage(message) {
+    return isObject(message) && typeof message.typing === "boolean";
+}
 function isTargetPlayerMessage(message) {
     return isObject(message) && typeof message.targetId === "string";
 }
@@ -226,6 +230,7 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.PalmShake]: isTileMessage,
     [messages_1.MessageType.WeevilKick]: isWeevilKickMessage,
     [messages_1.MessageType.Greet]: isTargetPlayerMessage,
+    [messages_1.MessageType.Typing]: isTypingMessage,
     [messages_1.MessageType.Follow]: isTargetPlayerMessage,
     [messages_1.MessageType.Unfollow]: noPayload,
     [messages_1.MessageType.Gesture]: isGestureMessage,

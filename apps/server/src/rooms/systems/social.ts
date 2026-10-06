@@ -1,5 +1,5 @@
 import type { Client } from "@colyseus/core";
-import { AnnouncementMessage, CHAT_COOLDOWN_MS, ChatBroadcastMessage, MessageType, TRAVEL_TICKET_MS, formatJailLeft, nameKey, sanitizeChat } from "@montevideo-world/shared";
+import { AnnouncementMessage, CHAT_COOLDOWN_MS, TYPING_TIMEOUT_MS, ChatBroadcastMessage, MessageType, TRAVEL_TICKET_MS, formatJailLeft, nameKey, sanitizeChat } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { auditAdmin, logText } from "../../audit";
 import { bans } from "../../bans";
@@ -43,6 +43,18 @@ export function socialRoutes(room: CityRoom) {
       // "/algo" es un comando (ver `commands/`): no va al chat.
       if (runCommand(text, { client: session.client, player: session.player }, room.commandHost)) return;
       sayAs(room, session, text, now);
+    },
+
+    /**
+     * Está escribiendo en el chat (o dejó): 💬 sobre su cabeza para todos (`player.typing`). El
+     * cliente lo repite mientras escribe; si deja de avisar, `tickTyping` lo apaga. Silenciado o preso
+     * no se muestra (no puede hablar a los demás).
+     */
+    [MessageType.Typing]: (session, message) => {
+      const now = Date.now();
+      const typing = message.typing && session.player.jailLeft === 0 && !mutes.until(session.key, session.player.name, now);
+      session.typingUntil = typing ? now + TYPING_TIMEOUT_MS : 0;
+      if (session.player.typing !== typing) session.player.typing = typing;
     },
 
     /**
@@ -97,7 +109,18 @@ function isMuted(room: CityRoom, session: PlayerSession, now: number): boolean {
   return true;
 }
 
+/** Cada tick: apaga el 💬 de los que dejaron de avisar que escriben (cerraron, se cortaron). */
+export function tickTyping(room: CityRoom) {
+  const now = Date.now();
+  for (const session of room.sessions.values()) {
+    if (session.player.typing && now > session.typingUntil) session.player.typing = false;
+  }
+}
+
 function sayAs(room: CityRoom, session: PlayerSession, text: string, timestamp: number) {
+  // Ya lo dijo: deja de "escribir" (el cliente igual lo avisa, pero así no queda el 💬 un rato).
+  session.player.typing = false;
+  session.typingUntil = 0;
   room.broadcastChat({
     id: room.nextMessageId(),
     kind: "player",

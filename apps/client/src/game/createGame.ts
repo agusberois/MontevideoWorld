@@ -31,7 +31,17 @@ export function createGame(parent: HTMLElement): Phaser.Game {
 }
 
 /**
- * Muestra el barrio de esta sala: saca la escena del anterior (su `dispose` libera lo que era sólo
+ * Espera el primer estado de la sala (recién conectada al viajar): la escena lo lee desde el primer
+ * frame (`room.state.players`). Con el juego recién creado no se notaba (Phaser tarda unos frames en
+ * arrancar); con el juego vivo entre viajes la escena arrancaba antes y se trababa.
+ */
+export function whenStateReady(room: CityRoom): Promise<void> {
+  if (room.state?.players) return Promise.resolve();
+  return new Promise((resolve) => room.onStateChange.once(() => resolve()));
+}
+
+/**
+ * Muestra el barrio de esta sala (con su estado ya llegado, ver `whenStateReady`): saca la escena del anterior (su `dispose` libera lo que era sólo
  * de él) y arranca una nueva, de cero (una instancia nueva: nada de su estado viene del barrio de antes).
  */
 export function startCity(game: Phaser.Game, room: CityRoom, cityId: string) {

@@ -130,6 +130,8 @@ exports.MessageType = {
     WeevilKick: "weevil:kick",
     /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
     Greet: "greet",
+    /** Cliente → Servidor: empezó o dejó de escribir en el chat (los demás ven 💬 sobre su cabeza). */
+    Typing: "chat:typing",
     /** Cliente → Servidor: seguir a otro jugador del barrio (camina solo detrás de él). */
     Follow: "follow",
     /** Cliente → Servidor: dejar de seguir (se queda donde está). */

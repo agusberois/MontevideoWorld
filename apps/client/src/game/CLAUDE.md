@@ -43,7 +43,13 @@
   `setVisible(false)`). Una pieza nueva que no pase por `placePiece` / `addSign` no se recorta sola.
 - Las piezas del mapa van al atlas del barrio (`PieceAtlas`, vía `placePiece`); las mascotas, con
   `bakingGraphics` / `bakeGraphics`; los carteles iguales para todos, con `labelImage`.
-- El `Phaser.Game` vive toda la partida: `startCity` cambia la escena al viajar. Lo que es de un barrio
+- El `Phaser.Game` vive toda la partida: `startCity` cambia la escena al viajar, **después de
+  `whenStateReady`** (el primer estado de la sala nueva: la escena lee `room.state.players` desde el
+  primer frame; sin esperarlo, con algo de latencia se trababa en el barrio anterior). Si cambiar de
+  escena tira una excepción, `PhaserGame` rearma el juego de cero. La cortina del viaje
+  (`DoorOverlay` / `TravelOverlay`) sigue hasta que la escena nueva avisa `city:ready` (su primer frame
+  con estado; `App.travel` lo espera, con tope de 15 s): mientras tanto el canvas muestra el último
+  cuadro del barrio de antes. Lo que es de un barrio
   se libera en `CityRenderer.destroy`; una textura nueva que sea de un barrio tiene que ir ahí.
 - Calidad gráfica (Opciones, tecla O; `QualityWatch`): en baja, `DayNight.setGlows(false)` y
   `WeatherFx.setParticles(false)`. En automática baja sólo con menos de 24 fps sostenidos (muchos

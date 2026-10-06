@@ -25,7 +25,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      {/* Extensiones del navegador (p. ej. ColorZilla) le agregan atributos al body: no es un error nuestro. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

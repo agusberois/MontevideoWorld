@@ -44,6 +44,27 @@ function cityName(cityId: string | undefined): string {
   return (cityId && getCityInfo(cityId)?.name) || "";
 }
 
+/** Tope para esperar que el barrio nuevo se arme (si algo falla, igual se saca la cortina). */
+const CITY_READY_TIMEOUT_MS = 15_000;
+
+/**
+ * Se resuelve cuando la escena de ese barrio avisa que ya está dibujando (`city:ready`), o a los
+ * `timeoutMs` por las dudas. Suscribirse antes de cambiar la sesión, para no perderse el aviso.
+ */
+function cityReady(cityId: string, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const finish = () => {
+      window.clearTimeout(timer);
+      off();
+      resolve();
+    };
+    const timer = window.setTimeout(finish, timeoutMs);
+    const off = eventBus.on("city:ready", (ready) => {
+      if (ready.cityId === cityId) finish();
+    });
+  });
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
 }
@@ -161,7 +182,11 @@ export function App() {
         // El viaje dura al menos TRAVEL_MS (la animación del ómnibus); si el server tarda más, se espera.
         // Por una puerta (las Termas) es un fundido corto, no el ómnibus.
         const [next] = await Promise.all([travelTo(cityId, roomId), wait((door ? DOOR_MS : TRAVEL_MS) - (Date.now() - startedAt))]);
+        // La cortina sigue hasta que el barrio nuevo esté armado: el juego sigue vivo entre viajes y,
+        // mientras tanto, en pantalla queda el último cuadro del barrio de antes.
+        const ready = cityReady(cityId, CITY_READY_TIMEOUT_MS);
         setSession(next);
+        await ready;
       } catch (error) {
         console.error("[Montevideo World] travel failed", error);
         setSession(null);

@@ -138,6 +138,8 @@ export const MessageType = {
   WeevilKick: "weevil:kick",
   /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
   Greet: "greet",
+  /** Cliente → Servidor: empezó o dejó de escribir en el chat (los demás ven 💬 sobre su cabeza). */
+  Typing: "chat:typing",
   /** Cliente → Servidor: seguir a otro jugador del barrio (camina solo detrás de él). */
   Follow: "follow",
   /** Cliente → Servidor: dejar de seguir (se queda donde está). */
@@ -610,6 +612,11 @@ export interface WeevilKickMessage {
 }
 
 /** Cliente → Servidor: saludar o invitar a intercambiar al jugador `targetId` (su sessionId). */
+/** Cliente → Servidor: está escribiendo (o dejó) en el chat. */
+export interface TypingMessage {
+  typing: boolean;
+}
+
 export interface TargetPlayerMessage {
   targetId: string;
 }
@@ -747,6 +754,7 @@ export interface ClientToServerMessages {
   [MessageType.PalmShake]: { x: number; y: number };
   [MessageType.WeevilKick]: WeevilKickMessage;
   [MessageType.Greet]: TargetPlayerMessage;
+  [MessageType.Typing]: TypingMessage;
   [MessageType.Follow]: TargetPlayerMessage;
   [MessageType.Unfollow]: undefined;
   [MessageType.Gesture]: GestureMessage;

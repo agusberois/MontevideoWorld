@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 
 /** Resolución a la que se hornean los carteles (nítidos con el zoom máximo, 2×). */
-const LABEL_RES = 2;
+export const LABEL_RES = 2;
 
 /**
  * Cartel de texto fijo e igual para muchos (los distintivos "♥ DONADOR" y "🔒 PRESO" de los

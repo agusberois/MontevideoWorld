@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PLAYER_COLORS = exports.CHAT_BUBBLE_MS = exports.CHAT_COOLDOWN_MS = exports.CHAT_MAX_LENGTH = exports.NAME_MAX_LENGTH = exports.GOD_FLIGHT_TILES = exports.STEP_MS = exports.TILE_HEIGHT = exports.TILE_WIDTH = exports.MAX_PLAYERS_PER_ROOM = exports.DEFAULT_PORT = exports.ROOM_NAME = void 0;
+exports.PLAYER_COLORS = exports.TYPING_TIMEOUT_MS = exports.TYPING_REFRESH_MS = exports.CHAT_BUBBLE_MS = exports.CHAT_COOLDOWN_MS = exports.CHAT_MAX_LENGTH = exports.NAME_MAX_LENGTH = exports.GOD_FLIGHT_TILES = exports.STEP_MS = exports.TILE_HEIGHT = exports.TILE_WIDTH = exports.MAX_PLAYERS_PER_ROOM = exports.DEFAULT_PORT = exports.ROOM_NAME = void 0;
 /** Nombre con el que el servidor registra la sala principal. */
 exports.ROOM_NAME = "city";
 exports.DEFAULT_PORT = 2567;
@@ -20,6 +20,12 @@ exports.NAME_MAX_LENGTH = 16;
 exports.CHAT_MAX_LENGTH = 120;
 exports.CHAT_COOLDOWN_MS = 400;
 exports.CHAT_BUBBLE_MS = 5000;
+/**
+ * "Está escribiendo" (💬 sobre la cabeza): mientras escribe, el cliente lo vuelve a avisar cada
+ * `TYPING_REFRESH_MS`; si el server no sabe nada en `TYPING_TIMEOUT_MS` (se fue, se cortó), lo apaga.
+ */
+exports.TYPING_REFRESH_MS = 3000;
+exports.TYPING_TIMEOUT_MS = 7000;
 exports.PLAYER_COLORS = [
     "#e63946",
     "#f4a261",
