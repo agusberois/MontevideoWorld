@@ -31,6 +31,7 @@ import { ItemIcon } from "../inventory/ItemIcon";
 import { PetShop } from "../pets/PetShop";
 import { HospitalPanel } from "../health/HospitalPanel";
 import { CasinoPanel } from "../casino/CasinoPanel";
+import { BarraRegistry } from "../barras/BarraRegistry";
 import { itemPerks, itemRating } from "../inventory/itemCategoryUi";
 import { UiIcon } from "../../ui/UiIcon";
 import { moduleClasses } from "@/lib/cx";
@@ -64,6 +65,8 @@ export function ShopPanel({ room, cityId, onClose }: PanelProps) {
   if (shop.pets) return <PetShop room={room} shop={shop} onClose={onClose} />;
   // La guardia del sanatorio tampoco: se paga la consulta para curarse.
   if (shop.hospital) return <HospitalPanel room={room} shop={shop} onClose={onClose} />;
+  // El Registro de Barras: el formulario para fundar una barra.
+  if (shop.registry) return <BarraRegistry room={room} shop={shop} onClose={onClose} />;
   // Las máquinas y mesas del casino: su juego.
   if (shop.casino) return <CasinoPanel room={room} shop={shop} game={shop.casino} onClose={onClose} />;
   return <ShopView room={room} shop={shop} onClose={onClose} />;

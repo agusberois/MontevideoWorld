@@ -1,6 +1,6 @@
 "use client";
 
-import { CLOCK_PRESETS, MATCHES, WEATHERS, WEATHER_IDS, WeatherId, formatClock, getCityInfo } from "@montevideo-world/shared";
+import { CLOCK_PRESETS, MATCHES, WEATHERS, WEATHER_IDS, WeatherId, formatClock, getCityInfo, isVendingOpen } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { useGame } from "@/lib/gameStore";
 import { sendAdminMatch, sendAdminSetTime, sendAdminWeather, sendChat } from "@/lib/network";
@@ -67,37 +67,42 @@ export function AdminPanel({ room, cityId, onClose }: PanelProps) {
             El reloj es el mismo para todos los jugadores y sigue avanzando solo: oscurece de a poco al atardecer y
             aclara al amanecer.
           </p>
-          <h3>
-            Partido en el Centenario <span className={cx("admin-clock")}>{match || "sin partido"}</span>
-          </h3>
-          <div className={cx("admin-presets")}>
-            {MATCHES.map(({ name, start, end }) => (
-              <button
-                key={name}
-                type="button"
-                aria-pressed={matchMode === "on" && match === name}
-                onClick={() => sendAdminMatch(room, "on", name)}
-              >
-                <span aria-hidden="true">⚽</span>
-                <span>{name}</span>
-                <small>
-                  {formatClock(start)}–{formatClock(end)}
-                </small>
-              </button>
-            ))}
-            <button type="button" aria-pressed={matchMode === "off"} onClick={() => sendAdminMatch(room, "off")}>
-              <span aria-hidden="true">🚫</span>
-              <span>Sin partidos</span>
-            </button>
-            <button type="button" aria-pressed={matchMode === "auto"} onClick={() => sendAdminMatch(room, "auto")}>
-              <UiIcon name="sun" />
-              <span>Según el horario</span>
-            </button>
-          </div>
-          <p className={cx("admin-hint")}>
-            Forzar un partido lo juega ya y sigue hasta que elijas otro modo (en todos los barrios): se vende el
-            doble y los hinchas compran más. &quot;Según el horario&quot; vuelve a los partidos de cada día.
-          </p>
+          {/* Los partidos son del Centenario (Tres Cruces): con el barrio oculto, no se muestran. */}
+          {isVendingOpen() && (
+            <>
+              <h3>
+                Partido en el Centenario <span className={cx("admin-clock")}>{match || "sin partido"}</span>
+              </h3>
+              <div className={cx("admin-presets")}>
+                {MATCHES.map(({ name, start, end }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    aria-pressed={matchMode === "on" && match === name}
+                    onClick={() => sendAdminMatch(room, "on", name)}
+                  >
+                    <span aria-hidden="true">⚽</span>
+                    <span>{name}</span>
+                    <small>
+                      {formatClock(start)}–{formatClock(end)}
+                    </small>
+                  </button>
+                ))}
+                <button type="button" aria-pressed={matchMode === "off"} onClick={() => sendAdminMatch(room, "off")}>
+                  <span aria-hidden="true">🚫</span>
+                  <span>Sin partidos</span>
+                </button>
+                <button type="button" aria-pressed={matchMode === "auto"} onClick={() => sendAdminMatch(room, "auto")}>
+                  <UiIcon name="sun" />
+                  <span>Según el horario</span>
+                </button>
+              </div>
+              <p className={cx("admin-hint")}>
+                Forzar un partido lo juega ya y sigue hasta que elijas otro modo (en todos los barrios): se vende el
+                doble y los hinchas compran más. &quot;Según el horario&quot; vuelve a los partidos de cada día.
+              </p>
+            </>
+          )}
           <h3>
             Clima <span className={cx("admin-clock")}>{WEATHERS[weather].name}</span>
           </h3>

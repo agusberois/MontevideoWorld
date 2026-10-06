@@ -102,7 +102,11 @@ paths:
   en la landing (tampoco sus tarjetas de `FEATURES`, con `cityId`), `travel:request` los rechaza,
   quien había quedado ahí vuelve a Ciudad Vieja (`canResumeTo`), sus tiendas no salen en
   `whereToBuy` y, sin el Sanatorio, el desmayo te despierta en la plaza (`hospitalDoor`). Con eso
-  tampoco hay venta en el Centenario ni guardia. Para volver a abrirlos, sacar `hidden: true` de su `info.ts`.
+  tampoco hay venta en el Centenario, partidos ni guardia, y no se movieron a otro barrio: lo que los
+  nombra se esconde con `isVendingOpen()` (alguna tienda abierta vende carritos: el atajo del carrito,
+  los partidos del panel del admin) e `isHospitalOpen()` (el tooltip de salud y el aviso de "estás
+  débil" mandan a la farmacia). Para volver a abrirlos, sacar `hidden: true` de su `info.ts`: todo
+  vuelve solo.
 - **Barrios conectados a pie** (Ciudad Vieja ↔ Centro, por 18 de Julio): el último tile de la
   avenida en el borde de cada mapa es una `Door` con `edge: true`, marcada con un **arco de calle**
   (`CityRenderer.drawPortals`, piezas 1 × 1 de `portalSpec`: pilares de piedra clara con farol de

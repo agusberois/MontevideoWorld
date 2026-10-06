@@ -27,19 +27,8 @@ import styles from "./players.module.css";
 
 const cx = moduleClasses(styles);
 
-/** La barra (clan) del jugador: sigla, nombre y color. */
-interface Barra {
-  tag: string;
-  name: string;
-  color: string;
-}
-
-/**
- * Lo que muestra el panel: lo público del jugador (sale del Schema vía `players:list`). `barra` hoy
- * llega siempre undefined: se completa cuando existan las barras (ver
- * docs/pending/funcionalidades-primera-version.md, sección 2.2).
- */
-type PlayerDetailsData = PlayerSummary & { barra?: Barra };
+/** Lo que muestra el panel: lo público del jugador (sale del Schema vía `players:list`), con su barra. */
+type PlayerDetailsData = PlayerSummary;
 
 /** Mismo naranja que el nombre del admin sobre la cabeza (`Avatar.ts`). */
 const ADMIN_COLOR = "#ff9f1c";

@@ -5,6 +5,8 @@ import { COMCAR_INFO } from "./comcar/info";
 import { TERMAS_INFO } from "./termas/info";
 import { CASINO_INFO } from "./casino/info";
 import { TRES_CRUCES_INFO } from "./tresCruces/info";
+import { CARTS } from "../items";
+import { HOSPITAL_CITY_ID } from "../needs";
 import { CityId, CityInfo, Shop } from "./types";
 
 /**
@@ -26,6 +28,26 @@ export const TERMAS_CITY_ID: CityId = TERMAS_INFO.id;
 /** ¿Se puede viajar en ómnibus a este barrio? (No a los de acceso restringido, que tienen puerta, ni a los ocultos.) */
 export function isPublicCity(city: CityInfo): boolean {
   return !city.access && !city.hidden;
+}
+
+/** ¿El barrio existe y no está oculto (`CityInfo.hidden`)? */
+export function isCityOpen(id: string): boolean {
+  const city = getCityInfo(id);
+  return Boolean(city && !city.hidden);
+}
+
+/**
+ * ¿Se puede vender con carrito? Sólo si hay abierta alguna tienda que venda carritos (hoy, el Kiosco
+ * del Parque de Tres Cruces). Con Tres Cruces oculto no: se esconde todo lo de la venta (atajo, panel
+ * del admin, textos).
+ */
+export function isVendingOpen(): boolean {
+  return CARTS.some((cart) => shopsSelling(cart.id).length > 0);
+}
+
+/** ¿Está abierta la guardia (el Sanatorio Americano, en Tres Cruces)? Si no, no se la nombra ni hay ambulancia. */
+export function isHospitalOpen(): boolean {
+  return isCityOpen(HOSPITAL_CITY_ID);
 }
 
 export function isCityId(id: string): id is CityId {

@@ -654,6 +654,10 @@ export class CityScene extends Phaser.Scene {
           $(player).listen("donor", (donor) => avatar.setDonor(donor)),
         );
 
+        // Barra: la sigla en su color al lado del nombre (la ven todos; cambia al fundarla, entrar o irse).
+        const applyBarra = () => avatar.setBarra(player.barraTag, player.barraColor);
+        this.disposers.push($(player).listen("barraTag", applyBarra), $(player).listen("barraColor", applyBarra));
+
         // Mascota: la ven todos; se adopta, se renombra o se despide en la veterinaria.
         const applyPet = () => this.applyPet(sessionId, player.pet, player.petName, avatar);
         this.disposers.push($(player).listen("pet", applyPet), $(player).listen("petName", applyPet));
@@ -1144,6 +1148,7 @@ function summarize(sessionId: string, player: Player, isSelf: boolean): PlayerSu
     isSelf,
     isDonor: player.donor,
     isAdmin: player.admin,
+    barra: player.barraTag ? { tag: player.barraTag, color: player.barraColor, name: player.barraName } : null,
     look: {
       gender: player.gender === "f" ? "f" : "m",
       skin: player.skin,

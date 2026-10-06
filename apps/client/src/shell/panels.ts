@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { PanelId } from "@/lib/gameStore";
 import type { CityRoom } from "@/lib/network";
 import { AdminPanel } from "../features/admin/AdminPanel";
+import { BarraPanel } from "../features/barras/BarraPanel";
 import { CalendarPanel } from "../features/calendar/CalendarPanel";
 import { Backpack } from "../features/inventory/Backpack";
 import { CityMenu } from "../features/cities/CityMenu";
@@ -37,6 +38,7 @@ export const PANELS: Record<PanelId, PanelEntry> = {
   commands: { component: CommandsPanel, shortcut: "KeyC" },
   gestures: { component: GesturesPanel, shortcut: "KeyE" },
   calendar: { component: CalendarPanel, shortcut: "KeyK" },
+  barra: { component: BarraPanel, shortcut: "KeyB" },
   players: { component: PlayersPanel, shortcut: "Tab" },
   admin: { component: AdminPanel, shortcut: "KeyP", adminOnly: true },
   maker: { component: MakerPanel, shortcut: "KeyH", adminOnly: true },

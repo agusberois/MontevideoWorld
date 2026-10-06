@@ -26,6 +26,7 @@ export interface CommandDefinition {
 /** Catálogo de comandos. Para agregar uno: definirlo acá y registrar su handler en el server. */
 export const COMMANDS = [
   { name: "help", usage: "/help", description: "Lista los comandos que podés usar.", role: "user" },
+  { name: "barra", usage: "/barra <texto>", description: "Mensaje a todos los de tu barra que estén conectados, en cualquier barrio.", role: "user" },
   {
     name: "mensaje",
     usage: "/mensaje <jugador> <texto>",

@@ -1,5 +1,6 @@
 import {
   HOSPITAL_CITY_ID,
+  isHospitalOpen,
   HOSPITAL_SHOP_ID,
   JAIL_CITY_ID,
   LOW_HEALTH,
@@ -86,7 +87,7 @@ function noticeNeedsChange(room: CityRoom, session: PlayerSession, before: Needs
   if (before.health >= LOW_HEALTH && needs.health < LOW_HEALTH) {
     room.notice(
       session,
-      `❤ Estás débil: la energía no te pasa de ${WEAK_ENERGY_CAP}. Comé bien y descansá, o andá a la guardia del Sanatorio Americano (Tres Cruces).`,
+      `❤ Estás débil: la energía no te pasa de ${WEAK_ENERGY_CAP}. Comé bien y descansá${isHospitalOpen() ? ", o andá a la guardia del Sanatorio Americano (Tres Cruces)" : ", o tomate un remedio de la farmacia"}.`,
     );
   }
 }

@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MESSAGE_GUARDS = void 0;
 exports.isTileMessage = isTileMessage;
 exports.isMoveMessage = isMoveMessage;
+exports.isBarraCreateMessage = isBarraCreateMessage;
+exports.isBarraInviteMessage = isBarraInviteMessage;
+exports.isBarraRespondMessage = isBarraRespondMessage;
 exports.isChatMessage = isChatMessage;
 exports.isEquipMessage = isEquipMessage;
 exports.isInventoryMoveMessage = isInventoryMoveMessage;
@@ -31,6 +34,7 @@ exports.isPetAdoptMessage = isPetAdoptMessage;
 exports.isPetRenameMessage = isPetRenameMessage;
 exports.isTradeRespondMessage = isTradeRespondMessage;
 exports.isTradeOfferMessage = isTradeOfferMessage;
+const barras_1 = require("./barras");
 const casino_1 = require("./casino");
 const gestures_1 = require("./gestures");
 const items_1 = require("./items");
@@ -52,6 +56,18 @@ function isMoveMessage(message) {
         return false;
     const { path } = message;
     return path === undefined || (Array.isArray(path) && path.length <= messages_1.MAX_ROUTE_LENGTH * 2 && path.every(isTileMessage));
+}
+function isBarraCreateMessage(message) {
+    if (!isObject(message) || typeof message.name !== "string" || typeof message.tag !== "string")
+        return false;
+    const { colors } = message;
+    return message.name.length <= 64 && message.tag.length <= 16 && Array.isArray(colors) && colors.length === 2 && colors.every(barras_1.isBarraColorId);
+}
+function isBarraInviteMessage(message) {
+    return isObject(message) && typeof message.targetId === "string" && message.targetId.length <= 64;
+}
+function isBarraRespondMessage(message) {
+    return isObject(message) && typeof message.barraId === "string" && message.barraId.length <= 64 && typeof message.accept === "boolean";
 }
 function isChatMessage(message) {
     return isObject(message) && typeof message.text === "string";
@@ -193,6 +209,11 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.VendStart]: noPayload,
     [messages_1.MessageType.VendStop]: noPayload,
     [messages_1.MessageType.BuskStart]: noPayload,
+    [messages_1.MessageType.BarraCreate]: isBarraCreateMessage,
+    [messages_1.MessageType.BarraInvite]: isBarraInviteMessage,
+    [messages_1.MessageType.BarraRespond]: isBarraRespondMessage,
+    [messages_1.MessageType.BarraLeave]: noPayload,
+    [messages_1.MessageType.BarraRequest]: noPayload,
     [messages_1.MessageType.BuskStop]: noPayload,
     [messages_1.MessageType.AdminSetTime]: isAdminSetTimeMessage,
     [messages_1.MessageType.AdminNearbyRequest]: noPayload,

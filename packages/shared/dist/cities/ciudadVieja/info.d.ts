@@ -120,6 +120,13 @@ export declare const CIUDAD_VIEJA_INFO: {
         id: string;
         name: string;
         description: string;
+        kind: "barraRegistry";
+        area: TileRect;
+        passable?: undefined;
+    } | {
+        id: string;
+        name: string;
+        description: string;
         kind: "market";
         area: TileRect;
         passable?: undefined;
@@ -129,9 +136,20 @@ export declare const CIUDAD_VIEJA_INFO: {
         name: string;
         description: string;
         area: TileRect;
+        building: "none";
+        stock: never[];
+        buys: never[];
+        registry: true;
+        pets?: undefined;
+    } | {
+        id: string;
+        name: string;
+        description: string;
+        area: TileRect;
         building: "shoes";
         buys: "clothing"[];
         stock: string[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -141,6 +159,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "stm";
         stock: string[];
         buys: "ticket"[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -150,6 +169,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "clothing";
         buys: "clothing"[];
         stock: string[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -159,6 +179,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "kiosk";
         stock: string[];
         buys: never[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -168,6 +189,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "pharmacy";
         stock: string[];
         buys: never[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -178,6 +200,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         stock: never[];
         buys: never[];
         pets: string[];
+        registry?: undefined;
     } | {
         id: string;
         name: string;
@@ -186,6 +209,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "none";
         stock: string[];
         buys: "fish"[];
+        registry?: undefined;
         pets?: undefined;
     } | {
         id: string;
@@ -195,6 +219,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "fishing";
         stock: string[];
         buys: "rod"[];
+        registry?: undefined;
         pets?: undefined;
     })[];
 };

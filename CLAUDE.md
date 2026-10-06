@@ -6,7 +6,8 @@ llega caminando por 18 de Julio); **Tres Cruces** y el **Barrio de los Judíos**
 de texto sobre la cabeza del avatar. Hay bancos donde sentarse (clic) y una mochila con ropa
 para ponerse/sacarse, más una barra de acceso rápido, dinero, tiendas y la primera actividad:
 **pescar** en la Escollera Sarandí (con cañas de distinto nivel), **vender** con un carrito en la
-explanada del Estadio Centenario (Tres Cruces) y **tocar en la calle** sobre 18 de Julio (Centro, con instrumentos). Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **K** calendario de Uruguay, **C** comandos, **Tab** jugadores
+explanada del Estadio Centenario (Tres Cruces) y **tocar en la calle** sobre 18 de Julio (Centro, con instrumentos). Las **barras** (grupos de amigos) se fundan en el Registro de Barras de Ciudad Vieja.
+Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **B** mi barra, **K** calendario de Uruguay, **C** comandos, **Tab** jugadores
 del barrio, **F** interactuar con lo que tenés al lado (tienda, banco, palmera, parada, jugador, picudo) o, si no
 hay nada, pescar en la escollera / vender en el Centenario / tocar en 18 de Julio, **1–9** barra rápida, **WASD** caminar, **Y** cámara fija / libre, **Espacio** centrar la cámara, **flechas** mover la
 cámara, **Esc** cierra.
@@ -30,7 +31,7 @@ El árbol sale del código (`ls`, y cada archivo explica arriba qué hace). Lo q
 - `apps/client/AGENTS.md` / `apps/client/CLAUDE.md` los genera `next dev` (reglas de Next 16 para agentes): commitearlos.
 - Documentación que se carga sola según lo que toques: `.claude/rules/*.md` (un archivo por sistema:
   ingreso y guardado, movimiento, mochila y dinero, tiendas, pesca y venta, necesidades, admin,
-  intercambio, comandos y chat, picudos, mascotas, cárcel, interacción con F, barrios, clima, guía de bienvenida, gestos, calendario, Hotel del Donador (`termas.md`), casino, entorno),
+  intercambio, comandos y chat, picudos, mascotas, cárcel, interacción con F, barrios, clima, guía de bienvenida, gestos, calendario, barras, Hotel del Donador (`termas.md`), casino, entorno),
   `apps/client/src/CLAUDE.md` (celulares) y `apps/client/src/game/CLAUDE.md` (cámara). Skills:
   `recetas` (agregar mensajes, paneles, categorías de ítem, comandos) y `despliegue`.
 

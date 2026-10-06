@@ -6,7 +6,7 @@ import { eventBus } from "@/lib/eventBus";
 import { activateHotbar, pressF } from "@/lib/gameActions";
 import { bindGameStore, closePanel, gameStore, togglePanel, useGame } from "@/lib/gameStore";
 import { trackKeyboardInset } from "@/lib/viewport";
-import { CitySession, bindRoomMessages, travelTo } from "@/lib/network";
+import { CitySession, bindRoomMessages, requestBarra, travelTo } from "@/lib/network";
 import { Announcement } from "../features/admin/Announcement";
 import { BoxReveal } from "../features/boxes/BoxReveal";
 import { ChatBox } from "../features/chat/ChatBox";
@@ -31,6 +31,7 @@ import { PhaserGame } from "./PhaserGame";
 import { PlayerMenu } from "../features/players/PlayerMenu";
 import { TradeInvites } from "../features/trade/TradeInvites";
 import { PairGestureInvites } from "../features/gestures/PairGestureInvites";
+import { BarraInvites } from "../features/barras/BarraInvites";
 import { TradePanel } from "../features/trade/TradePanel";
 import { DOOR_MS, DoorOverlay, TRAVEL_MS, TravelOverlay } from "../features/cities/TravelOverlay";
 import { moduleClasses } from "@/lib/cx";
@@ -108,7 +109,13 @@ export function App() {
     };
   }, [room]);
 
-  // Paneles (teclas en `PANELS`: M, I, E, K, C, Tab y, sólo admin, P y H), F: interactuar / pescar / vender,
+  // Tu barra: se pide al entrar a cada sala (los mensajes ya están escuchados en el efecto de arriba),
+  // así el menú de los jugadores sabe si sos fundador.
+  useEffect(() => {
+    if (room) requestBarra(room);
+  }, [room]);
+
+  // Paneles (teclas en `PANELS`: M, I, E, B, K, C, Tab y, sólo admin, P y H), F: interactuar / pescar / vender,
   // 1–9: barra rápida, Esc: cerrar. Con un intercambio abierto no anda ninguno.
   // No interfiere mientras se escribe en el chat (ahí Tab sigue moviendo el foco).
   useEffect(() => {
@@ -222,6 +229,7 @@ export function App() {
       <PlayerMenu room={room} />
       <TradeInvites room={room} />
       <PairGestureInvites room={room} />
+      <BarraInvites room={room} />
       <TradePanel room={room} />
       <Announcement />
       <JailBanner />

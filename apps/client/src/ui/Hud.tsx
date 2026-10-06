@@ -69,6 +69,7 @@ export function Hud({ cityName, onExit }: HudProps) {
         <HudButton icon="map" label="Barrios" onClick={() => openPanel("cities")} title="Lista de barrios" shortcut="M" />
         <HudButton icon="backpack" label="Mochila" onClick={() => openPanel("backpack")} title="Mochila" shortcut="I" />
         <HudButton icon="hand" label="Gestos" onClick={() => openPanel("gestures")} title="Gestos" shortcut="E" />
+        <HudButton icon="flag" label="Barra" onClick={() => openPanel("barra")} title="Mi barra" shortcut="B" />
         <HudButton icon="calendar" label="Calendario" onClick={() => openPanel("calendar")} title="Calendario de Uruguay" shortcut="K" />
         <HudButton icon="terminal" label="Comandos" onClick={() => openPanel("commands")} title="Comandos de chat" shortcut="C" />
         {isAdmin && (

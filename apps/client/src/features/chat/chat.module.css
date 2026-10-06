@@ -26,6 +26,22 @@
 
 /* Mensajes privados (/mensaje): violeta; el nombre es un botón para responder. */
 
+/* Mensajes de la barra (`/barra`): la sigla en una pastillita de su color. */
+.chat-history .chat-barra {
+  color: #bfe7ff;
+}
+
+.chat-barra-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  color: #ffffff;
+  font: 800 0.75em ui-monospace, Menlo, monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  vertical-align: 1px;
+}
+
 .chat-history .chat-private {
   color: #d4b8ff;
 }

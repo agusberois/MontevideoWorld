@@ -49,7 +49,7 @@ import { gameClock } from "../gameClock";
 import { Inventory } from "../inventory";
 import { RoomStats, RoomStatsSource, liveRooms, tickMetrics } from "../metrics";
 import { Needs } from "../needs";
-import { SavedLocation, SessionOwner, activeSessions, issueTravelTicket, playerStore, travelTickets } from "../playerStore";
+import { SavedLocation, SessionOwner, activeSessions, issueTravelTicket, playerId, playerStore, travelTickets } from "../playerStore";
 import { weather } from "../weather";
 import { RateLimiter, UNKNOWN_MESSAGE_TYPE } from "../rateLimit";
 import { TradeManager } from "../trades";
@@ -59,6 +59,7 @@ import { PlayerSession, createSession } from "./session";
 import { activityRoutes, stopActivities } from "./systems/activities";
 import { adminRoutes } from "./systems/admin";
 import { lifeRoutes, tickNeeds } from "./systems/life";
+import { applyBarra, barraRoutes, sendBarra } from "./systems/barras";
 import { casinoRoutes } from "./systems/casino";
 import { doorRoutes } from "./systems/doors";
 import { gestureRoutes, stepGestures } from "./systems/gestures";
@@ -277,6 +278,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       ...gestureRoutes(this),
       ...doorRoutes(this),
       ...casinoRoutes(this),
+      ...barraRoutes(this),
       ...adminRoutes(this),
       ...travelRoutes(this),
       ...tutorialRoutes(this),
@@ -446,6 +448,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     // Guía de bienvenida: sin guardado (o uno de antes de que existiera), desde el principio.
     session.tutorial = sanitizeTutorial(saved?.tutorial);
     session.ip = auth?.ip ?? "?";
+    // Su barra (sigla y color sobre el avatar): la ve todo el barrio.
+    applyBarra(session);
     this.sessions.set(client.sessionId, session);
     connectionOpened(session.ip);
     this.state.players.set(client.sessionId, player);
@@ -454,6 +458,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       name: player.name,
       cityId: this.map.city.id,
       cityName: this.map.city.name,
+      playerId: key ? playerId(key) : null,
       mailbox: this,
     });
     this.broadcastSystem(`${player.name} llegó a ${this.map.city.name}`, client);
@@ -771,6 +776,13 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
   jail(sessionId: string, until: number) {
     const session = this.sessions.get(sessionId);
     if (session) jail(this, session, until);
+  }
+
+  refreshBarra(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    applyBarra(session);
+    sendBarra(this, session);
   }
 
   summon(sessionId: string, place: { cityId: string; roomId: string; at: TilePoint; by: string }): string | null {

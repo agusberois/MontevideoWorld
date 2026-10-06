@@ -1,5 +1,6 @@
 import { CommandName, canUseCommand, getCommand, parseCommand } from "@montevideo-world/shared";
 import { ban } from "./ban";
+import { barra } from "./barra";
 import { box } from "./box";
 import { curar } from "./curar";
 import { donador } from "./donador";
@@ -19,7 +20,7 @@ export type { CommandHost } from "./types";
  * Handler de cada comando del catálogo (`COMMANDS` en shared). El `Record` obliga a que todo
  * comando definido tenga su handler: para sumar uno, definirlo en shared y agregarlo acá.
  */
-const HANDLERS: Record<CommandName, CommandHandler> = { help, mensaje, post, box, plata, donador, guia, trace, mover, ban, curar, silenciar };
+const HANDLERS: Record<CommandName, CommandHandler> = { help, barra, mensaje, post, box, plata, donador, guia, trace, mover, ban, curar, silenciar };
 
 /**
  * Si el texto del chat es un comando, lo ejecuta (o avisa por qué no) y devuelve true: no va al

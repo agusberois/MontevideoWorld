@@ -27,6 +27,7 @@ import {
   unprofitableTools,
 } from "@montevideo-world/shared";
 import { liveRooms, tickMetrics } from "./metrics";
+import { barraStore } from "./barraStore";
 import { playerStore, travelTickets } from "./playerStore";
 import { CityRoom, saveEveryone } from "./rooms/CityRoom";
 
@@ -165,7 +166,7 @@ const gameServer = new Server({
 gameServer.define(ROOM_NAME, CityRoom).filterBy(["cityId"]);
 // Al apagar (Ctrl+C, PM2, reinicio de `tsx watch`), Colyseus saca a todos (cada `onLeave` guarda)
 // y después se escribe el archivo de jugadores.
-gameServer.onShutdown(() => playerStore.flush());
+gameServer.onShutdown(() => Promise.all([playerStore.flush(), barraStore.flush()]).then(() => undefined));
 
 /** Tope para guardar antes de salir en un cierre de emergencia (si el disco no responde, se sale igual). */
 const CRASH_FLUSH_TIMEOUT_MS = 5000;
@@ -186,7 +187,7 @@ function crash(kind: string, error: unknown) {
     console.error("[Montevideo World] no se pudo guardar a los conectados", saveError);
   }
   const timeout = new Promise<void>((resolve) => setTimeout(resolve, CRASH_FLUSH_TIMEOUT_MS).unref());
-  void Promise.race([playerStore.flush(), timeout])
+  void Promise.race([Promise.all([playerStore.flush(), barraStore.flush()]), timeout])
     .catch((flushError) => console.error("[Montevideo World] no se pudo escribir el archivo de jugadores", flushError))
     .finally(() => process.exit(1));
 }

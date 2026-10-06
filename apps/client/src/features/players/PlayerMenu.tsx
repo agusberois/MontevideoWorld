@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PlayerClick, eventBus } from "@/lib/eventBus";
 import { openPlayerDetails, toggleBlocked, useGame } from "@/lib/gameStore";
 import { PAIR_GESTURES, PAIR_GESTURE_IDS, PairGestureId, nameKey } from "@montevideo-world/shared";
-import { CityRoom, sendGreet, sendPairGesture, sendTaunt, sendTradeRequest } from "@/lib/network";
+import { CityRoom, sendBarraInvite, sendGreet, sendPairGesture, sendTaunt, sendTradeRequest } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./players.module.css";
 
@@ -27,6 +27,8 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
   /** Preso vos: no te podés burlar de nadie. */
   const selfJailed = useGame((state) => state.jailLeft > 0);
   const blocked = useGame((state) => state.blocked);
+  /** Sos fundador de una barra: podés invitar a los que no tienen. */
+  const founder = useGame((state) => state.barra?.founder === true);
   const [target, setTarget] = useState<PlayerClick | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +84,11 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
           {PAIR_GESTURES[gesture].cry} {PAIR_GESTURES[gesture].name}
         </button>
       ))}
+      {founder && !players.find((player) => player.sessionId === target.sessionId)?.barra && (
+        <button type="button" role="menuitem" onClick={() => choose(sendBarraInvite)}>
+          🚩 Invitar a mi barra
+        </button>
+      )}
       <button type="button" role="menuitem" onClick={() => choose(sendTradeRequest)}>
         🔁 Intercambiar
       </button>

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { InventoryMessage, MatchMode, OutfitIds, TutorialMessage, WeatherId, WeatherMode, nameKey } from "@montevideo-world/shared";
+import { BarraView, InventoryMessage, MatchMode, OutfitIds, TutorialMessage, WeatherId, WeatherMode, nameKey } from "@montevideo-world/shared";
 import { type PlayerSummary, eventBus } from "./eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
 import { loadBlocked, saveBlocked, toggleInList } from "../features/players/blockStorage";
@@ -12,7 +12,7 @@ import { loadBlocked, saveBlocked, toggleInList } from "../features/players/bloc
  */
 
 /** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
-export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails";
+export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails" | "barra";
 
 export interface GameStoreState {
   /** Un solo panel abierto a la vez. */
@@ -38,6 +38,8 @@ export interface GameStoreState {
   fishing: { canFish: boolean; fishing: boolean };
   vending: { canVend: boolean; vending: boolean };
   busking: { canBusk: boolean; busking: boolean };
+  /** Tu barra (la manda el server al pedirla y cada vez que cambia), o null. */
+  barra: BarraView | null;
   /** Con qué se puede interactuar con F ahora (lo decide la escena), o null. */
   interaction: string | null;
   /** Tu mascota (id de `PETS` y nombre), o null si no tenés. */
@@ -83,6 +85,7 @@ const INITIAL: GameStoreState = {
   fishing: { canFish: false, fishing: false },
   vending: { canVend: false, vending: false },
   busking: { canBusk: false, busking: false },
+  barra: null,
   interaction: null,
   jailLeft: 0,
   pet: null,
@@ -192,6 +195,7 @@ export function bindGameStore(): () => void {
     eventBus.on("fishing:status", (fishing) => setState({ fishing })),
     eventBus.on("vending:status", (vending) => setState({ vending })),
     eventBus.on("busking:status", (busking) => setState({ busking })),
+    eventBus.on("barra:update", ({ barra }) => setState({ barra })),
     eventBus.on("interact:prompt", (prompt) => setState({ interaction: prompt?.label ?? null })),
     eventBus.on("player:energy", (energy) => setState({ energy })),
     eventBus.on("needs:update", ({ hunger, health }) => setState({ hunger, health })),

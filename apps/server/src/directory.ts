@@ -14,6 +14,8 @@ export interface PrivateMailbox {
    * Devuelve por qué no se pudo (null = va en camino).
    */
   summon(sessionId: string, place: { cityId: string; roomId: string; at: TilePoint; by: string }): string | null;
+  /** Vuelve a leer su barra (sigla y color sobre el avatar) y le manda el panel actualizado. */
+  refreshBarra(sessionId: string): void;
 }
 
 /** Un jugador conectado, en cualquier barrio. */
@@ -22,6 +24,8 @@ export interface OnlinePlayer {
   name: string;
   cityId: string;
   cityName: string;
+  /** `playerId` de su clave (null si entró sin clave): para saber qué integrantes de una barra están conectados. */
+  playerId: string | null;
   mailbox: PrivateMailbox;
 }
 
@@ -40,6 +44,12 @@ class PlayerDirectory {
 
   remove(sessionId: string) {
     this.players.delete(sessionId);
+  }
+
+  /** Conectados con este `playerId` (en cualquier barrio; una clave = una sesión, así que uno como mucho). */
+  byPlayerId(playerId: string): OnlinePlayer | undefined {
+    for (const player of this.players.values()) if (player.playerId === playerId) return player;
+    return undefined;
   }
 
   /** Conectados con ese nombre o uno que se ve igual (`nameKey`: mayúsculas, tildes, letras parecidas). */

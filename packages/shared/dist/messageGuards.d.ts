@@ -1,9 +1,12 @@
-import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
+import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BarraCreateMessage, BarraInviteMessage, BarraRespondMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
 import { TradeOffer } from "./trade";
 /** Un tile (x, y enteros): mover, sentarse, visitar una tienda, sacudir una palmera. */
 export declare function isTileMessage(message: unknown): message is SitMessage;
 /** Un tile y, si viene, un recorrido de tiles (se valida paso a paso en `followRoute`). */
 export declare function isMoveMessage(message: unknown): message is MoveMessage;
+export declare function isBarraCreateMessage(message: unknown): message is BarraCreateMessage;
+export declare function isBarraInviteMessage(message: unknown): message is BarraInviteMessage;
+export declare function isBarraRespondMessage(message: unknown): message is BarraRespondMessage;
 export declare function isChatMessage(message: unknown): message is ChatInputMessage;
 export declare function isEquipMessage(message: unknown): message is EquipMessage;
 export declare function isInventoryMoveMessage(message: unknown): message is InventoryMoveMessage;

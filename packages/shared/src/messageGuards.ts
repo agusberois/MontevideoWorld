@@ -1,3 +1,4 @@
+import { isBarraColorId } from "./barras";
 import { isRouletteBet } from "./casino";
 import { isGestureId, isPairGestureId } from "./gestures";
 import { isItemSlot } from "./items";
@@ -7,6 +8,9 @@ import {
   AdminMatchMessage,
   AdminWeatherMessage,
   AdminSetTimeMessage,
+  BarraCreateMessage,
+  BarraInviteMessage,
+  BarraRespondMessage,
   BoxOpenMessage,
   ChatInputMessage,
   ClientToServerMessages,
@@ -64,6 +68,20 @@ export function isMoveMessage(message: unknown): message is MoveMessage {
   if (!isTileMessage(message)) return false;
   const { path } = message as unknown as Fields;
   return path === undefined || (Array.isArray(path) && path.length <= MAX_ROUTE_LENGTH * 2 && path.every(isTileMessage));
+}
+
+export function isBarraCreateMessage(message: unknown): message is BarraCreateMessage {
+  if (!isObject(message) || typeof message.name !== "string" || typeof message.tag !== "string") return false;
+  const { colors } = message;
+  return message.name.length <= 64 && message.tag.length <= 16 && Array.isArray(colors) && colors.length === 2 && colors.every(isBarraColorId);
+}
+
+export function isBarraInviteMessage(message: unknown): message is BarraInviteMessage {
+  return isObject(message) && typeof message.targetId === "string" && message.targetId.length <= 64;
+}
+
+export function isBarraRespondMessage(message: unknown): message is BarraRespondMessage {
+  return isObject(message) && typeof message.barraId === "string" && message.barraId.length <= 64 && typeof message.accept === "boolean";
 }
 
 export function isChatMessage(message: unknown): message is ChatInputMessage {
@@ -238,6 +256,11 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.VendStart]: noPayload,
   [MessageType.VendStop]: noPayload,
   [MessageType.BuskStart]: noPayload,
+  [MessageType.BarraCreate]: isBarraCreateMessage,
+  [MessageType.BarraInvite]: isBarraInviteMessage,
+  [MessageType.BarraRespond]: isBarraRespondMessage,
+  [MessageType.BarraLeave]: noPayload,
+  [MessageType.BarraRequest]: noPayload,
   [MessageType.BuskStop]: noPayload,
   [MessageType.AdminSetTime]: isAdminSetTimeMessage,
   [MessageType.AdminNearbyRequest]: noPayload,

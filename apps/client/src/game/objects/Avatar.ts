@@ -234,6 +234,9 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly donorTag: Phaser.GameObjects.Text;
   /** "🔒 PRESO" arriba del nombre mientras está preso en el COMCAR (`Player.jailLeft`). */
   private readonly prisonerTag: Phaser.GameObjects.Text;
+  /** El nombre y, pegada a su izquierda, la sigla de su barra en su color (`Player.barraTag`). */
+  private readonly nameLabel: Phaser.GameObjects.Text;
+  private readonly barraTag: Phaser.GameObjects.Text;
   private bubble: Phaser.GameObjects.Container | null = null;
   private bubbleTimer: Phaser.Time.TimerEvent | null = null;
 
@@ -405,10 +408,22 @@ export class Avatar extends Phaser.GameObjects.Container {
       .setOrigin(0.5, 1)
       .setVisible(false);
 
+    this.barraTag = scene.add
+      .text(0, NAME_Y - 1, "", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "9px",
+        fontStyle: "bold",
+        color: "#ffffff",
+        padding: { x: 3, y: 1 },
+      })
+      .setOrigin(0, 1)
+      .setVisible(false);
+    this.nameLabel = label;
+
     this.water = scene.add.graphics().setVisible(false);
     this.shadow = shadow;
     this.add([shadow, this.body_, this.water]);
-    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, label]);
+    this.overlay = scene.add.container(this.x, this.y, [this.donorTag, this.prisonerTag, this.barraTag, label]);
     this.syncDepth();
     scene.add.existing(this);
   }
@@ -423,6 +438,23 @@ export class Avatar extends Phaser.GameObjects.Container {
   setDonor(donor: boolean) {
     this.donorTag.setVisible(donor);
     this.layoutTags();
+  }
+
+  /**
+   * Su barra: la sigla (`""` = ninguna) en una pastillita del color de la barra, a la izquierda del
+   * nombre; los dos quedan centrados juntos sobre la cabeza.
+   */
+  setBarra(tag: string, color: string) {
+    if (!tag) {
+      this.barraTag.setVisible(false);
+      this.nameLabel.setX(0);
+      return;
+    }
+    this.barraTag.setText(tag).setBackgroundColor(color).setColor(readableOn(color)).setVisible(true);
+    const gap = 4;
+    const total = this.barraTag.width + gap + this.nameLabel.width;
+    this.barraTag.setX(-total / 2);
+    this.nameLabel.setX(-total / 2 + this.barraTag.width + gap + this.nameLabel.width / 2);
   }
 
   /** Preso en el COMCAR o no (cambia estando conectado: lo banean, cumple). */
@@ -1685,6 +1717,13 @@ function smooth(t: number): number {
 }
 
 /** Rotación y escala de un brazo para que la mano quede en `hand` (px desde el hombro). */
+/** Texto que se lee sobre un fondo de este color ("#rrggbb"): negro sobre claros, blanco sobre oscuros. */
+function readableOn(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
+  return luminance > 0.6 ? "#1a1a1f" : "#ffffff";
+}
+
 function reach(hand: { x: number; y: number }): { rotation: number; scale: number } {
   return { rotation: Math.atan2(-hand.x, hand.y), scale: Math.min(1.25, Math.max(0.3, Math.hypot(hand.x, hand.y) / ARM_LENGTH)) };
 }

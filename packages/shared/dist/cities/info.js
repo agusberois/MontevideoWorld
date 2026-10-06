@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TERMAS_CITY_ID = exports.JAIL_CITY_ID = exports.SPAWN_CITY_ID = exports.CITY_INFOS = void 0;
 exports.isPublicCity = isPublicCity;
+exports.isCityOpen = isCityOpen;
+exports.isVendingOpen = isVendingOpen;
+exports.isHospitalOpen = isHospitalOpen;
 exports.isCityId = isCityId;
 exports.getCityInfo = getCityInfo;
 exports.shopsSelling = shopsSelling;
@@ -13,6 +16,8 @@ const info_4 = require("./comcar/info");
 const info_5 = require("./termas/info");
 const info_6 = require("./casino/info");
 const info_7 = require("./tresCruces/info");
+const items_1 = require("../items");
+const needs_1 = require("../needs");
 /**
  * Lo liviano de cada barrio (nombre, edificios, tiendas), en el orden en que se muestran en la lista
  * (tecla M). Lo usa el navegador siempre; los mapas completos están en `@montevideo-world/shared/cities`
@@ -28,6 +33,23 @@ exports.TERMAS_CITY_ID = info_5.TERMAS_INFO.id;
 /** ¿Se puede viajar en ómnibus a este barrio? (No a los de acceso restringido, que tienen puerta, ni a los ocultos.) */
 function isPublicCity(city) {
     return !city.access && !city.hidden;
+}
+/** ¿El barrio existe y no está oculto (`CityInfo.hidden`)? */
+function isCityOpen(id) {
+    const city = getCityInfo(id);
+    return Boolean(city && !city.hidden);
+}
+/**
+ * ¿Se puede vender con carrito? Sólo si hay abierta alguna tienda que venda carritos (hoy, el Kiosco
+ * del Parque de Tres Cruces). Con Tres Cruces oculto no: se esconde todo lo de la venta (atajo, panel
+ * del admin, textos).
+ */
+function isVendingOpen() {
+    return items_1.CARTS.some((cart) => shopsSelling(cart.id).length > 0);
+}
+/** ¿Está abierta la guardia (el Sanatorio Americano, en Tres Cruces)? Si no, no se la nombra ni hay ambulancia. */
+function isHospitalOpen() {
+    return isCityOpen(needs_1.HOSPITAL_CITY_ID);
 }
 function isCityId(id) {
     return exports.CITY_INFOS.some((city) => city.id === id);

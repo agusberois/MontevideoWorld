@@ -1,6 +1,6 @@
 "use client";
 
-import { LOW_ENERGY, LOW_HEALTH, MAX_ENERGY, MAX_HEALTH, MAX_HUNGER, STARVING } from "@montevideo-world/shared";
+import { LOW_ENERGY, LOW_HEALTH, MAX_ENERGY, MAX_HEALTH, MAX_HUNGER, STARVING, isHospitalOpen } from "@montevideo-world/shared";
 import { useGame } from "@/lib/gameStore";
 import { UiIcon, UiIconName } from "./UiIcon";
 import { moduleClasses } from "@/lib/cx";
@@ -23,7 +23,7 @@ export function Vitals() {
         kind="energy"
         label="Energía"
         icon="zap"
-        title="Energía: pescar y vender la gastan (caminar, un poco); quedarte quieto o sentarte en un banco la recupera (con hambre, más lento)"
+        title="Energía: pescar y tocar en la calle la gastan (caminar, un poco); quedarte quieto o sentarte en un banco la recupera (con hambre, más lento)"
         value={energy}
         max={MAX_ENERGY}
         low={LOW_ENERGY}
@@ -41,7 +41,7 @@ export function Vitals() {
         kind="health"
         label="Salud"
         icon="heart"
-        title="Salud: la bajan los picudos, pasar hambre y el pescado crudo. Vuelve comiendo bien y descansando, o en la guardia del Sanatorio Americano. En 0 te desmayás"
+        title={`Salud: la bajan los picudos, pasar hambre y el pescado crudo. Vuelve comiendo bien y descansando, ${isHospitalOpen() ? "o en la guardia del Sanatorio Americano" : "o con los remedios de la farmacia"}. En 0 te desmayás`}
         value={health}
         max={MAX_HEALTH}
         low={LOW_HEALTH}

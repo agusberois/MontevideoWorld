@@ -7,6 +7,7 @@ import { mutes } from "../../mutes";
 import { CommandHost, runCommand } from "../../commands";
 import { playerDirectory } from "../../directory";
 import { issueTravelTicket, playerStore } from "../../playerStore";
+import { chatBarra } from "./barras";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, isWalking } from "../session";
 import { leaveRestricted } from "./doors";
@@ -26,9 +27,9 @@ export function socialRoutes(room: CityRoom) {
       if (now - session.lastChatAt < CHAT_COOLDOWN_MS) return;
       const text = sanitizeChat(message.text);
       if (!text) return;
-      // Lo que otros leen (chat y `/mensaje`): silenciado no sale, y el mismo texto repetido enseguida
+      // Lo que otros leen (chat, `/mensaje` y `/barra`): silenciado no sale, y el mismo texto repetido enseguida
       // tampoco (el cooldown deja 2,5 por segundo: sin esto se podía inundar el chat con lo mismo).
-      const spoken = !text.startsWith("/") || /^\/mensaje(\s|$)/i.test(text);
+      const spoken = !text.startsWith("/") || /^\/(mensaje|barra)(\s|$)/i.test(text);
       if (spoken) {
         if (isMuted(room, session, now)) return;
         const same = text.toLocaleLowerCase("es") === session.lastChatText;
@@ -130,6 +131,10 @@ export function createCommandHost(room: CityRoom): CommandHost {
       return found;
     },
     findOnline: (name) => playerDirectory.find(name),
+    chatBarra: (client, text) => {
+      const session = sessionOf(client);
+      return session ? chatBarra(room, session, text) : null;
+    },
     sendPrivate: (client, player, to, text) => {
       const message: ChatBroadcastMessage = {
         id: room.nextMessageId(),

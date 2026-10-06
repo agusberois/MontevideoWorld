@@ -20,6 +20,7 @@ export * from "./tools";
 export * from "./trade";
 export * from "./vending";
 export * from "./busking";
+export * from "./barras";
 export * from "./jail";
 export * from "./pets";
 export * from "./needsBalance";

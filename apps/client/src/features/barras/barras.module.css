@@ -1,0 +1,295 @@
+/* Barras: el panel "Mi barra" (tecla B), el formulario del Registro de Barras y las invitaciones. */
+
+.barra-panel {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.shop-money {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.barra-result {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.barra-result.ok {
+  background: rgba(46, 158, 91, 0.16);
+  color: #9ef0c9;
+}
+
+.barra-result.error {
+  background: rgba(255, 107, 107, 0.14);
+  color: var(--danger);
+}
+
+.barra-empty p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+/* La bandera de la barra: los dos colores en diagonal, con la sigla y el nombre encima. */
+.barra-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+}
+
+.barra-tag {
+  font: 800 1.1rem ui-monospace, Menlo, monospace;
+}
+
+.barra-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.barra-meta {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.barra-members {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  margin: 0 0 12px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.barra-members li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.barra-members li.online {
+  color: var(--text);
+}
+
+.barra-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--panel-border);
+}
+
+.barra-members li.online .barra-dot {
+  background: #2e9e5b;
+}
+
+.barra-member-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-role {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 209, 102, 0.14);
+  color: var(--system);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.barra-where {
+  font-size: 0.8rem;
+}
+
+.barra-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.barra-leave {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.barra-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.barra-confirm span {
+  flex: 1 1 100%;
+}
+
+.barra-confirm button {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.barra-confirm button.danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #0b0d14;
+}
+
+/* Formulario del Registro de Barras. */
+.barra-form {
+  display: grid;
+  gap: 12px;
+}
+
+.barra-intro {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.barra-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.barra-form input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.barra-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.barra-colors legend {
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.barra-colors button {
+  width: 30px;
+  height: 30px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.barra-colors button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.barra-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  font-weight: 700;
+}
+
+.barra-preview-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  color: #ffffff;
+  font: 800 0.75rem ui-monospace, Menlo, monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Invitaciones (como las de los gestos de a dos). */
+.barra-invites {
+  position: fixed;
+  top: 140px;
+  left: 50%;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+
+.barra-invite {
+  padding: 10px 12px;
+  border: 1px solid rgba(76, 201, 240, 0.55);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.barra-invite p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.barra-invite-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.barra-invite-actions button {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.barra-invite-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #0b0d14;
+}

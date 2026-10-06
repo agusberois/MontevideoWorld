@@ -81,6 +81,22 @@ exports.MessageType = {
     BuskResult: "busk:result",
     /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
     BuskCrowd: "busk:crowd",
+    /** Cliente → Servidor: fundar una barra (al lado del Registro de Barras, pagando `BARRA_FOUND_COST`). */
+    BarraCreate: "barra:create",
+    /** Cliente → Servidor: el fundador invita a un jugador de la sala a su barra. */
+    BarraInvite: "barra:invite",
+    /** Servidor → Cliente: te invitaron a una barra. */
+    BarraInvited: "barra:invited",
+    /** Cliente → Servidor: aceptar o rechazar una invitación. */
+    BarraRespond: "barra:respond",
+    /** Cliente → Servidor: irse de la barra (el fundador, si se va, la disuelve). */
+    BarraLeave: "barra:leave",
+    /** Cliente → Servidor: pedir los datos de tu barra (el panel "Mi barra"). */
+    BarraRequest: "barra:get",
+    /** Servidor → Cliente: tu barra (null si no tenés). */
+    Barra: "barra",
+    /** Servidor → Cliente: cómo salió fundar, invitar, entrar o irse. */
+    BarraResult: "barra:result",
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     Notice: "notice",
     /** Cliente (admin) → Servidor: mover el reloj del juego. */

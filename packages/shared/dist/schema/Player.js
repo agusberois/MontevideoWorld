@@ -46,6 +46,11 @@ class Player extends schema_1.Schema {
         this.instrument = "";
         /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
         this.tips = 0;
+        /** Barra a la que pertenece: sigla (2–4 letras; "" = ninguna) y su color principal ("#rrggbb"). La ven todos. */
+        this.barraTag = "";
+        this.barraColor = "";
+        /** Nombre de la barra ("" = ninguna), para los detalles del jugador. */
+        this.barraName = "";
         /** Mascota que lo sigue (id de `PETS`; "" = ninguna) y su nombre: todos la ven. */
         this.pet = "";
         this.petName = "";
@@ -139,6 +144,15 @@ __decorate([
 __decorate([
     (0, schema_1.type)("uint16")
 ], Player.prototype, "tips", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "barraTag", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "barraColor", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "barraName", void 0);
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "pet", void 0);

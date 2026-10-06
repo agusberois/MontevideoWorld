@@ -98,7 +98,7 @@ export function TutorialCard({ room, cityId }: TutorialCardProps) {
           {tutorial?.replay
             ? "Repasaste la guía de bienvenida."
             : `Te ganaste ${formatMoney(TUTORIAL_TOTAL_REWARD)}${gift ? ` y la ${gift.name.toLowerCase()} (está en tu mochila)` : ""}.`}{" "}
-          Seguí pescando, vendiendo en el Centenario y recorriendo los barrios.
+          Seguí pescando, tocando en 18 de Julio y recorriendo los barrios.
         </p>
         <div className={cx("tutorial-actions")}>
           <button type="button" className={cx("primary")} onClick={() => setFinished(null)}>

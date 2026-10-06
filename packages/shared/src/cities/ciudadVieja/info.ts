@@ -141,6 +141,13 @@ export const CIUDAD_VIEJA_INFO = {
       area: rect(1, 10, 1),
     },
     {
+      id: "registro-barras",
+      name: "Registro de Barras",
+      description: "Casona sobre la peatonal Sarandí donde se anotan las barras del barrio: nombre, sigla y colores.",
+      kind: "barraRegistry",
+      area: rect(77, 45, 3),
+    },
+    {
       id: "mercado-puerto",
       name: "Mercado del Puerto",
       description: "Estructura de hierro de 1868 frente al puerto, famosa por sus parrillas.",
@@ -149,6 +156,17 @@ export const CIUDAD_VIEJA_INFO = {
     },
   ],
   shops: [
+    {
+      // Funciona dentro de la casona del Registro (ya dibujada): fundar una barra.
+      id: "registro-barras",
+      name: "Registro de Barras",
+      description: "Fundá tu barra: elegí un nombre, una sigla y dos colores.",
+      area: rect(77, 45, 3),
+      building: "none",
+      stock: [],
+      buys: [],
+      registry: true,
+    },
     {
       id: "calzados-sarandi",
       name: "Calzados Sarandí",

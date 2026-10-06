@@ -1,4 +1,5 @@
 import { Client, MatchMakeError, Room, ServerError } from "colyseus.js";
+import type { BarraCreateMessage, BarraInviteMessage, BarraRespondMessage } from "@montevideo-world/shared";
 import {
   JAILED_JOIN_CODE,
   JAIL_CITY_ID,
@@ -174,6 +175,9 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "busking:started": MessageType.BuskStarted,
   "busking:result": MessageType.BuskResult,
   "busking:crowd": MessageType.BuskCrowd,
+  "barra:update": MessageType.Barra,
+  "barra:invited": MessageType.BarraInvited,
+  "barra:result": MessageType.BarraResult,
   "gesture:invite": MessageType.GesturePairInvite,
   "casino:result": MessageType.CasinoResult,
   "admin:nearby": MessageType.AdminNearby,
@@ -312,6 +316,33 @@ export function sendVending(room: CityRoom, action: "start" | "stop") {
 /** Tocar un tema en la calle (en el Centro, con el mejor instrumento de la mochila) o dejar de tocar. */
 export function sendBusking(room: CityRoom, action: "start" | "stop") {
   room.send(action === "start" ? MessageType.BuskStart : MessageType.BuskStop);
+}
+
+/** Fundar una barra (al lado del Registro de Barras). */
+export function sendBarraCreate(room: CityRoom, message: BarraCreateMessage) {
+  room.send(MessageType.BarraCreate, message);
+}
+
+/** Invitar a mi barra al jugador `targetId` (sólo el fundador). */
+export function sendBarraInvite(room: CityRoom, targetId: string) {
+  const message: BarraInviteMessage = { targetId };
+  room.send(MessageType.BarraInvite, message);
+}
+
+/** Aceptar o rechazar una invitación a una barra. */
+export function sendBarraRespond(room: CityRoom, barraId: string, accept: boolean) {
+  const message: BarraRespondMessage = { barraId, accept };
+  room.send(MessageType.BarraRespond, message);
+}
+
+/** Irse de la barra (el fundador, si se va, la disuelve). */
+export function sendBarraLeave(room: CityRoom) {
+  room.send(MessageType.BarraLeave);
+}
+
+/** Pedir los datos de mi barra (llegan con `barra:update`). */
+export function requestBarra(room: CityRoom) {
+  room.send(MessageType.BarraRequest);
 }
 
 /** Comerse un pescado de la mochila (recupera energía). */

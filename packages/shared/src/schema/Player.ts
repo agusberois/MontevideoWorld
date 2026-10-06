@@ -36,6 +36,11 @@ export class Player extends Schema {
   @type("string") instrument = "";
   /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
   @type("uint16") tips = 0;
+  /** Barra a la que pertenece: sigla (2–4 letras; "" = ninguna) y su color principal ("#rrggbb"). La ven todos. */
+  @type("string") barraTag = "";
+  @type("string") barraColor = "";
+  /** Nombre de la barra ("" = ninguna), para los detalles del jugador. */
+  @type("string") barraName = "";
   /** Mascota que lo sigue (id de `PETS`; "" = ninguna) y su nombre: todos la ven. */
   @type("string") pet = "";
   @type("string") petName = "";

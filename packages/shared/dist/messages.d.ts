@@ -7,6 +7,7 @@ import type { TradeOffer } from "./trade";
 import type { TutorialState } from "./tutorial";
 import type { CustomerState, MatchMode } from "./vending";
 import type { CrowdState } from "./busking";
+import type { BarraColorId, BarraView } from "./barras";
 import type { WeatherMode } from "./weather";
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 export declare const MessageType: {
@@ -87,6 +88,22 @@ export declare const MessageType: {
     readonly BuskResult: "busk:result";
     /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
     readonly BuskCrowd: "busk:crowd";
+    /** Cliente → Servidor: fundar una barra (al lado del Registro de Barras, pagando `BARRA_FOUND_COST`). */
+    readonly BarraCreate: "barra:create";
+    /** Cliente → Servidor: el fundador invita a un jugador de la sala a su barra. */
+    readonly BarraInvite: "barra:invite";
+    /** Servidor → Cliente: te invitaron a una barra. */
+    readonly BarraInvited: "barra:invited";
+    /** Cliente → Servidor: aceptar o rechazar una invitación. */
+    readonly BarraRespond: "barra:respond";
+    /** Cliente → Servidor: irse de la barra (el fundador, si se va, la disuelve). */
+    readonly BarraLeave: "barra:leave";
+    /** Cliente → Servidor: pedir los datos de tu barra (el panel "Mi barra"). */
+    readonly BarraRequest: "barra:get";
+    /** Servidor → Cliente: tu barra (null si no tenés). */
+    readonly Barra: "barra";
+    /** Servidor → Cliente: cómo salió fundar, invitar, entrar o irse. */
+    readonly BarraResult: "barra:result";
     /** Servidor → Cliente: aviso para el jugador (p. ej. "estás agotado"). */
     readonly Notice: "notice";
     /** Cliente (admin) → Servidor: mover el reloj del juego. */
@@ -215,7 +232,7 @@ export interface ChatInputMessage {
  * "player": mensaje al barrio (con globo); "system": aviso del juego; "private": mensaje privado
  * (`/mensaje`), sólo lo ven quien lo manda y quien lo recibe, sin globo.
  */
-export type ChatKind = "player" | "system" | "private";
+export type ChatKind = "player" | "system" | "private" | "barra";
 /** Servidor → Clientes: mensaje de chat difundido a la sala. */
 export interface ChatBroadcastMessage {
     id: string;
@@ -229,6 +246,9 @@ export interface ChatBroadcastMessage {
      * que recibiste no viene, y `name` es quién te lo mandó.
      */
     to?: string;
+    /** Sólo en un "barra": la sigla y el color de la barra (para mostrar "[LCDP] Juan: …"). */
+    barraTag?: string;
+    barraColor?: string;
 }
 /** Servidor → Cliente: la mochila del jugador (privada, no viaja en el Schema). */
 /** Cliente → Servidor: adoptar `petId` en la tienda `shopId` y llamarla `name`. */
@@ -424,6 +444,39 @@ export interface BuskResultMessage {
 export interface BuskCrowdMessage {
     state: CrowdState;
 }
+/** Cliente → Servidor: fundar una barra con este nombre, sigla y colores (ids de `BARRA_COLORS`). */
+export interface BarraCreateMessage {
+    name: string;
+    tag: string;
+    colors: [BarraColorId, BarraColorId];
+}
+/** Cliente → Servidor: invitar a la barra al jugador `targetId` (sessionId, en la misma sala). */
+export interface BarraInviteMessage {
+    targetId: string;
+}
+/** Servidor → Cliente: `fromName` te invita a su barra; vence en `expiresInMs`. */
+export interface BarraInvitedMessage {
+    barraId: string;
+    name: string;
+    tag: string;
+    color: string;
+    fromName: string;
+    expiresInMs: number;
+}
+/** Cliente → Servidor: aceptar (o no) la invitación a la barra `barraId`. */
+export interface BarraRespondMessage {
+    barraId: string;
+    accept: boolean;
+}
+/** Servidor → Cliente: tu barra (o null). */
+export interface BarraMessage {
+    barra: BarraView | null;
+}
+/** Servidor → Cliente: resultado de una acción de barra. */
+export interface BarraResultMessage {
+    ok: boolean;
+    text: string;
+}
 /** Servidor → Cliente: aviso breve que sólo ve ese jugador. */
 export interface NoticeMessage {
     text: string;
@@ -605,6 +658,11 @@ export interface ClientToServerMessages {
     [MessageType.VendStart]: undefined;
     [MessageType.VendStop]: undefined;
     [MessageType.BuskStart]: undefined;
+    [MessageType.BarraCreate]: BarraCreateMessage;
+    [MessageType.BarraInvite]: BarraInviteMessage;
+    [MessageType.BarraRespond]: BarraRespondMessage;
+    [MessageType.BarraLeave]: undefined;
+    [MessageType.BarraRequest]: undefined;
     [MessageType.BuskStop]: undefined;
     [MessageType.AdminSetTime]: AdminSetTimeMessage;
     [MessageType.AdminNearbyRequest]: undefined;
@@ -654,6 +712,9 @@ export interface ServerToClientMessages {
     [MessageType.BuskStarted]: BuskStartedMessage;
     [MessageType.BuskResult]: BuskResultMessage;
     [MessageType.BuskCrowd]: BuskCrowdMessage;
+    [MessageType.BarraInvited]: BarraInvitedMessage;
+    [MessageType.Barra]: BarraMessage;
+    [MessageType.BarraResult]: BarraResultMessage;
     [MessageType.CasinoResult]: CasinoResultMessage;
     [MessageType.GesturePairInvite]: GesturePairInviteMessage;
     [MessageType.Notice]: NoticeMessage;

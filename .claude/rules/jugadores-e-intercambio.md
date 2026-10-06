@@ -17,7 +17,7 @@ paths:
 Jugadores: clic sobre un avatar (`CityScene.playerAt` con `Avatar.containsWorldPoint`, el de más
 adelante; no se camina; los picudos van antes y los gestos de cámara no son clic). Sobre **otro** →
 la escena emite `player:click` → `PlayerMenu` (Saludar, gestos de a dos —chocar los cinco, abrazo,
-pasar el mate, ver `gestos.md`—, Intercambiar, Burlarse si está preso,
+pasar el mate, ver `gestos.md`—, Invitar a mi barra si sos fundador y no tiene barra —ver `barras.md`—, Intercambiar, Burlarse si está preso,
 Detalles del jugador, Bloquear). Sobre **el propio** → `player:details` → directo a tus detalles.
 
 **Detalles del jugador** = panel registrado `playerDetails` (`PlayerDetails.tsx`; `openPlayerDetails(id)`
@@ -28,8 +28,8 @@ donador, mascota, condena, qué hace con qué caña/carrito, energía); la escen
 `summarize` y vuelve a mandar `players:list` sólo si algo de eso cambió (caminar no). Lo privado
 (plata, hambre, salud) se muestra únicamente en tus detalles, desde el store; nunca de otro. El
 avatar se dibuja en SVG con `AvatarPreview` (el mismo de `JoinScreen`, con `outfit`): las mismas
-formas que el juego (`lib/avatar/head.ts` y `clothing.ts`), sin dibujo propio. La fila **Barra** dice "Sin barra" hasta que existan las barras
-(campo `barra?` de `PlayerDetailsData`, ver `docs/pending/funcionalidades-primera-version.md` §2.2).
+formas que el juego (`lib/avatar/head.ts` y `clothing.ts`), sin dibujo propio. La fila **Barra** muestra `[SIGLA] Nombre` en su color o "Sin barra"
+(`PlayerSummary.barra`, del Schema; ver `barras.md`).
 De otro jugador tiene los botones Saludar, Intercambiar y Bloquear / Desbloquear.
 
  **Saludar** = `greet { targetId }`: el server lo publica como

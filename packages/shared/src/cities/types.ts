@@ -97,6 +97,7 @@ export type LandmarkKind =
   | "slotMachine"
   | "rouletteTable"
   | "blackjackTable"
+  | "barraRegistry"
   // Centro
   | "entrevero"
   | "peaceColumn"
@@ -198,6 +199,8 @@ export interface Shop {
   pets?: readonly string[];
   /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
   hospital?: boolean;
+  /** Registro de Barras: la "tienda" abre el panel para fundar una barra (`barra:create`). */
+  registry?: boolean;
   /** Juego del casino: la "tienda" es la máquina o la mesa y abre su panel (`casino:*`). */
   casino?: import("../casino").CasinoGame;
   /**

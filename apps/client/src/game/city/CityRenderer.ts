@@ -110,8 +110,8 @@ export class CityRenderer {
         this.placePiece(shop.area, spec);
         signZ = spec.maxZ;
       }
-      // Las máquinas y mesas del casino ya tienen el cartel de su dibujo (landmark): sin "Tienda".
-      if (shop.casino) continue;
+      // Las máquinas y mesas del casino y el Registro de Barras ya tienen el cartel de su edificio: sin "Tienda".
+      if (shop.casino || shop.registry) continue;
       this.addSign(`Tienda · ${shop.name}`, shop.area, signZ, "#9ef0c9", "rgba(20, 60, 48, 0.88)");
     }
     for (const stop of this.map.city.busStops) {

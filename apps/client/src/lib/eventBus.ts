@@ -12,6 +12,9 @@ import type {
   BuskResultMessage,
   BuskStartedMessage,
   BuskCrowdMessage,
+  BarraInvitedMessage,
+  BarraMessage,
+  BarraResultMessage,
   VendStartedMessage,
   VendCustomerMessage,
   GesturePairInviteMessage,
@@ -75,6 +78,12 @@ export interface GameEvents {
   "busking:started": BuskStartedMessage;
   /** Red → React: cómo te fue con el tema. */
   "busking:result": BuskResultMessage;
+  /** Red → React: tu barra (o null), para el panel "Mi barra" y el menú de los jugadores. */
+  "barra:update": BarraMessage;
+  /** Red → React: te invitaron a una barra. */
+  "barra:invited": BarraInvitedMessage;
+  /** Red → React: cómo salió fundar, invitar, entrar o irse. */
+  "barra:result": BarraResultMessage;
   /** Sólo al músico: la gente de mentira que se arrima a escuchar, deja plata o se va. */
   "busking:crowd": BuskCrowdMessage;
   /** Te invitan a un gesto de a dos (chocar los cinco, abrazo, pasar el mate). */
@@ -169,6 +178,8 @@ export interface PlayerSummary {
   isDonor: boolean;
   /** Entró con el nombre de admin (★ en el nombre). */
   isAdmin: boolean;
+  /** Su barra (sigla, color y nombre), o null. */
+  barra: { tag: string; color: string; name: string } | null;
   /** Aspecto elegido al entrar, para dibujarlo en sus detalles. */
   look: Pick<Appearance, "gender" | "skin" | "hairColor" | "hairStyle" | "eyeColor" | "facialHair" | "glasses">;
   /** Prendas puestas (id de `ITEMS` o "" por lugar). */

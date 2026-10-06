@@ -25,6 +25,11 @@ export declare const COMMANDS: readonly [{
     readonly description: "Lista los comandos que podés usar.";
     readonly role: "user";
 }, {
+    readonly name: "barra";
+    readonly usage: "/barra <texto>";
+    readonly description: "Mensaje a todos los de tu barra que estén conectados, en cualquier barrio.";
+    readonly role: "user";
+}, {
     readonly name: "mensaje";
     readonly usage: "/mensaje <jugador> <texto>";
     readonly description: "Mensaje privado a un jugador conectado, esté en el barrio que esté. Sólo lo ve él.";

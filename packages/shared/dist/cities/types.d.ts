@@ -50,7 +50,7 @@ export declare const TileChar: {
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable" | "entrevero" | "peaceColumn" | "departmentStore" | "artDeco" | "cinema" | "cityHall" | "statue" | "modernTower" | "decoTower" | "italianPalace" | "frenchPalace" | "victoryStatue";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable" | "barraRegistry" | "entrevero" | "peaceColumn" | "departmentStore" | "artDeco" | "cinema" | "cityHall" | "statue" | "modernTower" | "decoTower" | "italianPalace" | "frenchPalace" | "victoryStatue";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -113,6 +113,8 @@ export interface Shop {
     pets?: readonly string[];
     /** Guardia de un sanatorio: la tienda abre el panel para curarse pagando (`hospital:heal`). */
     hospital?: boolean;
+    /** Registro de Barras: la "tienda" abre el panel para fundar una barra (`barra:create`). */
+    registry?: boolean;
     /** Juego del casino: la "tienda" es la máquina o la mesa y abre su panel (`casino:*`). */
     casino?: import("../casino").CasinoGame;
     /**

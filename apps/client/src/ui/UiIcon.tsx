@@ -9,7 +9,7 @@ const cx = moduleClasses(styles);
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "flag" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar";
 
 const PATHS: Record<UiIconName, ReactNode> = {
   user: (
@@ -63,6 +63,12 @@ const PATHS: Record<UiIconName, ReactNode> = {
       <path d="M18 4c1.5 3 2 8 1 12" />
       <circle cx={19} cy={18} r={2} />
       <path d="M6 15.5l2.5 2.5" />
+    </>
+  ),
+  flag: (
+    <>
+      <path d="M5 21V4" />
+      <path d="M5 4h11l-2 4 2 4H5" />
     </>
   ),
   music: (

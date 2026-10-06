@@ -1,4 +1,4 @@
-import { InventoryMessage, ItemDefinition, OutfitIds, edibleLabel, edibleValue } from "@montevideo-world/shared";
+import { InventoryMessage, ItemDefinition, OutfitIds, edibleLabel, edibleValue, isVendingOpen } from "@montevideo-world/shared";
 import { eventBus } from "../../lib/eventBus";
 import { openPanel } from "../../lib/gameStore";
 import { CityRoom, sendBoxOpen, sendBusking, sendEquip, sendFoodEat, sendFishing, sendVending } from "../../lib/network";
@@ -59,6 +59,8 @@ export function itemAction(item: ItemDefinition, context: ItemActionContext): It
       if (!inBag) return null;
       if (vending.vending) return { label: "dejar de vender", run: () => sendVending(room, "stop") };
       if (vending.canVend) return { label: "vender", run: () => sendVending(room, "start") };
+      // Con Tres Cruces oculto no hay dónde vender.
+      if (!isVendingOpen()) return { label: "vender (cerrado por ahora)", run: () => eventBus.emit("notice", { text: "La venta con carrito no está abierta por ahora." }) };
       return {
         label: "vender (en la explanada del Centenario)",
         run: () => eventBus.emit("notice", { text: "Para vender parate en la Explanada del Centenario, en Tres Cruces." }),

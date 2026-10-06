@@ -13,6 +13,16 @@ export declare const JAIL_CITY_ID: CityId;
 export declare const TERMAS_CITY_ID: CityId;
 /** ¿Se puede viajar en ómnibus a este barrio? (No a los de acceso restringido, que tienen puerta, ni a los ocultos.) */
 export declare function isPublicCity(city: CityInfo): boolean;
+/** ¿El barrio existe y no está oculto (`CityInfo.hidden`)? */
+export declare function isCityOpen(id: string): boolean;
+/**
+ * ¿Se puede vender con carrito? Sólo si hay abierta alguna tienda que venda carritos (hoy, el Kiosco
+ * del Parque de Tres Cruces). Con Tres Cruces oculto no: se esconde todo lo de la venta (atajo, panel
+ * del admin, textos).
+ */
+export declare function isVendingOpen(): boolean;
+/** ¿Está abierta la guardia (el Sanatorio Americano, en Tres Cruces)? Si no, no se la nombra ni hay ambulancia. */
+export declare function isHospitalOpen(): boolean;
 export declare function isCityId(id: string): id is CityId;
 export declare function getCityInfo(id: string): CityInfo | undefined;
 /** Dónde se vende `itemId` (p. ej. para decir dónde comprar boletos): tienda y barrio. */

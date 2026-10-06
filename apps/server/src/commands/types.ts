@@ -34,6 +34,8 @@ export interface CommandHost {
   setDonor(client: Client, donor: boolean): boolean;
   /** Jugadores conectados en cualquier barrio con ese nombre (sin distinguir mayúsculas). */
   findOnline(name: string): OnlinePlayer[];
+  /** `/barra`: el mensaje a los de su barra conectados. Devuelve por qué no se pudo (null = salió). */
+  chatBarra(client: Client, text: string): string | null;
   /** Mensaje privado de `player` a `to` (esté en el barrio que esté); a quien lo manda le vuelve una copia. */
   sendPrivate(client: Client, player: Player, to: OnlinePlayer, text: string): void;
   /**

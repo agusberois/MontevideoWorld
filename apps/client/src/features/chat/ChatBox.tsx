@@ -186,6 +186,15 @@ export function ChatBox({ room }: ChatBoxProps) {
               </button>
               {message.text}
             </li>
+          ) : message.kind === "barra" ? (
+            // De la barra (`/barra` o un aviso de la barra): la sigla en su color, de cualquier barrio.
+            <li key={message.id} className={cx("chat-barra")}>
+              <span className={cx("chat-barra-tag")} style={{ background: message.barraColor }}>
+                {message.barraTag}
+              </span>
+              {message.name && <span className={cx("chat-name")}>{message.name}:</span>}
+              {message.text}
+            </li>
           ) : (
             <li key={message.id}>
               <span className={cx("chat-name")}>{message.name}:</span>
