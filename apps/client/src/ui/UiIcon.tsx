@@ -9,7 +9,7 @@ const cx = moduleClasses(styles);
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "flag" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "flag" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar" | "gear";
 
 const PATHS: Record<UiIconName, ReactNode> = {
   user: (
@@ -165,6 +165,12 @@ const PATHS: Record<UiIconName, ReactNode> = {
       <path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11" />
       <path d="M11 10.5v-6a1.5 1.5 0 0 1 3 0V11" />
       <path d="M14 10.5V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-.5a6.5 6.5 0 0 1-5-2.4L2.8 16a1.5 1.5 0 0 1 2.3-1.9L8 16" />
+    </>
+  ),
+  gear: (
+    <>
+      <circle cx={12} cy={12} r={3} />
+      <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
     </>
   ),
   exit: (

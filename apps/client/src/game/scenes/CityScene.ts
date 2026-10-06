@@ -43,12 +43,18 @@ import { AdminCoords } from "../AdminCoords";
 import { LocalMover, WASD_KEYS } from "../movement";
 import { CityRenderer, FLOOR_DEPTH, LOGO_TEXTURE } from "../city/CityRenderer";
 import { DayNight } from "../city/DayNight";
+import { SlotLights } from "../city/SlotLights";
+import { JacuzziCounters } from "../city/JacuzziCounters";
+import { PerfOverlay } from "../PerfOverlay";
+import { QualityWatch } from "../QualityWatch";
+import { loadQuality } from "@/lib/quality";
 import { WeatherFx } from "../city/WeatherFx";
 import { TutorialPointer } from "../objects/TutorialPointer";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
 import { Avatar } from "../objects/Avatar";
 import { Customers } from "../objects/Customers";
 import { Audience } from "../objects/Audience";
+import { Npcs } from "../objects/Npcs";
 import { Pet } from "../objects/Pet";
 import { Weevil } from "../objects/Weevil";
 import { lookFromAppearance } from "../objects/avatarLook";
@@ -118,10 +124,23 @@ export class CityScene extends Phaser.Scene {
   private weatherFx!: WeatherFx;
   private tutorialPointer!: TutorialPointer;
   private localAvatar: Avatar | null = null;
+  /** El avatar propio vuela (`/god`): los clics van en línea recta a cualquier tile, sin predicción ni WASD. */
+  private flying = false;
   private avatars = new Map<string, Avatar>();
   private weevils = new Map<string, Weevil>();
   /** Hinchas que se acercan a los carritos del Centenario (sólo dibujo). */
   private customers!: Customers;
+  /** Personajes que no son jugadores (el barman del casino). */
+  private npcs!: Npcs;
+  /** Lamparitas titilando sobre las tragamonedas (sólo en un interior `nightclub`: el casino). */
+  private slotLights: SlotLights | null = null;
+  private jacuzziCounters: JacuzziCounters | null = null;
+  /** Medidor de rendimiento (sólo con `?perf=1`). */
+  private perf: PerfOverlay | null = null;
+  /** Calidad gráfica (Opciones; en automática, según los fps). */
+  private quality!: QualityWatch;
+  /** A quién sigue el avatar propio ("" = a nadie), para avisarle a React sólo cuando cambia. */
+  private followingId = "";
   private audience!: Audience;
   /** Mascota de cada jugador que tiene una (sessionId → mascota). */
   private pets = new Map<string, Pet>();
@@ -138,6 +157,10 @@ export class CityScene extends Phaser.Scene {
   private pendingBusStop: { stop: BusStop; x: number; y: number } | null = null;
   /** Quiénes están en el barrio, para la lista de jugadores de React (tecla Tab). */
   private roster = new Map<string, PlayerSummary>();
+  /** Firma barata de lo que muestra la lista por jugador (sin `x/y`): sólo se rearma si cambió. */
+  private rosterKeys = new Map<string, string>();
+  /** La lista cambió y falta mandársela a React (una vez por frame, no una por jugador que se movió). */
+  private rosterDirty = false;
   private hover!: Phaser.GameObjects.Graphics;
   private disposers: Array<() => void> = [];
   private disposed = false;
@@ -200,8 +223,23 @@ export class CityScene extends Phaser.Scene {
   create() {
     this.city = new CityRenderer(this, this.map);
     this.city.build();
+    this.npcs = new Npcs(this, this.map.city.npcs ?? []);
     this.dayNight = new DayNight(this, this.city.nightLights());
+    // Interior de boliche (el casino): siempre de noche con un velo violeta y las máquinas titilando.
+    if (this.map.city.interior?.nightclub) {
+      this.dayNight.fix(0x14061f, 0.55);
+      this.slotLights = new SlotLights(this, this.map);
+    }
+    if (PerfOverlay.enabled()) this.perf = new PerfOverlay(this);
+    // Hotel del Donador: "x/20" arriba de cada jacuzzi.
+    if (this.map.city.jacuzzis?.length) this.jacuzziCounters = new JacuzziCounters(this, this.map);
     this.weatherFx = new WeatherFx(this);
+    this.quality = new QualityWatch(loadQuality(), (low) => {
+      this.dayNight.setGlows(!low);
+      this.weatherFx.setParticles(!low);
+      eventBus.emit("quality:low", low);
+    }, () => eventBus.emit("notice", { text: "🐢 El juego iba lento: bajamos la calidad gráfica (sin luces de noche ni lluvia). Cambiala en Opciones (tecla O)." }));
+    this.disposers.push(eventBus.on("quality:set", (setting) => this.quality.set(setting)));
     // Guía de bienvenida: React dice adónde apuntar (sólo si es en este barrio).
     this.tutorialPointer = new TutorialPointer(this, () => this.arrowInset());
     this.disposers.push(
@@ -281,7 +319,7 @@ export class CityScene extends Phaser.Scene {
     this.cameraControl.update(delta);
     // WASD y predicción del avatar propio. Al empezar a caminar con WASD, la cámara vuelve a él.
     const wasWasd = this.mover.isWasdActive();
-    this.mover.update(this.wasdKeys);
+    if (!this.flying) this.mover.update(this.wasdKeys);
     if (!wasWasd && this.mover.isWasdActive()) {
       this.pendingBusStop = null;
       this.cameraControl.returnToTarget();
@@ -290,18 +328,27 @@ export class CityScene extends Phaser.Scene {
     this.updateLocator();
     for (const weevil of this.weevils.values()) weevil.tick(delta);
     this.customers.tick(delta);
+    this.npcs.tick(delta);
     this.audience.tick(delta);
     for (const [sessionId, pet] of this.pets) {
       const owner = this.avatars.get(sessionId);
-      if (owner) pet.follow(owner, delta);
+      if (!owner) continue;
+      pet.follow(owner, delta);
+      pet.setHidden(!owner.visible);
     }
     this.dayNight.update(delta);
+    this.slotLights?.tick(delta);
+    this.jacuzziCounters?.update(this.room.state.players.values());
     this.weatherFx.update(delta);
     this.tutorialPointer.update(time);
     const self = this.localAvatar;
+    this.city.updateCulling(this.cameras.main.worldView);
     this.city.updateOcclusion(self ? { x: self.x, y: self.y, depth: self.depth } : null, delta);
     this.updateOffscreenArrow();
     this.updateInteraction();
+    this.flushRoster();
+    this.perf?.update(delta);
+    this.quality.update(delta);
   }
 
   /** Busca qué hay al lado (cada INTERACT_CHECK_MS) y le avisa a React si cambió, para el cartel "F · …". */
@@ -649,6 +696,24 @@ export class CityScene extends Phaser.Scene {
           $(player).listen("gestureLead", applyGesture),
         );
 
+        // Volando (`/god`, sólo admin): el propio se ve en el aire; a los demás no se los dibuja.
+        this.disposers.push(
+          $(player).listen("flying", (flying, previous) => {
+            if (!isLocal) {
+              avatar.setFlying(flying, true);
+              this.updateRoster(sessionId, player, isLocal);
+              return;
+            }
+            // Al bajar, el server lo deja en la baldosa más cercana: llega planeando y la predicción
+            // vuelve a arrancar desde ahí.
+            if (!flying && previous) avatar.pushTile(player.x, player.y);
+            this.flying = flying;
+            this.mover.cancelPrediction();
+            avatar.setFlying(flying, false);
+            this.mover.setAvatar(avatar, { x: player.x, y: player.y });
+          }),
+        );
+
         // Donador: lo marca el admin con /donador, también con el jugador ya conectado.
         this.disposers.push(
           $(player).listen("donor", (donor) => avatar.setDonor(donor)),
@@ -701,7 +766,7 @@ export class CityScene extends Phaser.Scene {
           $(player).onChange(() => {
             // Antes del tile nuevo: el paso hacia él ya tiene que durar lo que dura cansado.
             avatar.setTired(player.tired, walkSpeed(player.shoes));
-            if (isLocal) this.mover.onServerTile({ x: player.x, y: player.y });
+            if (isLocal && !player.flying && !this.flying) this.mover.onServerTile({ x: player.x, y: player.y });
             else avatar.pushTile(player.x, player.y);
             this.applySitting(avatar, player);
             this.applyFishing(avatar, player, isLocal);
@@ -709,6 +774,7 @@ export class CityScene extends Phaser.Scene {
             this.applyBusking(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
             if (isLocal) this.emitEnergy(player.energy);
+            if (isLocal) this.emitFollowing(player.following);
             if (isLocal) eventBus.emit("player:outfit", outfitIds(player));
             if (isLocal) this.checkBusStopArrival(player);
             this.updateRoster(sessionId, player, isLocal);
@@ -720,6 +786,7 @@ export class CityScene extends Phaser.Scene {
           this.emitEnergy(player.energy);
           eventBus.emit("player:self", { name: player.name, color: player.color });
           eventBus.emit("player:outfit", outfitIds(player));
+          this.emitFollowing(player.following);
         }
         this.updateRoster(sessionId, player, isLocal);
       }),
@@ -777,6 +844,7 @@ export class CityScene extends Phaser.Scene {
         this.audience.remove(sessionId);
         this.avatars.delete(sessionId);
         this.roster.delete(sessionId);
+        this.rosterKeys.delete(sessionId);
         this.emitRoster();
       }),
     );
@@ -880,14 +948,35 @@ export class CityScene extends Phaser.Scene {
 
   /** Vuelve a armar el resumen del jugador para React y lo manda sólo si cambió (caminar no cuenta). */
   private updateRoster(sessionId: string, player: Player, isLocal: boolean) {
-    const summary = summarize(sessionId, player, isLocal);
-    const previous = this.roster.get(sessionId);
-    if (previous && JSON.stringify(previous) === JSON.stringify(summary)) return;
-    this.roster.set(sessionId, summary);
+    // Un admin volando no sale en la lista de los demás.
+    if (player.flying && !isLocal) {
+      if (this.roster.delete(sessionId)) this.emitRoster();
+      return;
+    }
+    // Cada paso de cada jugador llega acá: comparar una firma corta, no armar y serializar el resumen.
+    const key = rosterKey(player, isLocal);
+    if (this.rosterKeys.get(sessionId) === key && this.roster.has(sessionId)) return;
+    this.rosterKeys.set(sessionId, key);
+    this.roster.set(sessionId, summarize(sessionId, player, isLocal));
     this.emitRoster();
   }
 
+  /** A quién sigue el avatar propio (sólo si cambió), con su nombre para el cartel. */
+  private emitFollowing(sessionId: string) {
+    if (sessionId === this.followingId) return;
+    this.followingId = sessionId;
+    const name = sessionId ? this.room.state.players.get(sessionId)?.name : undefined;
+    eventBus.emit("player:following", sessionId ? { sessionId, name: name ?? "alguien" } : null);
+  }
+
   private emitRoster() {
+    this.rosterDirty = true;
+  }
+
+  /** Manda la lista a React si cambió (desde `update`, a lo sumo una vez por frame). */
+  private flushRoster() {
+    if (!this.rosterDirty) return;
+    this.rosterDirty = false;
     eventBus.emit("players:list", [...this.roster.values()]);
   }
 
@@ -908,7 +997,7 @@ export class CityScene extends Phaser.Scene {
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     let found: { sessionId: string; depth: number } | null = null;
     for (const [sessionId, avatar] of this.avatars) {
-      if (!avatar.containsWorldPoint(world.x, world.y)) continue;
+      if (!avatar.visible || !avatar.containsWorldPoint(world.x, world.y)) continue;
       if (!found || avatar.depth > found.depth) found = { sessionId, depth: avatar.depth };
     }
     return found?.sessionId ?? null;
@@ -1035,6 +1124,15 @@ export class CityScene extends Phaser.Scene {
     // Todo lo que lo hace caminar (piso, parada, tienda, palmera, banco) con la cámara libre: la
     // cámara vuelve al avatar y lo sigue, así se ve cómo va hasta ahí.
     const tile = this.pointerTile(pointer);
+    // Volando: a cualquier tile del mapa, en línea recta (el server decide; no hay predicción).
+    if (this.flying) {
+      if (!this.map.inBounds(tile.x, tile.y)) return;
+      const message: MoveMessage = { x: tile.x, y: tile.y };
+      this.room.send(MessageType.Move, message);
+      this.cameraControl.returnToTarget();
+      this.showClickMarker(tile.x, tile.y);
+      return;
+    }
     const hit = this.map.interactionAt(tile.x, tile.y, { palmReach: PALM_CLICK_REACH });
     if (!hit) return;
     this.describe(hit).run();
@@ -1123,7 +1221,10 @@ export class CityScene extends Phaser.Scene {
     this.audience.dispose();
     this.pets.clear();
     this.roster.clear();
+    this.rosterKeys.clear();
     this.localAvatar = null;
+    // Las texturas que son sólo de este barrio (piso, guirnaldas, atlas): el juego sigue vivo entre viajes.
+    this.city?.destroy();
     // Al destruir el juego entero (salir, se cortó la conexión) sólo llega DESTROY, y para entonces
     // el plugin de input ya soltó su manager: no hay cursor que restaurar (el canvas también se va).
     if (this.input?.manager) this.input.setDefaultCursor("default");
@@ -1132,6 +1233,16 @@ export class CityScene extends Phaser.Scene {
 
 function outfitIds(player: Player): OutfitIds {
   return { hat: player.hat, top: player.top, bottom: player.bottom, shoes: player.shoes };
+}
+
+/** Todo lo que usa `summarize`, en un string (para ver rápido si cambió algo de la lista). */
+function rosterKey(player: Player, isSelf: boolean): string {
+  return [
+    player.name, player.color, isSelf, player.donor, player.admin, player.barraTag, player.barraColor, player.barraName,
+    player.gender, player.skin, player.hairColor, player.hairStyle, player.eyeColor, player.facialHair, player.glasses,
+    player.hat, player.top, player.bottom, player.shoes, player.pet, player.petName, player.jailLeft,
+    player.fishing, player.rod, player.vending, player.cart, player.busking, player.instrument, player.sitting, player.energy,
+  ].join("|");
 }
 
 /** Lo público del jugador que muestra React (lista, menú y detalles). Nada de posiciones. */

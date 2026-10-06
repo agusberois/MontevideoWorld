@@ -238,7 +238,7 @@ const casinoDoor: Door = {
   id: "casino",
   name: "Entrar al Victoria Plaza",
   area: rect(109, 20, 3),
-  to: { cityId: "casino", at: { x: 1, y: 8 } },
+  to: { cityId: "casino", at: { x: 1, y: 9 } },
 };
 
 /**

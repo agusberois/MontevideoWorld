@@ -156,7 +156,7 @@ export interface TicketItem extends ItemBase {
     category: "ticket";
 }
 /** Forma del ícono de cada comida (`ItemIcon.tsx`). */
-export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate";
+export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate" | "coffee" | "beer" | "sparkling" | "liqueur" | "whisky";
 /**
  * Comida: se compra en kioscos y en el Mercado, y se come desde la mochila o la barra rápida. Llena
  * la saciedad (`hunger`) y da algo de energía (`energy`). Ver `needs.ts` y `edibleValue`.
@@ -215,6 +215,11 @@ export declare const FISH: readonly FishItem[];
  * mucho. Ver el balance en `docs/finished/necesidades-del-personaje.md`.
  */
 export declare const FOODS: readonly FoodItem[];
+/**
+ * Tragos de la barra del casino: casi no llenan, dan sobre todo energía (ninguno rinde más que el
+ * mate por peso). No entran en `FOODS`: no los vende el Mercado ni cuentan para "la comida más barata".
+ */
+export declare const DRINKS: readonly FoodItem[];
 /**
  * Remedios de la farmacia. Curan salud en el momento y se llevan en la mochila; por punto salen
  * algo más caros que la guardia del sanatorio ($1 por punto), que hay que ir hasta Tres Cruces.

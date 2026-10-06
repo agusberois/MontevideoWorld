@@ -244,7 +244,7 @@ const casinoDoor = {
     id: "casino",
     name: "Entrar al Victoria Plaza",
     area: (0, grid_1.rect)(109, 20, 3),
-    to: { cityId: "casino", at: { x: 1, y: 8 } },
+    to: { cityId: "casino", at: { x: 1, y: 9 } },
 };
 /**
  * 18 de Julio sigue hacia el Centro: el borde este de la avenida es una salida (se cruza caminando,

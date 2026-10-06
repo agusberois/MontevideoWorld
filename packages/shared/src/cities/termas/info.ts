@@ -4,7 +4,7 @@ import type { CityInfo } from "../types";
  * Termas del Donador: el interior al que sólo entran los donadores del proyecto (y el admin), por la
  * puerta del edificio de Ciudad Vieja. Lo liviano de la sala (el mapa, `map.ts`, se descarga al
  * entrar). Inspirado en las termas del Daymán y el Arapey: baldosas, plantas, reposeras y un jacuzzi
- * termal en el medio que recupera energía y salud mucho más rápido que un banco.
+ * termal (dos, en realidad) que recarga energía y salud mucho más rápido que un banco.
  */
 
 export const WIDTH = 22;
@@ -17,7 +17,7 @@ export const TERMAS_INFO = {
   indoor: true,
   description: "El spa del hotel de los que bancan el proyecto: un jacuzzi termal para recuperar energía como en el Daymán.",
   landmarks: [
-    // Plantas de distintos tipos contra las paredes y alrededor del jacuzzi.
+    // Plantas de distintos tipos contra las paredes.
     ...(
       [
         [1, 1, "plant"],
@@ -35,10 +35,6 @@ export const TERMAS_INFO = {
         [6, 17, "flowers"],
         [11, 17, "plant"],
         [16, 17, "flowers"],
-        [6, 4, "flowers"],
-        [16, 4, "flowers"],
-        [6, 12, "pottedPalm"],
-        [16, 12, "pottedPalm"],
       ] as const
     ).map(([x, y, kind], i) => ({
       id: `planta-${i + 1}`,
@@ -50,14 +46,11 @@ export const TERMAS_INFO = {
     // Faroles dorados: de noche se prenden.
     ...[
       [3, 3],
-      [19, 3],
+      [11, 3],
+      [20, 3],
       [3, 15],
-      [19, 15],
-      [7, 4],
-      [15, 4],
-      [7, 12],
-      [15, 12],
       [11, 15],
+      [20, 15],
     ].map(([x, y], i) => ({
       id: `farol-${i + 1}`,
       name: "Farol",

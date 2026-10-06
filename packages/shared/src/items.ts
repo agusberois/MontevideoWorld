@@ -183,7 +183,7 @@ export interface TicketItem extends ItemBase {
 }
 
 /** Forma del ícono de cada comida (`ItemIcon.tsx`). */
-export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate";
+export type FoodShape = "tortaFrita" | "alfajor" | "mate" | "pancho" | "chivito" | "fishPlate" | "coffee" | "beer" | "sparkling" | "liqueur" | "whisky";
 
 /**
  * Comida: se compra en kioscos y en el Mercado, y se come desde la mochila o la barra rápida. Llena
@@ -327,6 +327,18 @@ export const FOODS: readonly FoodItem[] = food([
   { id: "chivito", name: "Chivito", shape: "chivito", color: "#e0a84a", price: 90, hunger: 70, energy: 10, health: 10 },
 ]);
 
+/**
+ * Tragos de la barra del casino: casi no llenan, dan sobre todo energía (ninguno rinde más que el
+ * mate por peso). No entran en `FOODS`: no los vende el Mercado ni cuentan para "la comida más barata".
+ */
+export const DRINKS: readonly FoodItem[] = food([
+  { id: "cafe", name: "Café", shape: "coffee", color: "#5b3a24", price: 20, hunger: 2, energy: 25, health: 0 },
+  { id: "cerveza", name: "Cerveza", shape: "beer", color: "#e9b10a", price: 30, hunger: 5, energy: 12, health: 0 },
+  { id: "grappamiel", name: "Grappamiel", shape: "liqueur", color: "#d98e1c", price: 35, hunger: 1, energy: 22, health: 0 },
+  { id: "medio-y-medio", name: "Medio y medio", shape: "sparkling", color: "#f2e3a0", price: 45, hunger: 3, energy: 28, health: 0 },
+  { id: "whisky", name: "Whisky", shape: "whisky", color: "#b5651d", price: 80, hunger: 1, energy: 45, health: 0 },
+]);
+
 const medicine = (items: CatalogEntry<MedicineItem>[]): MedicineItem[] =>
   items.map((item) => ({ ...item, category: "medicine" }));
 
@@ -407,7 +419,7 @@ export const TICKETS: readonly TicketItem[] = [
   { id: TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: TRAVEL_FARE },
 ];
 
-export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...LONDON_PARIS_FASHION, ...WALKING_SHOES, ...FISH, ...FOODS, ...MEDICINES, ...RODS, ...CARTS, ...INSTRUMENTS, ...BOXES, ...TICKETS];
+export const ITEMS: readonly ItemDefinition[] = [...CLOTHING, ...KOREAN_FASHION, ...LONDON_PARIS_FASHION, ...WALKING_SHOES, ...FISH, ...FOODS, ...DRINKS, ...MEDICINES, ...RODS, ...CARTS, ...INSTRUMENTS, ...BOXES, ...TICKETS];
 
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 export const SELL_RATIO = 0.5;

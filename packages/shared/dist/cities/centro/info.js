@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CENTRO_INFO = exports.CAGANCHA = exports.FABINI = void 0;
+exports.CENTRO_INFO = exports.CAGANCHA_NORTE = exports.CAGANCHA = exports.FABINI = void 0;
 const items_1 = require("../../items");
 const grid_1 = require("./grid");
 /**
@@ -13,8 +13,9 @@ const grid_1 = require("./grid");
  * principal de Montevideo, con sus palacios art déco y eclécticos de los años 20 a 40 (Salvo, Rinaldi,
  * Lapido, Díaz), las grandes tiendas (London París, en Río Negro, fue la primera tienda por
  * departamentos), cafés como el Facal, la Plaza Fabini (El Entrevero, de Belloni), la Plaza Cagancha
- * (la Columna de la Paz, el kilómetro 0, con el Palacio Piria y el Mercado de los Artesanos), el
- * Palacio Santos, la Sala Zitarrosa y, pasando Ejido, el Palacio Municipal con el David en la
+ * (a los dos lados de la avenida, con la Columna de la Paz, el kilómetro 0, en el medio de 18 de
+ * Julio, el Palacio Piria y el Mercado de los Artesanos), el Palacio Santos, la Sala Zitarrosa y,
+ * pasando Ejido, la Intendencia con el David en la
  * explanada. Es el centro comercial y administrativo de la ciudad: acá el juego pone **tiendas** y
  * la actividad del barrio es **tocar en la calle** (instrumentos de la Casa de Música, ver `busking.ts`).
  */
@@ -28,7 +29,9 @@ const north = (x) => (0, grid_1.rect)(x, northFront - 1, 2);
 /** Un local de 2 × 2 sobre la vereda sur. */
 const south = (x) => (0, grid_1.rect)(x, southFront, 2);
 exports.FABINI = (0, grid_1.rect)(after(grid_1.COLUMN_STREETS.julioHerreraYObes), grid_1.ROW_STREETS.colonia + grid_1.STREET_WIDTH, 6, 8);
+/** La Plaza Cagancha está a los dos lados de 18 de Julio: la mitad sur y la norte, enfrentadas. */
 exports.CAGANCHA = (0, grid_1.rect)(after(grid_1.COLUMN_STREETS.rondeau), southFront, 6, 8);
+exports.CAGANCHA_NORTE = (0, grid_1.rect)(exports.CAGANCHA.x, grid_1.ROW_STREETS.colonia + grid_1.STREET_WIDTH, 6, 8);
 exports.CENTRO_INFO = {
     id: "centro",
     name: "Centro",
@@ -57,6 +60,13 @@ exports.CENTRO_INFO = {
             area: (0, grid_1.rect)(exports.FABINI.x + 2, exports.FABINI.y + 2, 3),
         },
         {
+            id: "fuente-candados",
+            name: "Fuente de los Candados",
+            description: "En 18 de Julio y Yí, al lado del Café Facal: las parejas cuelgan un candado en la reja y, dicen, vuelven juntas a Montevideo.",
+            kind: "lockFountain",
+            area: north(after(grid_1.COLUMN_STREETS.yi) + 2),
+        },
+        {
             id: "sala-zitarrosa",
             name: "Sala Zitarrosa",
             description: "En el Edificio Rex (Alfredo Jones Brown, 1928), con su cúpula mirador iluminada: el viejo Cine Rex, hoy sala de recitales y teatro.",
@@ -73,9 +83,10 @@ exports.CENTRO_INFO = {
         {
             id: "columna-de-la-paz",
             name: "Columna de la Paz",
-            description: "En el medio de la Plaza Cagancha: la estatua de la Paz sobre la columna. De acá se miden los kilómetros del país.",
+            description: "En el medio de 18 de Julio, entre las dos mitades de la Plaza Cagancha: la estatua de la Paz sobre la columna. De acá se miden los kilómetros del país.",
             kind: "peaceColumn",
-            area: (0, grid_1.rect)(exports.CAGANCHA.x + 2, exports.CAGANCHA.y + 2, 2),
+            // Sobre la calzada de la avenida (las dos filas del medio), entre la mitad norte y la sur.
+            area: (0, grid_1.rect)(exports.CAGANCHA.x + 2, grid_1.AVENUE.y0 + 2, 2),
         },
         {
             id: "palacio-piria",
@@ -100,7 +111,7 @@ exports.CENTRO_INFO = {
         },
         {
             id: "intendencia",
-            name: "Palacio Municipal",
+            name: "Intendencia",
             description: "La Intendencia (Mauricio Cravotto, 1941): la torre de 78 m y 22 pisos con el mirador arriba y el ascensor por fuera.",
             kind: "cityHall",
             area: (0, grid_1.rect)(after(grid_1.COLUMN_STREETS.ejido) + 5, southFront + 6, 8),

@@ -226,6 +226,8 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.PalmShake]: isTileMessage,
     [messages_1.MessageType.WeevilKick]: isWeevilKickMessage,
     [messages_1.MessageType.Greet]: isTargetPlayerMessage,
+    [messages_1.MessageType.Follow]: isTargetPlayerMessage,
+    [messages_1.MessageType.Unfollow]: noPayload,
     [messages_1.MessageType.Gesture]: isGestureMessage,
     [messages_1.MessageType.DoorEnter]: isDoorEnterMessage,
     [messages_1.MessageType.JacuzziEnter]: isTileMessage,

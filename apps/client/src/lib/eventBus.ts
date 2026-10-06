@@ -1,3 +1,4 @@
+import type { QualitySetting } from "./quality";
 import type {
   AdminNearbyMessage,
   AnnouncementMessage,
@@ -108,6 +109,8 @@ export interface GameEvents {
   "player:pet": { id: string; name: string };
   /** Red → React: aviso breve del server para este jugador. */
   notice: NoticeMessage;
+  /** Phaser → React: a quién sigue el avatar propio (`Player.following`), o null. */
+  "player:following": { sessionId: string; name: string } | null;
   /** Phaser → React: el avatar propio es admin (entró con `ADMIN_NAME`). */
   "player:admin": boolean;
   /** Red → React (sólo admin): jugadores cercanos, para elegir a quién darle ítems en el maker. */
@@ -142,6 +145,10 @@ export interface GameEvents {
   "interact:prompt": { label: string } | null;
   /** React → Phaser: F (o tocar el cartel): interactuar con lo que hay al lado. */
   "interact:use": null;
+  /** React → Phaser: la calidad gráfica elegida en Opciones. */
+  "quality:set": QualitySetting;
+  /** Phaser → React: si la escena está dibujando en calidad baja (elegida o, en automática, por fps). */
+  "quality:low": boolean;
   /** Phaser → React: clic sobre otro jugador (posición en pantalla para abrir su menú). */
   "player:click": PlayerClick;
   /** Phaser → React: clic sobre el avatar propio (abre tus detalles, sin menú). */

@@ -138,6 +138,10 @@ export const MessageType = {
   WeevilKick: "weevil:kick",
   /** Cliente → Servidor: saludar a otro jugador (sale en el chat y en su globo). */
   Greet: "greet",
+  /** Cliente → Servidor: seguir a otro jugador del barrio (camina solo detrás de él). */
+  Follow: "follow",
+  /** Cliente → Servidor: dejar de seguir (se queda donde está). */
+  Unfollow: "unfollow",
   /** Cliente → Servidor: cruzar una puerta (`Door`: las Termas del Donador); si está lejos, camina hasta ella. */
   DoorEnter: "door:enter",
   /** Cliente → Servidor: meterse al jacuzzi del tile (x, y) (camina hasta el borde y ocupa un lugar libre). */
@@ -743,6 +747,8 @@ export interface ClientToServerMessages {
   [MessageType.PalmShake]: { x: number; y: number };
   [MessageType.WeevilKick]: WeevilKickMessage;
   [MessageType.Greet]: TargetPlayerMessage;
+  [MessageType.Follow]: TargetPlayerMessage;
+  [MessageType.Unfollow]: undefined;
   [MessageType.Gesture]: GestureMessage;
   [MessageType.DoorEnter]: DoorEnterMessage;
   [MessageType.JacuzziEnter]: SitMessage;

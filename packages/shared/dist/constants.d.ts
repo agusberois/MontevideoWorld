@@ -11,6 +11,8 @@ export declare const TILE_WIDTH = 64;
 export declare const TILE_HEIGHT = 32;
 /** Milisegundos que tarda un avatar en avanzar un tile. Servidor y cliente lo usan igual. */
 export declare const STEP_MS = 250;
+/** Tiles que avanza por tick un admin volando con `/god` (en línea recta, sin esquivar nada). */
+export declare const GOD_FLIGHT_TILES = 3;
 export declare const NAME_MAX_LENGTH = 16;
 export declare const CHAT_MAX_LENGTH = 120;
 export declare const CHAT_COOLDOWN_MS = 400;

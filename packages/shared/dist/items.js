@@ -8,7 +8,7 @@
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.INSTRUMENTS = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.LONDON_PARIS_FASHION = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.INSTRUMENTS = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.DRINKS = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.LONDON_PARIS_FASHION = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
 exports.walkSpeed = walkSpeed;
 exports.speedPerk = speedPerk;
 exports.isRod = isRod;
@@ -158,6 +158,17 @@ exports.FOODS = food([
     { id: "pescado-plancha", name: "Pescado a la plancha", shape: "fishPlate", color: "#d9cbb0", price: 45, hunger: 45, energy: 10, health: 10 },
     { id: "chivito", name: "Chivito", shape: "chivito", color: "#e0a84a", price: 90, hunger: 70, energy: 10, health: 10 },
 ]);
+/**
+ * Tragos de la barra del casino: casi no llenan, dan sobre todo energía (ninguno rinde más que el
+ * mate por peso). No entran en `FOODS`: no los vende el Mercado ni cuentan para "la comida más barata".
+ */
+exports.DRINKS = food([
+    { id: "cafe", name: "Café", shape: "coffee", color: "#5b3a24", price: 20, hunger: 2, energy: 25, health: 0 },
+    { id: "cerveza", name: "Cerveza", shape: "beer", color: "#e9b10a", price: 30, hunger: 5, energy: 12, health: 0 },
+    { id: "grappamiel", name: "Grappamiel", shape: "liqueur", color: "#d98e1c", price: 35, hunger: 1, energy: 22, health: 0 },
+    { id: "medio-y-medio", name: "Medio y medio", shape: "sparkling", color: "#f2e3a0", price: 45, hunger: 3, energy: 28, health: 0 },
+    { id: "whisky", name: "Whisky", shape: "whisky", color: "#b5651d", price: 80, hunger: 1, energy: 45, health: 0 },
+]);
 const medicine = (items) => items.map((item) => ({ ...item, category: "medicine" }));
 /**
  * Remedios de la farmacia. Curan salud en el momento y se llevan en la mochila; por punto salen
@@ -225,7 +236,7 @@ exports.TICKET_ID = "boleto-stm";
 exports.TICKETS = [
     { id: exports.TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: money_1.TRAVEL_FARE },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.LONDON_PARIS_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.INSTRUMENTS, ...exports.BOXES, ...exports.TICKETS];
+exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.LONDON_PARIS_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.DRINKS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.INSTRUMENTS, ...exports.BOXES, ...exports.TICKETS];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 exports.SELL_RATIO = 0.5;
 /**

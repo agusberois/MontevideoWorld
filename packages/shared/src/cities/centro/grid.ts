@@ -13,7 +13,7 @@ import type { TileRect } from "../types";
  * Intendencia (columnas).
  */
 
-export const WIDTH = 126;
+export const WIDTH = 127;
 export const HEIGHT = 68;
 
 /** Primera fila de cada calle "de oeste a este". */

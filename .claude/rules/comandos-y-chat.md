@@ -23,6 +23,8 @@ a sus jugadores en `playerDirectory` al entrar y los saca al salir, y el destina
 su sala con `deliverPrivate`. Viaja como `chat` con `kind: "private"` sólo a los dos: al que lo
 recibe con `name` = quién lo manda, y al que lo manda una copia con `to`. Sin globo; en el
 `ChatBox` se ve en violeta y clic en el nombre deja escrito "/mensaje <nombre> " para responder),
+`/seguir [jugador]` (todos: caminás solo detrás de un jugador de la misma sala; sin nombre deja de
+seguir; ver `movimiento.md`),
 `/post <mensaje>` (admin), `/box [cantidad]` (admin, 1–10 cajas sorpresa a la mochila propia) y
 `/plata <monto> [jugador]` (admin: carga plata a un jugador del barrio por nombre, sin distinguir
 mayúsculas, tildes ni letras parecidas —`nameKey`, como todas las búsquedas por nombre— y con espacios; sin nombre, a uno mismo; acepta "1.000") y `/donador <si|no> [jugador]`
@@ -36,6 +38,7 @@ con `roomId`: el cliente entra con `joinById` a esa copia y `onJoin` lo pone al 
 `/mover <jugador>` (admin: `/trace` al revés, trae a un conectado al tile del admin; en otra sala
 su sala le emite el pase con `at` = ese tile, `PrivateMailbox.summon`; no trae presos ni, a la sala
 del Hotel del Donador, a quien no es donador) y
+`/god` (admin: modo vuelo para recorrer el mapa rápido; ver "Vuelo" en `movimiento.md`) y
 `/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y
 `/guia` (todos: vuelve a abrir la guía de bienvenida, sin premios si ya la había empezado; ver
 `primeros-pasos.md`), `/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier

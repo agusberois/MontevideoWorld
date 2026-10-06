@@ -1,5 +1,7 @@
 export declare const FABINI: import("../types").TileRect;
+/** La Plaza Cagancha está a los dos lados de 18 de Julio: la mitad sur y la norte, enfrentadas. */
 export declare const CAGANCHA: import("../types").TileRect;
+export declare const CAGANCHA_NORTE: import("../types").TileRect;
 export declare const CENTRO_INFO: {
     id: "centro";
     name: string;
@@ -22,6 +24,12 @@ export declare const CENTRO_INFO: {
         name: string;
         description: string;
         kind: "entrevero";
+        area: import("../types").TileRect;
+    } | {
+        id: string;
+        name: string;
+        description: string;
+        kind: "lockFountain";
         area: import("../types").TileRect;
     } | {
         id: string;

@@ -122,6 +122,10 @@ export declare class CityMap {
     /** Carácter del layout (`TileChar`), o undefined fuera del mapa. */
     tileAt(x: number, y: number): string | undefined;
     isWalkable(x: number, y: number): boolean;
+    /** El tile caminable más cercano a `from` (él mismo si ya lo es), buscando en anillos cada vez más grandes. */
+    nearestWalkable(from: TilePoint): TilePoint | undefined;
+    /** Línea recta de `from` a `to` en tramos de hasta `step` tiles (sin `from`, con `to` al final): el vuelo de `/god`. */
+    flightPath(from: TilePoint, to: TilePoint, step: number): TilePoint[];
     /** ¿Se puede pasar de `from` a `to` en un paso? (vecino caminable; en diagonal sin cortar esquinas, como `findPath`) */
     isStep(from: TilePoint, to: TilePoint): boolean;
     /**
@@ -143,5 +147,9 @@ export declare class CityMap {
      * Devuelve la lista de tiles a recorrer (sin incluir el origen), o [] si no hay camino.
      */
     findPath(from: TilePoint, to: TilePoint): TilePoint[];
+    private bfsSeen;
+    private bfsFrom;
+    private bfsQueue;
+    private bfsRun;
 }
 //# sourceMappingURL=map.d.ts.map

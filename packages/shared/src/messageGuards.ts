@@ -273,6 +273,8 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.PalmShake]: isTileMessage,
   [MessageType.WeevilKick]: isWeevilKickMessage,
   [MessageType.Greet]: isTargetPlayerMessage,
+  [MessageType.Follow]: isTargetPlayerMessage,
+  [MessageType.Unfollow]: noPayload,
   [MessageType.Gesture]: isGestureMessage,
   [MessageType.DoorEnter]: isDoorEnterMessage,
   [MessageType.JacuzziEnter]: isTileMessage,

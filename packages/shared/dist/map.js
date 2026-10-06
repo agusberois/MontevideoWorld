@@ -24,6 +24,11 @@ function tileRect(x, y) {
 class CityMap {
     constructor(city) {
         this.city = city;
+        // Búfers de `findPath` (se crean en la primera búsqueda).
+        this.bfsSeen = new Uint32Array(0);
+        this.bfsFrom = new Int32Array(0);
+        this.bfsQueue = new Int32Array(0);
+        this.bfsRun = 0;
         this.height = city.layout.length;
         this.width = city.layout[0].length;
         this.walkable = new Uint8Array(this.width * this.height);
@@ -264,6 +269,43 @@ class CityMap {
     isWalkable(x, y) {
         return this.inBounds(x, y) && this.walkable[y * this.width + x] === 1;
     }
+    /** El tile caminable más cercano a `from` (él mismo si ya lo es), buscando en anillos cada vez más grandes. */
+    nearestWalkable(from) {
+        if (this.isWalkable(from.x, from.y))
+            return { x: from.x, y: from.y };
+        const reach = Math.max(this.width, this.height);
+        for (let radius = 1; radius <= reach; radius++) {
+            let best;
+            let bestDistance = Infinity;
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius)
+                        continue;
+                    const x = from.x + dx;
+                    const y = from.y + dy;
+                    const distance = dx * dx + dy * dy;
+                    if (distance < bestDistance && this.isWalkable(x, y)) {
+                        best = { x, y };
+                        bestDistance = distance;
+                    }
+                }
+            }
+            if (best)
+                return best;
+        }
+        return undefined;
+    }
+    /** Línea recta de `from` a `to` en tramos de hasta `step` tiles (sin `from`, con `to` al final): el vuelo de `/god`. */
+    flightPath(from, to, step) {
+        const length = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+        const hops = Math.ceil(length / step);
+        const path = [];
+        for (let i = 1; i <= hops; i++) {
+            const t = i / hops;
+            path.push({ x: Math.round(from.x + (to.x - from.x) * t), y: Math.round(from.y + (to.y - from.y) * t) });
+        }
+        return path;
+    }
     /** ¿Se puede pasar de `from` a `to` en un paso? (vecino caminable; en diagonal sin cortar esquinas, como `findPath`) */
     isStep(from, to) {
         const dx = to.x - from.x;
@@ -329,35 +371,57 @@ class CityMap {
             return [];
         if (from.x === to.x && from.y === to.y)
             return [];
-        const width = this.width;
-        const key = (x, y) => y * width + x;
-        const cameFrom = new Map();
-        const startKey = key(from.x, from.y);
-        const goalKey = key(to.x, to.y);
-        cameFrom.set(startKey, -1);
-        const queue = [from];
-        for (let head = 0; head < queue.length; head++) {
+        // Arrays tipados reusados entre búsquedas (con un número de búsqueda en vez de limpiarlos): un
+        // BFS en un barrio de 150 × 96 sin crear un objeto ni una entrada de `Map` por tile.
+        const { width, height } = this;
+        const size = width * height;
+        if (this.bfsSeen.length !== size) {
+            this.bfsSeen = new Uint32Array(size);
+            this.bfsFrom = new Int32Array(size);
+            this.bfsQueue = new Int32Array(size);
+        }
+        const seen = this.bfsSeen;
+        const cameFrom = this.bfsFrom;
+        const queue = this.bfsQueue;
+        this.bfsRun = this.bfsRun === 0xffffffff ? 1 : this.bfsRun + 1;
+        if (this.bfsRun === 1)
+            seen.fill(0);
+        const run = this.bfsRun;
+        const startKey = from.y * width + from.x;
+        const goalKey = to.y * width + to.x;
+        seen[startKey] = run;
+        cameFrom[startKey] = -1;
+        queue[0] = startKey;
+        let tail = 1;
+        let found = false;
+        for (let head = 0; head < tail; head++) {
             const current = queue[head];
-            if (key(current.x, current.y) === goalKey)
+            if (current === goalKey) {
+                found = true;
                 break;
+            }
+            const cx = current % width;
+            const cy = (current - cx) / width;
             for (const dir of DIRECTIONS) {
-                const nx = current.x + dir.x;
-                const ny = current.y + dir.y;
-                const nKey = key(nx, ny);
-                if (cameFrom.has(nKey) || !this.isWalkable(nx, ny))
+                const nx = cx + dir.x;
+                const ny = cy + dir.y;
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height)
+                    continue;
+                const nKey = ny * width + nx;
+                if (seen[nKey] === run || this.walkable[nKey] !== 1)
                     continue;
                 const isDiagonal = dir.x !== 0 && dir.y !== 0;
-                if (isDiagonal && (!this.isWalkable(current.x + dir.x, current.y) || !this.isWalkable(current.x, current.y + dir.y))) {
+                if (isDiagonal && (!this.isWalkable(cx + dir.x, cy) || !this.isWalkable(cx, cy + dir.y)))
                     continue;
-                }
-                cameFrom.set(nKey, key(current.x, current.y));
-                queue.push({ x: nx, y: ny });
+                seen[nKey] = run;
+                cameFrom[nKey] = current;
+                queue[tail++] = nKey;
             }
         }
-        if (!cameFrom.has(goalKey))
+        if (!found && seen[goalKey] !== run)
             return [];
         const path = [];
-        for (let k = goalKey; k !== startKey; k = cameFrom.get(k)) {
+        for (let k = goalKey; k !== startKey; k = cameFrom[k]) {
             path.push({ x: k % width, y: Math.floor(k / width) });
         }
         return path.reverse();

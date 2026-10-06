@@ -228,7 +228,7 @@ function ticketShape(fill: string, dark: string) {
   );
 }
 
-/** Comidas: torta frita, alfajor, mate, pancho, chivito y pescado a la plancha. */
+/** Comidas: torta frita, alfajor, mate, pancho, chivito y pescado a la plancha; y los tragos de la barra del casino. */
 function foodShape(kind: FoodShape, fill: string, dark: string, light: string): ReactNode {
   const outline = { stroke: dark, strokeWidth: 1.3, strokeLinejoin: "round" as const };
   switch (kind) {
@@ -286,6 +286,53 @@ function foodShape(kind: FoodShape, fill: string, dark: string, light: string): 
           <path d="M8 18 Q14 12 21 17 L25 14 L25 21 L21 19 Q14 24 8 18 Z" fill={fill} stroke={dark} strokeWidth={1} />
           <path d="M11 17 L13 19 M14 16 L16 18.5 M17 16.5 L19 18.5" stroke="#9a6b3a" strokeWidth={1} strokeLinecap="round" />
           <circle cx={6.5} cy={21} r={1.8} fill="#f2e86d" />
+        </>
+      );
+    case "coffee":
+      return (
+        <>
+          <ellipse cx={15} cy={26} rx={11} ry={3} fill="#f4f6f8" {...outline} />
+          <path d="M8 13 H22 L20.5 24 Q15 26 9.5 24 Z" fill="#f4f6f8" {...outline} />
+          <path d="M22 15 Q27 15.5 26 19 Q25 22 21 21.5" fill="none" stroke={dark} strokeWidth={1.4} />
+          <ellipse cx={15} cy={13} rx={7} ry={1.8} fill={fill} />
+          <path d="M12 9 Q11 7 12.5 5 M16 9 Q15 7 16.5 5" stroke="#c9ccd1" strokeWidth={1.2} fill="none" strokeLinecap="round" />
+        </>
+      );
+    case "beer":
+      return (
+        <>
+          <path d="M9 9 H21 V26 Q15 28 9 26 Z" fill={fill} {...outline} />
+          <path d="M21 12 Q26 12 26 17 Q26 22 21 22" fill="none" stroke={dark} strokeWidth={1.6} />
+          <path d="M8 9 Q10 5 13 7 Q15 4 18 6.5 Q21 5 22 9 Z" fill="#fffaf0" {...outline} />
+          <path d="M12 14 V23 M16 14 V23" stroke={light} strokeWidth={1.1} />
+        </>
+      );
+    case "sparkling":
+      return (
+        <>
+          <path d="M10 4 H22 Q22 14 16 16 Q10 14 10 4 Z" fill={fill} {...outline} />
+          <path d="M16 16 V25" stroke={dark} strokeWidth={1.4} />
+          <ellipse cx={16} cy={26} rx={6} ry={1.8} fill="#e8eef2" {...outline} />
+          <circle cx={14} cy={9} r={0.9} fill="#ffffff" />
+          <circle cx={17.5} cy={7} r={0.8} fill="#ffffff" />
+          <circle cx={16} cy={11.5} r={0.7} fill="#ffffff" />
+        </>
+      );
+    case "liqueur":
+      return (
+        <>
+          <path d="M11 9 H21 L19.5 25 Q16 26.5 12.5 25 Z" fill="#f4f6f8" fillOpacity={0.5} {...outline} />
+          <path d="M11.6 15 H20.4 L19.5 25 Q16 26.5 12.5 25 Z" fill={fill} />
+          <path d="M13 12 Q16 10.5 19 12" stroke={light} strokeWidth={1} fill="none" />
+        </>
+      );
+    case "whisky":
+      return (
+        <>
+          <path d="M7 12 H25 L23.5 26 H8.5 Z" fill="#f4f6f8" fillOpacity={0.45} {...outline} />
+          <path d="M7.6 17 H24.4 L23.5 26 H8.5 Z" fill={fill} />
+          <rect x={11} y={14} width={5} height={5} rx={1} fill="#e8f4f8" stroke={dark} strokeWidth={0.8} transform="rotate(-12 13.5 16.5)" />
+          <rect x={16.5} y={15} width={4.5} height={4.5} rx={1} fill="#e8f4f8" stroke={dark} strokeWidth={0.8} transform="rotate(10 18.75 17.25)" />
         </>
       );
   }

@@ -784,27 +784,62 @@ const JACUZZI_WATER = 0x5ec4e0;
  * celestes. Sólo hay paredes al norte y al oeste, así que se ven sus caras de adentro (sur y este).
  * Con `door`, en la cara que da a la sala va una puerta de madera (la salida).
  */
-export function innerWallSpec(door: boolean): PieceSpec {
+/** Qué parte de una puerta cae en este tile de pared: una simple, o la mitad norte / sur de una doble. */
+export type InnerDoorPart = "single" | "start" | "end";
+
+/** Colores de la pared de un interior (`InteriorStyle`, ya como números); sin estilo, cal y azulejos. */
+export interface InnerWallStyle {
+  id: string;
+  wall: number;
+  base: number;
+  trim: number;
+  neon?: number;
+}
+
+const DEFAULT_INNER_WALL: InnerWallStyle = { id: "default", wall: INNER_WALL, base: INNER_TILES, trim: shade(INNER_WALL, -12) };
+
+export function innerWallSpec(door: InnerDoorPart | null, style: InnerWallStyle = DEFAULT_INNER_WALL): PieceSpec {
   return {
-    key: `inner-wall-${door ? "door" : "plain"}`,
+    key: `inner-wall-${style.id}-${door ?? "plain"}`,
     width: 1,
     height: 1,
     maxZ: INNER_WALL_HEIGHT + 4,
     draw: (p) => {
-      p.box(-0.5, -0.5, 0.5, 0.5, 0, INNER_WALL_HEIGHT, boxColors(INNER_WALL), false);
+      p.box(-0.5, -0.5, 0.5, 0.5, 0, INNER_WALL_HEIGHT, boxColors(style.wall), false);
       for (const face of [
         { side: "south", y: 0.5 },
         { side: "east", x: 0.5 },
       ] as const) {
-        p.faceRect(face, -0.5, 0.5, 0, 14, INNER_TILES);
-        p.faceRect(face, -0.5, 0.5, 14, 15.5, shade(INNER_TILES, -25));
-        p.faceRect(face, -0.5, 0.5, INNER_WALL_HEIGHT - 2, INNER_WALL_HEIGHT, shade(INNER_WALL, -12));
+        p.faceRect(face, -0.5, 0.5, 0, 14, style.base);
+        p.faceRect(face, -0.5, 0.5, 14, 15.5, shade(style.base, -25));
+        p.faceRect(face, -0.5, 0.5, INNER_WALL_HEIGHT - 2, INNER_WALL_HEIGHT, style.trim);
+        if (style.neon !== undefined && !door) {
+          // Tubo de neón con su resplandor.
+          p.faceRect(face, -0.5, 0.5, 25, 29, style.neon, 0.25);
+          p.faceRect(face, -0.5, 0.5, 26.3, 27.7, style.neon);
+        }
       }
-      if (door) {
-        const east = { side: "east", x: 0.5 } as const;
+      const east = { side: "east", x: 0.5 } as const;
+      if (door === "single") {
         p.faceArch(east, -0.32, 0.32, 0, 30, DOOR_COLOR);
         p.faceRect(east, -0.02, 0.02, 2, 26, shade(DOOR_COLOR, -20));
         p.faceRect(east, -0.38, 0.38, 31, 34, 0xe2b53e);
+      } else if (door) {
+        // Puerta doble de dos tiles: cada tile dibuja una hoja (con vidrio y su manija junto al medio),
+        // el marco dorado de su lado y la mitad del cartel verde de "salida" arriba.
+        const [outer, seam] = door === "start" ? [-0.38, 0.5] : [0.38, -0.5];
+        const [u0, u1] = [Math.min(outer, seam), Math.max(outer, seam)];
+        p.faceRect(east, u0, u1, 0, 32, DOOR_COLOR);
+        const inset = (u: number, by: number) => (u < 0 ? u + by : u - by);
+        p.faceRect(east, Math.min(inset(outer, 0.1), inset(seam, 0.1)), Math.max(inset(outer, 0.1), inset(seam, 0.1)), 12, 28, 0xa9d6e5, 0.85);
+        p.faceRect(east, Math.min(inset(outer, 0.1), inset(seam, 0.1)), Math.max(inset(outer, 0.1), inset(seam, 0.1)), 4, 9, shade(DOOR_COLOR, -15));
+        p.faceRect(east, inset(seam, 0.09) - 0.02, inset(seam, 0.09) + 0.02, 14, 22, 0xe2b53e);
+        p.faceRect(east, seam - 0.015, seam + 0.015, 0, 32, shade(DOOR_COLOR, -30));
+        p.faceRect(east, outer < 0 ? outer - 0.06 : outer, outer < 0 ? outer : outer + 0.06, 0, 35, 0xe2b53e);
+        p.faceRect(east, u0 - (outer < 0 ? 0.06 : 0), u1 + (outer > 0 ? 0.06 : 0), 32, 35, 0xe2b53e);
+        const sign = door === "start" ? [0.15, 0.5] : [-0.5, -0.15];
+        p.faceRect(east, sign[0], sign[1], 35.5, 39.5, 0x1f8a4c);
+        p.faceRect(east, sign[0] + (door === "start" ? 0.08 : 0), sign[1] - (door === "end" ? 0.08 : 0), 37, 38, 0xffffff, 0.9);
       }
     },
   };

@@ -14,6 +14,7 @@ import {
   SIT_ENERGY_REGEN,
   JACUZZI_ENERGY_REGEN,
   JACUZZI_HEALTH_REGEN,
+  JACUZZI_HUNGER_REGEN,
   SIT_HEALTH_REGEN,
   STARVE_HEALTH_PER_SECOND,
   SavedNeeds,
@@ -30,7 +31,7 @@ export interface NeedsTick {
   resting: boolean;
   /** Sentado en un banco: descansa mucho más rápido. */
   sitting: boolean;
-  /** Metido en el jacuzzi (las Termas del Donador): recupera mucho más rápido que sentado. */
+  /** Metido en el jacuzzi (las Termas del Donador): recarga las tres barras (energía, saciedad y salud). */
   bathing?: boolean;
   /** Preso en el COMCAR: el hambre queda congelada (y no hace daño). */
   jailed: boolean;
@@ -178,17 +179,24 @@ export class Needs {
   /**
    * Lo que pasa solo cada `seconds`: baja el hambre (salvo preso; más rápido con calor) y, en 0, la salud; quieto, se
    * recupera energía (más rápido sentado y más lento cuanto más hambre, `energyRegenFactor`) y, con
-   * la panza llena, también salud.
+   * la panza llena, también salud. En el jacuzzi, en cambio, las tres barras suben.
    */
   tick(seconds: number, { resting, sitting, bathing = false, jailed, hungerFactor = 1 }: NeedsTick) {
+    if (bathing && resting) {
+      // El jacuzzi recarga todo: sin hambre que frene la energía ni que impida curarse.
+      this.hungerAmount = Math.min(MAX_HUNGER, this.hungerAmount + JACUZZI_HUNGER_REGEN * seconds);
+      this.heal(JACUZZI_HEALTH_REGEN * seconds);
+      this.recoverEnergy(JACUZZI_ENERGY_REGEN * seconds);
+      return;
+    }
     if (!jailed) {
       this.drainHunger(HUNGER_PER_SECOND * hungerFactor * seconds);
       if (this.hungerAmount <= 0) this.hurt(STARVE_HEALTH_PER_SECOND * seconds);
     }
     if (resting) {
-      const regen = (bathing ? JACUZZI_ENERGY_REGEN : sitting ? SIT_ENERGY_REGEN : IDLE_ENERGY_REGEN) * energyRegenFactor(this.hungerAmount);
+      const regen = (sitting ? SIT_ENERGY_REGEN : IDLE_ENERGY_REGEN) * energyRegenFactor(this.hungerAmount);
       this.recoverEnergy(regen * seconds);
-      if (this.hungerAmount >= HUNGRY) this.heal((bathing ? JACUZZI_HEALTH_REGEN : sitting ? SIT_HEALTH_REGEN : IDLE_HEALTH_REGEN) * seconds);
+      if (this.hungerAmount >= HUNGRY) this.heal((sitting ? SIT_HEALTH_REGEN : IDLE_HEALTH_REGEN) * seconds);
     }
   }
 

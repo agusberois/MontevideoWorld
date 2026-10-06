@@ -48,6 +48,10 @@ export interface CommandHost {
    * (otro barrio u otra copia) su sala le da un pase gratis a esta sala y aparece en ese tile.
    */
   summon(client: Client, to: OnlinePlayer): void;
+  /** `/seguir`: empieza a seguir a `to` (tiene que estar en esta sala) o, con null, deja de seguir. */
+  follow(client: Client, to: OnlinePlayer | null): void;
+  /** `/god`: empieza a volar (invisible para los demás) o baja a la baldosa caminable más cercana. */
+  setFlying(client: Client, flying: boolean): void;
   /** Llena energía, hambre y salud (y se las reenvía). */
   healFully(client: Client): void;
   /** Vuelve a abrir la guía de bienvenida (`/guia`). */

@@ -62,6 +62,14 @@ export declare class Player extends Schema {
     donor: boolean;
     /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
     admin: boolean;
+    /**
+     * Admin volando con `/god`: se mueve en línea recta por arriba de todo (`GOD_FLIGHT_TILES` por
+     * tick) y los demás clientes no lo dibujan (ni en la lista de jugadores). Al bajar cae en la
+     * baldosa caminable más cercana.
+     */
+    flying: boolean;
+    /** A quién sigue (sessionId; "" = a nadie): camina solo detrás de él (`systems/follow.ts`). */
+    following: string;
     /** Prendas puestas: id de `ITEMS` o "" si no tiene nada en ese lugar. */
     hat: string;
     top: string;

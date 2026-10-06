@@ -1,12 +1,66 @@
+/* Casino Victoria Plaza: rojo, dorado y lamparitas. */
+
 .casino {
-  width: min(440px, 100%);
+  --casino-gold: #e2b53e;
+  --casino-red: #8f1f2c;
+  width: min(460px, 100%);
+  border-color: rgba(226, 181, 62, 0.55);
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(143, 31, 44, 0.45), transparent 70%),
+    var(--panel);
+  box-shadow: 0 0 0 1px rgba(226, 181, 62, 0.2), 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* Premio mayor: el panel tiembla y titila en dorado. */
+.casino.jackpot {
+  animation: casino-shake 0.5s 3, casino-flash 0.35s 8;
+}
+
+/* Tensión: falta el último rodillo y los dos primeros coinciden. */
+.casino.tense {
+  box-shadow: 0 0 0 2px var(--casino-gold), 0 0 30px rgba(226, 181, 62, 0.45);
+}
+
+.casino-title {
+  color: #ffd98a;
+  text-shadow: 0 0 6px rgba(255, 180, 60, 0.75), 0 0 14px rgba(255, 80, 80, 0.45);
+  animation: casino-neon 4s infinite;
 }
 
 .casino-money {
   margin-left: auto;
-  margin-right: 10px;
+  margin-right: 6px;
   color: #06d6a0;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+/* Mientras gira, la plata queda quieta (ya sin la apuesta). */
+.casino-money.held {
+  color: #ffd166;
+}
+
+.casino-mute {
+  margin-right: 6px;
+}
+
+/* Marquesina: lamparitas que se persiguen. */
+.casino-marquee {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: linear-gradient(#5b111b, #3a0a12);
+  border-bottom: 1px solid rgba(226, 181, 62, 0.4);
+}
+
+.casino-marquee span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffe7a8;
+  box-shadow: 0 0 6px #ffcf5a;
+  animation: casino-bulb 0.54s steps(1) infinite;
 }
 
 .casino-bet {
@@ -21,7 +75,8 @@
 .casino-bet button,
 .roulette-bets button,
 .roulette-number button,
-.blackjack-actions button {
+.blackjack-actions button,
+.slots-buttons button {
   min-height: 34px;
   padding: 4px 10px;
   border: 1px solid var(--panel-border);
@@ -31,11 +86,50 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 0.08s;
 }
 
-.casino-bet button[aria-pressed="true"] {
-  border-color: var(--system);
-  background: rgba(255, 209, 102, 0.18);
+.casino button:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+/* Fichas: redondas, con el borde punteado de las de verdad. */
+.casino-bet .casino-chip {
+  min-width: 46px;
+  border: 3px dashed rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  font-size: 0.74rem;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.chip-1 {
+  background: #6c7280 !important;
+}
+
+.chip-5 {
+  background: #a5262f !important;
+}
+
+.chip-10 {
+  background: #1f5fa8 !important;
+}
+
+.chip-50 {
+  background: #2c8a4b !important;
+}
+
+.chip-100 {
+  background: #1b1b1f !important;
+}
+
+.chip-500 {
+  background: #6b2fa0 !important;
+}
+
+.casino-bet .casino-chip[aria-pressed="true"] {
+  border-color: var(--casino-gold);
+  box-shadow: 0 0 0 2px var(--casino-gold), 0 0 12px rgba(226, 181, 62, 0.7);
+  transform: translateY(-2px);
 }
 
 .casino-bet input,
@@ -57,8 +151,13 @@
 
 .casino-go {
   border: 0 !important;
-  background: var(--system) !important;
-  color: #0b0d14 !important;
+  background: linear-gradient(#ffd98a, var(--casino-gold)) !important;
+  color: #2a0a10 !important;
+  box-shadow: 0 3px 0 #9a6f12, 0 0 14px rgba(226, 181, 62, 0.45);
+}
+
+.casino-go:not(:disabled) {
+  animation: casino-pulse 1.6s ease-in-out infinite;
 }
 
 .casino-note {
@@ -73,6 +172,7 @@
   background: rgba(255, 255, 255, 0.06);
   font-size: 0.88rem;
   font-weight: 700;
+  animation: casino-pop 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
 .casino-result.win {
@@ -83,6 +183,89 @@
 .casino-result.lose {
   background: rgba(255, 107, 107, 0.12);
   color: #ffb0b0;
+}
+
+.casino-visit {
+  margin: 8px 16px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.casino-visit .up {
+  color: #9ef0c9;
+}
+
+.casino-visit .down {
+  color: #ffb0b0;
+}
+
+/* Festejo: por encima de todo, sin atajar clics. */
+.casino-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.casino-celebration.jackpot {
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.35), transparent 65%);
+  animation: casino-fade 4.2s forwards;
+}
+
+.casino-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 26px;
+  border: 2px solid var(--casino-gold, #e2b53e);
+  border-radius: 14px;
+  background: rgba(42, 10, 16, 0.92);
+  box-shadow: 0 0 30px rgba(226, 181, 62, 0.6);
+  animation: casino-banner 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.casino-banner strong {
+  color: #ffd98a;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 10px rgba(255, 180, 60, 0.9);
+}
+
+.casino-banner span {
+  color: #9ef0c9;
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.jackpot .casino-banner {
+  padding: 18px 34px;
+  animation: casino-banner 0.45s cubic-bezier(0.2, 1.6, 0.4, 1), casino-flash 0.35s 0.45s 8;
+}
+
+.jackpot .casino-banner strong {
+  font-size: 2rem;
+}
+
+.near .casino-banner {
+  border-color: #ff8f8f;
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.45);
+}
+
+.near .casino-banner strong {
+  color: #ffb0b0;
+  font-size: 1.15rem;
+}
+
+.casino-coin {
+  position: absolute;
+  top: -2rem;
+  animation: casino-coin linear forwards;
+  animation-fill-mode: both;
 }
 
 /* Tragamonedas */
@@ -96,36 +279,165 @@
   padding: 14px 16px 0;
 }
 
+.slots-cabinet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border: 3px solid var(--casino-gold);
+  border-radius: 18px 18px 10px 10px;
+  background: linear-gradient(#a3202f, #5b111b);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3), 0 6px 0 #3a0a12;
+}
+
+.slots-cabinet.winning {
+  animation: casino-flash 0.3s 6;
+}
+
+.slots-topper span {
+  display: block;
+  padding: 2px 14px;
+  border-radius: 999px;
+  background: #1a0a10;
+  color: #ffd98a;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 6px #ffb43c;
+  animation: casino-neon 3s infinite;
+}
+
 .slots-reels {
+  position: relative;
   display: flex;
   gap: 8px;
-  padding: 10px 14px;
-  border: 3px solid #e2b53e;
+  padding: 8px 10px;
+  border: 3px solid var(--casino-gold);
   border-radius: 12px;
   background: #1a0a10;
 }
 
+.slots-payline {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: rgba(255, 70, 70, 0.75);
+  box-shadow: 0 0 6px rgba(255, 70, 70, 0.9);
+  pointer-events: none;
+}
+
 .slots-reel {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 72px;
+  position: relative;
+  width: 66px;
+  height: 96px;
+  overflow: hidden;
   border-radius: 8px;
-  background: #fffaf0;
-  font-size: 2.2rem;
+  background: linear-gradient(#cfc7b8, #fffaf0 30%, #fffaf0 70%, #cfc7b8);
+  box-shadow: inset 0 8px 10px rgba(0, 0, 0, 0.35), inset 0 -8px 10px rgba(0, 0, 0, 0.35);
 }
 
-.slots-reel.spinning {
-  animation: reel 0.15s linear infinite;
+.slots-reel.tense {
+  box-shadow: 0 0 0 3px var(--casino-gold), 0 0 18px #ffcf5a, inset 0 8px 10px rgba(0, 0, 0, 0.35);
 }
 
-@keyframes reel {
-  from {
-    transform: translateY(-4px);
-  }
-  to {
-    transform: translateY(4px);
-  }
+.slots-reel.hit {
+  box-shadow: 0 0 0 3px #06d6a0, 0 0 18px #06d6a0;
+}
+
+.slots-reel.hit .slots-main {
+  animation: casino-hit 0.4s ease-in-out 4;
+}
+
+.slots-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 2rem;
+  line-height: 48px;
+  filter: blur(1.4px);
+  animation: reel-roll linear infinite;
+}
+
+.slots-reel.tense .slots-strip {
+  animation-duration: 0.6s !important;
+  filter: blur(0.6px);
+}
+
+.slots-window {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  animation: reel-land 0.35s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+
+.slots-main {
+  font-size: 2.3rem;
+  line-height: 48px;
+}
+
+.slots-side {
+  font-size: 1.5rem;
+  line-height: 24px;
+  opacity: 0.35;
+  overflow: hidden;
+  height: 24px;
+}
+
+/* La palanca: al tirar, baja y vuelve. */
+.slots-lever {
+  position: absolute;
+  top: 34px;
+  right: -26px;
+  width: 22px;
+  height: 80px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform-origin: 50% 100%;
+}
+
+.slots-lever::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 8px;
+  width: 6px;
+  height: 66px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #8e8e96, #e8e8ee, #8e8e96);
+}
+
+.slots-lever span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ff8a8a, #b3212f 60%, #5b111b);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.slots-lever.pulled {
+  animation: lever-pull 0.5s ease-in-out;
+}
+
+.slots-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.slots-auto.on {
+  border-color: var(--casino-gold) !important;
+  background: rgba(226, 181, 62, 0.2) !important;
+  animation: casino-flash 0.8s infinite;
 }
 
 .slots-table {
@@ -139,49 +451,138 @@
 }
 
 /* Ruleta */
+.roulette-stage {
+  position: relative;
+  width: 210px;
+  height: 210px;
+}
+
+.roulette-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 16px solid var(--casino-gold);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
+  transform: translateX(-50%);
+}
+
 .roulette-wheel {
-  display: grid;
-  place-items: center;
-  width: 120px;
-  height: 120px;
-  border: 6px solid #5a3220;
+  position: absolute;
+  inset: 0;
+  border: 8px solid #5a3220;
   border-radius: 50%;
-  background: repeating-conic-gradient(#c0392b 0 10deg, #1b1b1f 10deg 20deg);
+  box-shadow: 0 0 0 3px var(--casino-gold), 0 8px 18px rgba(0, 0, 0, 0.5);
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.12, 0.7, 0.15, 1);
 }
 
-.roulette-wheel.spinning {
-  animation: wheel 0.6s linear infinite;
+.roulette-number-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
-@keyframes wheel {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.roulette-ball {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 3px solid #e2b53e;
-  border-radius: 50%;
-  background: #5a3220;
+.roulette-number-label span {
+  margin-top: 3px;
   color: #fff;
-  font-size: 1.1rem;
+  font-size: 0.62rem;
   font-weight: 800;
 }
 
-.roulette-ball.red {
-  background: #c0392b;
+.roulette-ball-track {
+  position: absolute;
+  inset: 26px;
+  z-index: 2;
+  border-radius: 50%;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.1, 0.6, 0.2, 1);
+  pointer-events: none;
 }
 
-.roulette-ball.black {
-  background: #1b1b1f;
+.roulette-ball {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, #c9c9d1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
 }
 
-.roulette-ball.green {
-  background: #1f6b45;
+.roulette-hub {
+  position: absolute;
+  inset: 62px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--casino-gold);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #8a5a36, #5a3220);
+  color: #fff;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.roulette-hub.show {
+  animation: casino-pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.roulette-hub.red {
+  background: #b3212f;
+}
+
+.roulette-hub.black {
+  background: #16161a;
+}
+
+.roulette-hub.green {
+  background: #1d7a46;
+}
+
+.roulette-history {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.roulette-past {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.roulette-past.red {
+  background: #b3212f;
+}
+
+.roulette-past.black {
+  background: #16161a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.roulette-past.green {
+  background: #1d7a46;
+}
+
+.roulette-past.latest {
+  box-shadow: 0 0 0 2px var(--casino-gold);
+  animation: casino-pop 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
 }
 
 .roulette-bets {
@@ -199,6 +600,20 @@
   background: #1b1b1f;
 }
 
+/* La apuesta de la última jugada lleva la ficha encima. */
+.casino .chosen {
+  position: relative;
+  border-color: var(--casino-gold);
+}
+
+.casino .chosen::after {
+  content: "🪙";
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  font-size: 0.9rem;
+}
+
 .roulette-number {
   display: flex;
   align-items: center;
@@ -207,38 +622,80 @@
 }
 
 /* Blackjack */
+.blackjack-felt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px 12px;
+  border: 6px solid #5a3220;
+  border-radius: 18px 18px 90px 90px / 18px 18px 40px 40px;
+  background: radial-gradient(ellipse at 50% 30%, #2a8a58, #17573a);
+  box-shadow: inset 0 0 0 2px var(--casino-gold), 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.blackjack-motto {
+  color: rgba(255, 217, 138, 0.8);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
 .blackjack-hand {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: #1f6b45;
 }
 
 .blackjack-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.78rem;
+}
+
+.blackjack-total {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.blackjack-total.twentyone {
+  background: var(--casino-gold);
+  color: #2a0a10;
+}
+
+.blackjack-total.bust {
+  background: #b3212f;
 }
 
 .blackjack-cards {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-height: 52px;
+  min-height: 60px;
 }
 
 .playing-card {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 52px;
+  width: 42px;
+  height: 60px;
   border-radius: 6px;
   background: #fffaf0;
   color: #111;
-  font-size: 0.95rem;
+  font-size: 1.3rem;
   font-weight: 800;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.playing-card small {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 0.75rem;
 }
 
 .playing-card.red {
@@ -246,9 +703,13 @@
 }
 
 .playing-card.back {
-  background: #8f1f2c;
-  color: #e2b53e;
-  font-size: 1.6rem;
+  border: 3px solid #fffaf0;
+  background: repeating-linear-gradient(45deg, #8f1f2c 0 5px, #6d1520 5px 10px);
+}
+
+/* Cada carta entra deslizándose desde el mazo y se da vuelta. */
+.playing-card.dealt {
+  animation: card-deal 0.38s cubic-bezier(0.2, 1.1, 0.4, 1) both;
 }
 
 .blackjack-actions {
@@ -256,11 +717,170 @@
   gap: 8px;
 }
 
+@keyframes casino-bulb {
+  0% {
+    opacity: 1;
+  }
+  33% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes casino-neon {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.4;
+  }
+  95% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes casino-pulse {
+  50% {
+    box-shadow: 0 3px 0 #9a6f12, 0 0 22px rgba(255, 209, 102, 0.9);
+  }
+}
+
+@keyframes casino-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes casino-shake {
+  20% {
+    transform: translate(-4px, 2px) rotate(-0.6deg);
+  }
+  40% {
+    transform: translate(4px, -2px) rotate(0.6deg);
+  }
+  60% {
+    transform: translate(-3px, -1px);
+  }
+  80% {
+    transform: translate(3px, 1px);
+  }
+}
+
+@keyframes casino-flash {
+  50% {
+    filter: brightness(1.35) saturate(1.3);
+  }
+}
+
+@keyframes casino-fade {
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes casino-banner {
+  from {
+    transform: scale(0.3) rotate(-6deg);
+    opacity: 0;
+  }
+}
+
+@keyframes casino-coin {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+@keyframes casino-hit {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+@keyframes reel-roll {
+  from {
+    transform: translateY(-50%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes reel-land {
+  0% {
+    transform: translateY(-30px);
+  }
+  60% {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes lever-pull {
+  50% {
+    transform: scaleY(-0.6);
+  }
+}
+
+@keyframes card-deal {
+  from {
+    opacity: 0;
+    transform: translate(140px, -70px) rotateY(90deg) rotate(20deg);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .casino.jackpot,
+  .casino-title,
+  .slots-topper span,
+  .casino-marquee span,
+  .casino-go:not(:disabled),
+  .slots-cabinet.winning,
+  .slots-auto.on,
+  .slots-reel.hit .slots-main,
+  .casino-banner,
+  .jackpot .casino-banner,
+  .casino-coin {
+    animation: none;
+  }
+
+  .casino-coin {
+    display: none;
+  }
+
+  .slots-strip {
+    animation-duration: 2s !important;
+  }
+
+  .roulette-wheel,
+  .roulette-ball-track {
+    transition-duration: 0.6s !important;
+  }
+}
+
 @media (max-width: 760px), (max-height: 500px) {
   .casino-bet button,
   .roulette-bets button,
   .roulette-number button,
-  .blackjack-actions button {
+  .blackjack-actions button,
+  .slots-buttons button {
     min-height: 40px;
+  }
+
+  .slots-reel {
+    width: 58px;
   }
 }

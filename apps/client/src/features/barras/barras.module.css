@@ -166,32 +166,229 @@
 }
 
 /* Formulario del Registro de Barras. */
+.registry {
+  width: min(500px, calc(100vw - 32px));
+}
+
+.registry-body {
+  padding: 14px 16px 16px;
+}
+
 .barra-form {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .barra-intro {
   margin: 0;
   color: var(--muted);
+  font-size: 0.88rem;
   line-height: 1.55;
 }
 
-.barra-form label {
+/* La bandera flameando en el mástil, con la sigla y el nombre. */
+.registry-flag {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 0;
+}
+
+.registry-pole {
+  width: 6px;
+  height: 118px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #8e8e96, #e8e8ee, #8e8e96);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.registry-pole::before {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff1b8, #e2b53e);
+}
+
+.registry-cloth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: min(300px, 70%);
+  height: 96px;
+  margin-top: 6px;
+  border-radius: 0 6px 6px 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 8px 18px rgba(0, 0, 0, 0.35);
+  transform-origin: left center;
+  animation: flag-wave 3.2s ease-in-out infinite;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+
+/* Las ondas de la tela: luces y sombras que se corren. */
+.registry-cloth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14) 25%, rgba(0, 0, 0, 0.16) 50%, rgba(255, 255, 255, 0.12) 75%, rgba(0, 0, 0, 0.18));
+  background-size: 200% 100%;
+  animation: flag-shine 3.2s linear infinite;
+  pointer-events: none;
+}
+
+.registry-cloth {
+  position: relative;
+}
+
+.registry-flag-tag {
+  padding: 2px 10px;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  font: 800 1.25rem ui-monospace, Menlo, monospace;
+  letter-spacing: 0.06em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.registry-flag-name {
+  max-width: 90%;
+  padding: 1px 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.registry-flag.placeholder .registry-flag-tag,
+.registry-flag.placeholder .registry-flag-name {
+  opacity: 0.6;
+}
+
+/* Cómo queda arriba de la cabeza: la pastillita y tu nombre. */
+.registry-nameplate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: -4px;
+  font-weight: 700;
+}
+
+.registry-nameplate small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.barra-preview-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  color: #ffffff;
+  font: 800 0.75rem ui-monospace, Menlo, monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* En el Registro el color del texto ya sale de `readableOn`: sin sombra. */
+.registry-nameplate .barra-preview-tag {
+  text-shadow: none;
+}
+
+/* Pasos numerados. */
+.registry-step {
   display: grid;
-  gap: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.registry-number {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 209, 102, 0.16);
+  color: var(--system);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.registry-step label,
+.registry-colors {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.registry-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.registry-label small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
 }
 
 .barra-form input {
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 42px;
+  padding: 8px 12px;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.3);
   color: var(--text);
   font-size: 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.barra-form input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.2);
+}
+
+.barra-form input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.registry-tag-input {
+  font: 800 1.1rem ui-monospace, Menlo, monospace !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.registry-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.registry-color-tools {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.registry-color-tools button {
+  padding: 3px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .barra-colors {
@@ -205,42 +402,143 @@
 
 .barra-colors legend {
   margin-bottom: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.barra-colors legend strong {
+  color: var(--text);
 }
 
 .barra-colors button {
-  width: 30px;
-  height: 30px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: 800;
   cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.barra-colors button:hover {
+  transform: scale(1.1);
 }
 
 .barra-colors button[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px var(--accent);
+  transform: scale(1.12);
 }
 
-.barra-preview {
+.registry-perks {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  padding: 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  font-weight: 700;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.barra-preview-tag {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  color: #ffffff;
-  font: 800 0.75rem ui-monospace, Menlo, monospace;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+.registry-perks li {
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.registry-cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 0.88rem;
+}
+
+.registry-cost .ok {
+  color: #9ef0c9;
+  font-size: 0.8rem;
+}
+
+.registry-cost .short {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.registry-submit {
+  min-height: 46px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 800;
+  text-shadow: none;
+  transition: transform 0.1s, filter 0.15s;
+}
+
+.registry-submit:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+
+.registry-submit:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.registry-member {
+  display: grid;
+  gap: 12px;
+  text-align: center;
+}
+
+.registry-member p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+@keyframes flag-wave {
+  0%,
+  100% {
+    transform: perspective(400px) rotateY(0deg) skewY(0deg);
+  }
+  50% {
+    transform: perspective(400px) rotateY(-10deg) skewY(-1.5deg);
+  }
+}
+
+@keyframes flag-shine {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registry-cloth,
+  .registry-cloth::after {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .registry-pole {
+    height: 96px;
+  }
+
+  .registry-cloth {
+    height: 80px;
+  }
+
+  .barra-colors button,
+  .registry-color-tools button {
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
 /* Invitaciones (como las de los gestos de a dos). */

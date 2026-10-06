@@ -7,7 +7,7 @@ de texto sobre la cabeza del avatar. Hay bancos donde sentarse (clic) y una moch
 para ponerse/sacarse, más una barra de acceso rápido, dinero, tiendas y la primera actividad:
 **pescar** en la Escollera Sarandí (con cañas de distinto nivel), **vender** con un carrito en la
 explanada del Estadio Centenario (Tres Cruces) y **tocar en la calle** sobre 18 de Julio (Centro, con instrumentos). Las **barras** (grupos de amigos) se fundan en el Registro de Barras de Ciudad Vieja.
-Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **B** mi barra, **K** calendario de Uruguay, **C** comandos, **Tab** jugadores
+Teclas: **M** lista de barrios, **I** mochila, **E** gestos, **B** mi barra, **K** calendario de Uruguay, **C** comandos, **O** opciones (calidad gráfica), **Tab** jugadores
 del barrio, **F** interactuar con lo que tenés al lado (tienda, banco, palmera, parada, jugador, picudo) o, si no
 hay nada, pescar en la escollera / vender en el Centenario / tocar en 18 de Julio, **1–9** barra rápida, **WASD** caminar, **Y** cámara fija / libre, **Espacio** centrar la cámara, **flechas** mover la
 cámara, **Esc** cierra.

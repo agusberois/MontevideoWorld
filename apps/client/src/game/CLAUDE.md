@@ -29,3 +29,25 @@
   `mw:camera` y el zoom (rueda o pellizco, 0,5× a 2×) en `mw:zoom`.
 - Los gestos de cámara (arrastre, dos dedos, rueda apretada) no cuentan como clic ni como caminar
   (`pointerDown` / `pointerMove` / `pointerUp` devuelven si los usó).
+
+## Rendimiento (ver `docs/finished/optimizacion-cliente.md`)
+
+- En WebGL, Phaser **vuelve a triangular cada `Graphics` visible en cada frame** y corta el lote de
+  dibujo. Todo lo que no cambia cuadro a cuadro se hornea a textura: piezas del mapa
+  (`CityRenderer.placePiece`), guirnaldas (`stringLights.ts`, una textura por profundidad), halos de
+  noche (una textura de halo teñida, `DayNight.ts`) y las partes del avatar (`ShapeSprite`: formas de
+  `lib/avatar` → textura compartida por forma, a `SHAPE_RES` = 2×; su escala base es
+  `1 / SHAPE_RES`). `Graphics` sólo para lo animado (línea de pesca, burbujas, lluvia) y escondido
+  cuando no se usa.
+- Lo fijo del mapa entra en el *culling* (`CityRenderer.cullables`: fuera de la cámara + margen,
+  `setVisible(false)`). Una pieza nueva que no pase por `placePiece` / `addSign` no se recorta sola.
+- Las piezas del mapa van al atlas del barrio (`PieceAtlas`, vía `placePiece`); las mascotas, con
+  `bakingGraphics` / `bakeGraphics`; los carteles iguales para todos, con `labelImage`.
+- El `Phaser.Game` vive toda la partida: `startCity` cambia la escena al viajar. Lo que es de un barrio
+  se libera en `CityRenderer.destroy`; una textura nueva que sea de un barrio tiene que ir ahí.
+- Calidad gráfica (Opciones, tecla O; `QualityWatch`): en baja, `DayNight.setGlows(false)` y
+  `WeatherFx.setParticles(false)`. En automática baja sólo con menos de 24 fps sostenidos (muchos
+  navegadores limitan a 30 en ahorro de energía: no contarlo como lento).
+- No usar `Blitter` para algo que se escale (lo fijo a la cámara se compensa con escala por el
+  zoom): su renderer ignora la escala.
+- `?perf=1` muestra el medidor (`PerfOverlay.ts`).

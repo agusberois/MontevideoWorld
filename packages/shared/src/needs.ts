@@ -103,8 +103,10 @@ export const STARVE_HEALTH_PER_SECOND = 1 / 10;
 /** Con la saciedad en `HUNGRY` o más y quieto, se recupera esto por segundo (sentado, más). */
 export const IDLE_HEALTH_REGEN = 1 / 30;
 export const SIT_HEALTH_REGEN = 1 / 10;
-/** En el jacuzzi también se cura más rápido (el doble que sentado en un banco). */
-export const JACUZZI_HEALTH_REGEN = SIT_HEALTH_REGEN * 2;
+/** En el jacuzzi se cura mucho más rápido, y aunque tenga hambre (de 0 a lleno en algo más de 3 min). */
+export const JACUZZI_HEALTH_REGEN = 0.5;
+/** Y la saciedad, en vez de bajar, sube (de vacío a lleno en algo más de 3 min). */
+export const JACUZZI_HUNGER_REGEN = 0.5;
 
 /** Comer un pescado crudo saca esto de salud, pero nunca la deja por debajo de `RAW_FISH_HEALTH_FLOOR`. */
 export const RAW_FISH_HEALTH = 2;

@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import type { PetDefinition } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { OVERLAY_DEPTH } from "./Avatar";
+import { bakeGraphics, bakingGraphics } from "./ShapeSprite";
 
 /** Qué tan atrás del dueño camina (px a lo largo de su recorrido): más o menos un tile. */
 const FOLLOW_DISTANCE = 44;
@@ -13,6 +14,8 @@ const SNAP_DISTANCE = 320;
 /** Puntos del recorrido del dueño que se recuerdan (cada uno a ≥ 3 px del anterior). */
 const TRAIL_POINTS = 80;
 const NAME_Y = -40;
+/** Las piezas de la mascota se hornean en texturas de 2 × esto de lado (con el pivote en el medio). */
+const PET_RADIUS = 40;
 
 const OUTLINE = 0x1b1414;
 
@@ -29,8 +32,9 @@ interface Point {
  */
 export class Pet extends Phaser.GameObjects.Container {
   private readonly body_: Phaser.GameObjects.Container;
-  private readonly legs: Phaser.GameObjects.Graphics[];
-  private readonly tail: Phaser.GameObjects.Graphics;
+  /** Patas y cola horneadas a textura (como el avatar): sólo se mueven y rotan. */
+  private readonly legs: Phaser.GameObjects.Image[];
+  private readonly tail: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly trail: Point[] = [];
   private time = Math.random() * 1000;
@@ -47,10 +51,13 @@ export class Pet extends Phaser.GameObjects.Container {
     const accent = Phaser.Display.Color.HexStringToColor(definition.accent).color;
 
     const shadow = scene.add.ellipse(0, 0, 30, 9, 0x000000, 0.28);
-    this.tail = scene.add.graphics();
-    this.legs = [0, 1, 2, 3].map(() => scene.add.graphics());
-    const torso = scene.add.graphics();
-    drawPet(definition.kind, torso, this.legs, this.tail, color, accent);
+    // Se dibuja una vez en `Graphics` sueltos y se hornea cada pieza (una textura por tipo, colores y pieza).
+    const prefix = `pet-${definition.kind}-${definition.color}-${definition.accent}`;
+    const drawn = { torso: bakingGraphics(scene, PET_RADIUS), tail: bakingGraphics(scene, PET_RADIUS), legs: [0, 1, 2, 3].map(() => bakingGraphics(scene, PET_RADIUS)) };
+    drawPet(definition.kind, drawn.torso, drawn.legs, drawn.tail, color, accent);
+    const torso = bakeGraphics(drawn.torso, `${prefix}-torso`, PET_RADIUS);
+    this.tail = bakeGraphics(drawn.tail, `${prefix}-tail`, PET_RADIUS);
+    this.legs = drawn.legs.map((g, i) => bakeGraphics(g, `${prefix}-leg${i}`, PET_RADIUS));
     this.body_ = scene.add.container(0, 0, [this.tail, this.legs[1], this.legs[3], torso, this.legs[0], this.legs[2]]);
     this.body_.setScale(definition.size);
     this.add([shadow, this.body_]);
@@ -125,6 +132,13 @@ export class Pet extends Phaser.GameObjects.Container {
     this.body_.y = -Math.abs(Math.sin(this.time * 0.025)) * 1.5 * this.walking;
     // Quieto mueve la cola (el carpincho no tiene).
     this.tail.rotation = Math.sin(this.time * (this.walking > 0.5 ? 0.01 : 0.02)) * 0.25;
+  }
+
+  /** Escondida con su nombre (su dueño vuela con `/god` y no se lo ve). */
+  setHidden(hidden: boolean) {
+    if (this.visible === !hidden) return;
+    this.setVisible(!hidden);
+    this.label.setVisible(!hidden);
   }
 
   private syncDepth() {

@@ -389,6 +389,17 @@ export function sendTaunt(room: CityRoom, targetId: string) {
   room.send(MessageType.Taunt, message);
 }
 
+/** Seguir a otro jugador del barrio (el server lo hace caminar detrás de él). */
+export function sendFollow(room: CityRoom, targetId: string) {
+  const message: TargetPlayerMessage = { targetId };
+  room.send(MessageType.Follow, message);
+}
+
+/** Dejar de seguir. */
+export function sendUnfollow(room: CityRoom) {
+  room.send(MessageType.Unfollow);
+}
+
 /** Saludar a otro jugador (sale en el chat como mensaje propio y el avatar saluda con la mano). */
 export function sendGreet(room: CityRoom, targetId: string) {
   const message: TargetPlayerMessage = { targetId };

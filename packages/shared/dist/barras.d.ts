@@ -59,6 +59,8 @@ export declare const BARRA_COLORS: readonly [{
 export type BarraColorId = (typeof BARRA_COLORS)[number]["id"];
 export declare function isBarraColorId(value: unknown): value is BarraColorId;
 export declare function barraColorHex(id: string): string;
+/** Texto que se lee sobre un fondo de este color ("#rrggbb"): negro sobre claros, blanco sobre oscuros (la sigla de la barra). */
+export declare function readableOn(hex: string): string;
 /** La sigla como se guarda y se muestra: mayúsculas, sólo letras y números. */
 export declare function normalizeBarraTag(raw: string): string;
 /** El nombre como se guarda (la misma limpieza que los nombres de jugador). */

@@ -6,6 +6,7 @@ paths:
   - "apps/client/src/game/scenes/CityScene.ts"
   - "packages/shared/src/map.ts"
   - "apps/server/src/rooms/systems/movement.ts"
+  - "apps/server/src/commands/god.ts"
 ---
 
 # Movimiento, predicción y bancos
@@ -51,3 +52,23 @@ Clic en un banco → `room.send("sit", { x, y })` → el server camina al jugado
 enfrente (`CityMap.benchApproach`) y, un tick después de llegar, si el banco sigue libre, lo pone en
 el tile del banco con `sitting = true`. Cualquier `move` lo levanta. La orientación sentada sale del
 banco (`CityMap.benchAt`), no del Schema.
+
+**Vuelo del admin (`/god`)**: `Player.flying` (en el Schema). `startFlying` / `land`
+(`systems/movement.ts`, desde `CommandHost.setFlying`). Volando, `move` acepta cualquier tile del
+mapa (no sólo caminables) y el camino es una línea recta en tramos de `GOD_FLIGHT_TILES` por tick
+(`CityMap.flightPath`), sin gastar energía ni hambre. Al bajar (`/god` otra vez) cae en
+`CityMap.nearestWalkable`; si se guarda el progreso volando, se guarda esa baldosa. Cliente: el
+propio se ve en el aire (`Avatar.setFlying`: más alto, translúcido, meciéndose, por encima de los
+edificios) y planea entre los tiles que manda el server (sin `snapTo`); los clics van directo al
+server sin predicción y WASD no anda. A los demás **no se los dibuja** (ni nombre, globo, mascota,
+clic ni lista de jugadores). Ojo: es sólo visual; la posición igual viaja en el Schema.
+
+**Seguir a otro** (`systems/follow.ts`): clic en el jugador → "👣 Seguir" (`follow { targetId }`) o
+`/seguir <nombre>` (sólo si está en la misma sala). `Player.following` (Schema, el sessionId) y
+`session.follow` (nombre y último tile visto). Cada tick, antes de mover (`stepFollowers` desde
+`stepPlayers`), si el otro cambió de tile y quedó a más de un tile, busca camino hasta el tile
+anterior al suyo (o al de al lado, si está sentado o en el jacuzzi), respetando un BFS por tick.
+`halt` deja de seguir, así que cualquier clic, banco, tienda, puerta… lo corta; también `unfollow`,
+`/seguir` sin nombre o que el otro se vaya del barrio o vuele (con aviso). Cliente: la escena avisa
+`player:following` → `gameStore.following` → cartel `ui/FollowBadge.tsx` ("Siguiendo a X · Dejar")
+y el menú del jugador cambia a "Dejar de seguir". El avatar propio sigue al server sin predicción.

@@ -1,14 +1,14 @@
 import { LayoutBuilder } from "../layoutBuilder";
-import { Bench, BusStop, CityDefinition, Door, Filler, TileChar, TilePoint, doubleBench } from "../types";
+import { Bench, BusStop, CityDefinition, Door, Filler, StringLight, TileChar, TilePoint, doubleBench } from "../types";
 import { AVENUE, AVENUE_WIDTH, COLUMN_STREETS, HEIGHT, INTENDENCIA_X, ROW_STREETS, STREET_WIDTH, WIDTH, rect } from "./grid";
-import { CAGANCHA, CENTRO_INFO, FABINI } from "./info";
+import { CAGANCHA, CAGANCHA_NORTE, CENTRO_INFO, FABINI } from "./info";
 
 /**
  * El Centro, con el patrón de Ciudad Vieja (`grid.ts`): franjas de calle de 4 tiles (vereda, calzada
  * de 2, vereda), sin vereda en los cruces, y manzanas llenas de edificios del 900 de 2 × 2
  * (`fillers`, `bigTowerSpec`). 18 de Julio cruza de oeste a este con vereda doble y las vidrieras
- * de las tiendas a los dos lados; la Plaza Fabini al norte, la Plaza Cagancha al sur (donde se aparece
- * al llegar en ómnibus) y, pasando Ejido, la explanada de la Intendencia.
+ * de las tiendas a los dos lados; la Plaza Fabini al norte, la Plaza Cagancha a los dos lados de la avenida,
+ * con la Columna de la Paz en el medio de la calzada (donde se aparece al llegar en ómnibus) y, pasando Ejido, la explanada de la Intendencia.
  *
  * **Se llega caminando desde Ciudad Vieja**: el borde oeste de 18 de Julio es una puerta (`Door` con
  * `edge`) a la Plaza Independencia, y en Ciudad Vieja el borde este de 18 de Julio trae acá, sin boleto.
@@ -20,7 +20,7 @@ const builder = new LayoutBuilder(WIDTH, HEIGHT, TileChar.Grass);
  * Calles: cada tile es calzada si está en la calzada de alguna calle, vereda si está en alguna vereda
  * (y en ninguna calzada) y manzana si no. Así **en los cruces no hay vereda** (la calzada de una calle
  * sigue derecho por la vereda de la otra) y las esquinas, vereda con vereda, quedan. En 18 de Julio
- * la vereda es doble. San José no sigue pasando Ejido: ahí está el Palacio Municipal.
+ * la vereda es doble. San José no sigue pasando Ejido: ahí está la Intendencia.
  */
 const columnBands = Object.values(COLUMN_STREETS).map((x0) => ({ x0, x1: x0 + STREET_WIDTH - 1, sidewalk: 1 }));
 const rowBands = Object.entries(ROW_STREETS).map(([name, y0]) => {
@@ -49,18 +49,20 @@ for (let y = 0; y < HEIGHT; y++) {
 
 // Plazas y la explanada de la Intendencia (de 18 de Julio hasta el palacio).
 const explanada = rect(INTENDENCIA_X, AVENUE.southFront, WIDTH - INTENDENCIA_X, 6);
-for (const plaza of [FABINI, CAGANCHA, explanada]) builder.rect(plaza, TileChar.Plaza);
+for (const plaza of [FABINI, CAGANCHA, CAGANCHA_NORTE, explanada]) builder.rect(plaza, TileChar.Plaza);
 // Canteros con árboles y palmeras en las esquinas de las plazas (sólo en el borde, no cortan el paso).
 for (const [x, y] of [
   [FABINI.x, FABINI.y],
   [FABINI.x + FABINI.width - 1, FABINI.y],
   [CAGANCHA.x + CAGANCHA.width - 1, CAGANCHA.y + CAGANCHA.height - 1],
+  [CAGANCHA_NORTE.x + CAGANCHA_NORTE.width - 1, CAGANCHA_NORTE.y],
 ]) {
   builder.set(x, y, TileChar.Tree);
 }
 for (const [x, y] of [
   [FABINI.x, FABINI.y + FABINI.height - 1],
   [CAGANCHA.x + CAGANCHA.width - 1, CAGANCHA.y],
+  [CAGANCHA_NORTE.x, CAGANCHA_NORTE.y + CAGANCHA_NORTE.height - 1],
   [INTENDENCIA_X, explanada.y + explanada.height - 1],
   [WIDTH - 1, explanada.y + explanada.height - 1],
 ]) {
@@ -82,17 +84,24 @@ for (const [x, y] of [
   builder.set(x, y, TileChar.Grass);
 }
 builder.set(FABINI.x + FABINI.width - 1, FABINI.y + 4, TileChar.Tree);
-// Plaza Cagancha: el cantero de pasto alrededor de la Columna de la Paz y plátanos en el borde.
-for (let y = CAGANCHA.y + 1; y <= CAGANCHA.y + 4; y++) {
+// Plaza Cagancha, a los dos lados de 18 de Julio: en cada mitad un cantero de pasto (lejos de la
+// avenida, así el borde que da a la Columna de la Paz queda de baldosa) y plátanos en el borde.
+for (let y = CAGANCHA.y + 2; y <= CAGANCHA.y + 5; y++) {
   for (let x = CAGANCHA.x + 1; x <= CAGANCHA.x + 4; x++) builder.set(x, y, TileChar.Grass);
+}
+for (let y = CAGANCHA_NORTE.y + 2; y <= CAGANCHA_NORTE.y + 5; y++) {
+  for (let x = CAGANCHA_NORTE.x + 1; x <= CAGANCHA_NORTE.x + 4; x++) builder.set(x, y, TileChar.Grass);
 }
 for (const [x, y] of [
   [CAGANCHA.x, CAGANCHA.y],
   [CAGANCHA.x + CAGANCHA.width - 2, CAGANCHA.y + CAGANCHA.height - 1],
+  [CAGANCHA_NORTE.x, CAGANCHA_NORTE.y],
 ]) {
   builder.set(x, y, TileChar.Tree);
 }
-// Los jardines alrededor del Palacio Municipal: pasto con árboles (el `scatter` de abajo).
+// La Columna de la Paz, en el medio de la calzada de 18 de Julio: una isla de baldosa alrededor.
+builder.rect(rect(CAGANCHA.x + 1, AVENUE.y0 + 2, 4, 2), TileChar.Plaza);
+// Los jardines alrededor de la Intendencia: pasto con árboles (el `scatter` de abajo).
 builder.rect(rect(INTENDENCIA_X, explanada.y + explanada.height, WIDTH - INTENDENCIA_X, ROW_STREETS.soriano - explanada.y - explanada.height), TileChar.Grass);
 
 // Suelo bajo los edificios emblemáticos y las tiendas (así no les crecen edificios ni árboles adentro).
@@ -105,12 +114,14 @@ const benches: Bench[] = [
   ...doubleBench(FABINI.x + 4, FABINI.y + 6, "south"),
   { x: FABINI.x, y: FABINI.y + 2, facing: "east" },
   { x: FABINI.x, y: FABINI.y + 4, facing: "east" },
-  // Plaza Cagancha, alrededor de la Columna de la Paz.
-  ...doubleBench(CAGANCHA.x + 2, CAGANCHA.y + 5, "south"),
-  { x: CAGANCHA.x + 5, y: CAGANCHA.y + 5, facing: "south" },
-  { x: CAGANCHA.x, y: CAGANCHA.y + 1, facing: "east" },
-  { x: CAGANCHA.x, y: CAGANCHA.y + 3, facing: "east" },
-  { x: CAGANCHA.x + 5, y: CAGANCHA.y + 1, facing: "south" },
+  // Plaza Cagancha: en la mitad sur, alrededor del cantero; en la norte, mirando a la Columna de la Paz.
+  ...doubleBench(CAGANCHA.x + 2, CAGANCHA.y + 6, "south"),
+  { x: CAGANCHA.x + 5, y: CAGANCHA.y + 6, facing: "south" },
+  { x: CAGANCHA.x, y: CAGANCHA.y + 2, facing: "east" },
+  { x: CAGANCHA.x, y: CAGANCHA.y + 4, facing: "east" },
+  ...doubleBench(CAGANCHA_NORTE.x + 1, CAGANCHA_NORTE.y + 6, "south"),
+  ...doubleBench(CAGANCHA_NORTE.x + 3, CAGANCHA_NORTE.y + 6, "south"),
+  { x: CAGANCHA_NORTE.x, y: CAGANCHA_NORTE.y + 3, facing: "east" },
   // Explanada de la Intendencia, mirando al David.
   ...doubleBench(INTENDENCIA_X + 3, explanada.y + 4, "south"),
   ...doubleBench(INTENDENCIA_X + 12, explanada.y + 4, "south"),
@@ -172,6 +183,8 @@ for (const [x0, x1] of columnLimits) {
   for (const [y0, y1] of rowLimits) {
     // Al sur de la avenida, pasando Ejido, van la explanada y los jardines de la Intendencia.
     if (x0 === INTENDENCIA_X && y0 > AVENUE.y0) continue;
+    // Las dos mitades de la Plaza Cagancha: sus canteros son de árboles, no de edificios.
+    if (x0 === CAGANCHA.x) continue;
     // Los lotes se alinean contra la avenida: las manzanas del norte se llenan desde abajo (así los
     // edificios quedan pegados a la vereda de 18 de Julio) y las del sur, desde arriba.
     const fromBottom = y1 < AVENUE.y0;
@@ -194,6 +207,24 @@ const streetLamps: TilePoint[] = [];
 for (let x = 3; x < WIDTH - 1; x += 6) streetLamps.push({ x, y: AVENUE.y0 }, { x: x + 3, y: AVENUE.y1 });
 for (const x of [INTENDENCIA_X + 1, WIDTH - 2]) streetLamps.push({ x, y: explanada.y + 2 });
 
+/**
+ * Guirnaldas de la Plaza Cagancha: en cada mitad, cuatro postes en las esquinas de baldosa alrededor
+ * del cantero (sin pisar bancos ni el Mercado de los Artesanos), con guirnaldas por el borde y en
+ * cruz por arriba; y dos que cruzan 18 de Julio, de una mitad a la otra, pasando junto a la Columna.
+ */
+const stringLights: StringLight[] = [];
+for (const top of [CAGANCHA_NORTE.y + 1, CAGANCHA.y + 1]) {
+  const bottom = top + (top === CAGANCHA.y + 1 ? 4 : 5);
+  const [nw, ne, sw, se] = [
+    { x: CAGANCHA.x, y: top },
+    { x: CAGANCHA.x + 5, y: top },
+    { x: CAGANCHA.x, y: bottom },
+    { x: CAGANCHA.x + 5, y: bottom },
+  ];
+  stringLights.push({ from: nw, to: ne }, { from: ne, to: se }, { from: se, to: sw }, { from: sw, to: nw }, { from: nw, to: se }, { from: ne, to: sw });
+}
+for (const x of [CAGANCHA.x, CAGANCHA.x + 5]) stringLights.push({ from: { x, y: CAGANCHA_NORTE.y + 6 }, to: { x, y: CAGANCHA.y + 1 } });
+
 /** 18 de Julio sigue hacia Ciudad Vieja: el borde oeste de la avenida lleva a la Plaza Independencia. */
 const toCiudadVieja: Door = {
   id: "ciudad-vieja",
@@ -206,23 +237,25 @@ const toCiudadVieja: Door = {
 export const CENTRO: CityDefinition = {
   ...CENTRO_INFO,
   layout: builder.build(),
-  // La Plaza Cagancha y la avenida de enfrente: con 50 jugadores llegando en ómnibus hay lugar.
-  spawnArea: rect(CAGANCHA.x - 3, AVENUE.y0, CAGANCHA.width + 6, AVENUE_WIDTH + CAGANCHA.height),
+  // Las dos mitades de la Plaza Cagancha y la avenida del medio: con 50 jugadores llegando en ómnibus hay lugar.
+  spawnArea: rect(CAGANCHA.x - 3, CAGANCHA_NORTE.y, CAGANCHA.width + 6, CAGANCHA.y + CAGANCHA.height - CAGANCHA_NORTE.y),
   doors: [toCiudadVieja],
   fillers,
   // En los cruces, la calzada: ahí no va farol.
   streetLamps: streetLamps.filter(({ x, y }) => builder.get(x, y) !== TileChar.Street),
+  stringLights,
   benches,
   busStops,
   logoSign: { landmarkId: "intendencia" },
   // Se toca en la calle sobre 18 de Julio (calzada y veredas), en las plazas y en la explanada.
-  busking: { name: "18 de Julio", areas: [rect(0, AVENUE.y0, WIDTH, AVENUE_WIDTH), FABINI, CAGANCHA, explanada] },
+  busking: { name: "18 de Julio", areas: [rect(0, AVENUE.y0, WIDTH, AVENUE_WIDTH), FABINI, CAGANCHA, CAGANCHA_NORTE, explanada] },
   placeLabels: [
     { name: "18 de Julio", x: 24, y: AVENUE.y0 + 2.5 },
     { name: "18 de Julio", x: 92, y: AVENUE.y0 + 2.5 },
     { name: "← Ciudad Vieja", x: 3, y: AVENUE.y0 + 2.5 },
     { name: "Plaza Fabini", x: FABINI.x + 3.5, y: FABINI.y + FABINI.height - 0.6 },
     { name: "Plaza Cagancha", x: CAGANCHA.x + 3.5, y: CAGANCHA.y + CAGANCHA.height - 0.6 },
+    { name: "Plaza Cagancha", x: CAGANCHA_NORTE.x + 3.5, y: CAGANCHA_NORTE.y + 0.5 },
     { name: "Explanada de la Intendencia", x: INTENDENCIA_X + 7.5, y: explanada.y + 0.5 },
     ...Object.entries({ Mercedes: ROW_STREETS.mercedes, Colonia: ROW_STREETS.colonia, "San José": ROW_STREETS.sanJose, Soriano: ROW_STREETS.soriano }).map(([name, y]) => ({
       name,

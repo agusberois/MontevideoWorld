@@ -62,6 +62,7 @@ import { lifeRoutes, tickNeeds } from "./systems/life";
 import { applyBarra, barraRoutes, sendBarra } from "./systems/barras";
 import { casinoRoutes } from "./systems/casino";
 import { doorRoutes } from "./systems/doors";
+import { followRoutes } from "./systems/follow";
 import { gestureRoutes, stepGestures } from "./systems/gestures";
 import { movementRoutes, stepPlayers } from "./systems/movement";
 import { shopRoutes } from "./systems/shops";
@@ -277,6 +278,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       ...socialRoutes(this),
       ...gestureRoutes(this),
       ...doorRoutes(this),
+      ...followRoutes(this),
       ...casinoRoutes(this),
       ...barraRoutes(this),
       ...adminRoutes(this),
@@ -527,8 +529,15 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       needs: session.needs.snapshot(),
       tutorial: session.tutorial,
       // En el COMCAR (preso o de visita) se conserva el lugar de antes: al volver no aparece en la cárcel.
-      location: this.map.city.id === JAIL_CITY_ID ? playerStore.get(key)?.location : { cityId: this.map.city.id, x: player.x, y: player.y },
+      // Volando (`/god`) puede estar arriba de un edificio: se guarda la baldosa caminable más cercana.
+      location: this.map.city.id === JAIL_CITY_ID ? playerStore.get(key)?.location : { cityId: this.map.city.id, ...this.savedTile(player) },
     });
+  }
+
+  /** Dónde guardar al jugador: su tile o, volando (`/god`, quizá arriba de un edificio), la baldosa caminable más cercana. */
+  private savedTile(player: Player): { x: number; y: number } {
+    const here = { x: player.x, y: player.y };
+    return player.flying ? (this.map.nearestWalkable(here) ?? here) : here;
   }
 
   private saveAllPlayers() {

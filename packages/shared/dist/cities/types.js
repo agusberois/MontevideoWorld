@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CITY_IDS = exports.WALKABLE_TILE_CHARS = exports.TileChar = void 0;
+exports.JACUZZI_CAPACITY = exports.CITY_IDS = exports.WALKABLE_TILE_CHARS = exports.TileChar = void 0;
 exports.doubleBench = doubleBench;
 /**
  * Un carácter por tile en `CityDefinition.layout`. Fila = coordenada y, columna = coordenada x.
@@ -59,4 +59,10 @@ function doubleBench(x, y, facing) {
 }
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
 exports.CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"];
+/**
+ * Jacuzzi: un área (no caminable) con lugares (`seats`, tiles del área) donde se mete uno por
+ * lugar. Adentro se recargan energía, saciedad y salud (`JACUZZI_ENERGY_REGEN`…).
+ */
+/** Cuántos entran como máximo en un jacuzzi (arriba se ve "x/20"). */
+exports.JACUZZI_CAPACITY = 20;
 //# sourceMappingURL=types.js.map

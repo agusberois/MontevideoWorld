@@ -12,6 +12,7 @@ import { BoxReveal } from "../features/boxes/BoxReveal";
 import { ChatBox } from "../features/chat/ChatBox";
 import { FishingWidget } from "../features/activities/FishingWidget";
 import { InteractPrompt } from "../ui/InteractPrompt";
+import { FollowBadge } from "../ui/FollowBadge";
 import { JailBanner } from "../features/jail/JailBanner";
 import { FaintOverlay } from "../features/health/FaintOverlay";
 import { VendingWidget } from "../features/activities/VendingWidget";
@@ -214,6 +215,7 @@ export function App() {
         barra rápida, chat) que sube con el teclado; en escritorio cada uno conserva su lugar (ver .dock en el CSS).
       */}
       <div className={cx("dock")}>
+        <FollowBadge room={room} />
         <InteractPrompt />
         <FishingWidget room={room} />
         <VendingWidget room={room} />

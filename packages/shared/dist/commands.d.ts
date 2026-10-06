@@ -35,6 +35,11 @@ export declare const COMMANDS: readonly [{
     readonly description: "Mensaje privado a un jugador conectado, esté en el barrio que esté. Sólo lo ve él.";
     readonly role: "user";
 }, {
+    readonly name: "seguir";
+    readonly usage: "/seguir [jugador]";
+    readonly description: "Caminás solo detrás de un jugador del barrio. Sin nombre (o clic en el piso), dejás de seguir.";
+    readonly role: "user";
+}, {
     readonly name: "post";
     readonly usage: "/post <mensaje>";
     readonly description: "Anuncio en el medio de la pantalla para todos los barrios.";
@@ -73,6 +78,11 @@ export declare const COMMANDS: readonly [{
     readonly name: "mover";
     readonly usage: "/mover <jugador>";
     readonly description: "Trae a un jugador conectado a tu mismo tile, esté en el barrio que esté (sin boleto).";
+    readonly role: "admin";
+}, {
+    readonly name: "god";
+    readonly usage: "/god";
+    readonly description: "Modo vuelo: volás por arriba de todo, rápido y sin que nadie te vea (clic adonde ir). /god otra vez para bajar a la baldosa más cercana.";
     readonly role: "admin";
 }, {
     readonly name: "guia";

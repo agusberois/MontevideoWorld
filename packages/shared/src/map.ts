@@ -312,6 +312,42 @@ export class CityMap {
     return this.inBounds(x, y) && this.walkable[y * this.width + x] === 1;
   }
 
+  /** El tile caminable más cercano a `from` (él mismo si ya lo es), buscando en anillos cada vez más grandes. */
+  nearestWalkable(from: TilePoint): TilePoint | undefined {
+    if (this.isWalkable(from.x, from.y)) return { x: from.x, y: from.y };
+    const reach = Math.max(this.width, this.height);
+    for (let radius = 1; radius <= reach; radius++) {
+      let best: TilePoint | undefined;
+      let bestDistance = Infinity;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const x = from.x + dx;
+          const y = from.y + dy;
+          const distance = dx * dx + dy * dy;
+          if (distance < bestDistance && this.isWalkable(x, y)) {
+            best = { x, y };
+            bestDistance = distance;
+          }
+        }
+      }
+      if (best) return best;
+    }
+    return undefined;
+  }
+
+  /** Línea recta de `from` a `to` en tramos de hasta `step` tiles (sin `from`, con `to` al final): el vuelo de `/god`. */
+  flightPath(from: TilePoint, to: TilePoint, step: number): TilePoint[] {
+    const length = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+    const hops = Math.ceil(length / step);
+    const path: TilePoint[] = [];
+    for (let i = 1; i <= hops; i++) {
+      const t = i / hops;
+      path.push({ x: Math.round(from.x + (to.x - from.x) * t), y: Math.round(from.y + (to.y - from.y) * t) });
+    }
+    return path;
+  }
+
   /** ¿Se puede pasar de `from` a `to` en un paso? (vecino caminable; en diagonal sin cortar esquinas, como `findPath`) */
   isStep(from: TilePoint, to: TilePoint): boolean {
     const dx = to.x - from.x;
@@ -376,40 +412,65 @@ export class CityMap {
     if (!this.isWalkable(to.x, to.y)) return [];
     if (from.x === to.x && from.y === to.y) return [];
 
-    const width = this.width;
-    const key = (x: number, y: number) => y * width + x;
-    const cameFrom = new Map<number, number>();
-    const startKey = key(from.x, from.y);
-    const goalKey = key(to.x, to.y);
-    cameFrom.set(startKey, -1);
+    // Arrays tipados reusados entre búsquedas (con un número de búsqueda en vez de limpiarlos): un
+    // BFS en un barrio de 150 × 96 sin crear un objeto ni una entrada de `Map` por tile.
+    const { width, height } = this;
+    const size = width * height;
+    if (this.bfsSeen.length !== size) {
+      this.bfsSeen = new Uint32Array(size);
+      this.bfsFrom = new Int32Array(size);
+      this.bfsQueue = new Int32Array(size);
+    }
+    const seen = this.bfsSeen;
+    const cameFrom = this.bfsFrom;
+    const queue = this.bfsQueue;
+    this.bfsRun = this.bfsRun === 0xffffffff ? 1 : this.bfsRun + 1;
+    if (this.bfsRun === 1) seen.fill(0);
+    const run = this.bfsRun;
 
-    const queue: TilePoint[] = [from];
-    for (let head = 0; head < queue.length; head++) {
+    const startKey = from.y * width + from.x;
+    const goalKey = to.y * width + to.x;
+    seen[startKey] = run;
+    cameFrom[startKey] = -1;
+    queue[0] = startKey;
+    let tail = 1;
+    let found = false;
+    for (let head = 0; head < tail; head++) {
       const current = queue[head];
-      if (key(current.x, current.y) === goalKey) break;
-
+      if (current === goalKey) {
+        found = true;
+        break;
+      }
+      const cx = current % width;
+      const cy = (current - cx) / width;
       for (const dir of DIRECTIONS) {
-        const nx = current.x + dir.x;
-        const ny = current.y + dir.y;
-        const nKey = key(nx, ny);
-        if (cameFrom.has(nKey) || !this.isWalkable(nx, ny)) continue;
+        const nx = cx + dir.x;
+        const ny = cy + dir.y;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const nKey = ny * width + nx;
+        if (seen[nKey] === run || this.walkable[nKey] !== 1) continue;
         const isDiagonal = dir.x !== 0 && dir.y !== 0;
-        if (isDiagonal && (!this.isWalkable(current.x + dir.x, current.y) || !this.isWalkable(current.x, current.y + dir.y))) {
-          continue;
-        }
-        cameFrom.set(nKey, key(current.x, current.y));
-        queue.push({ x: nx, y: ny });
+        if (isDiagonal && (!this.isWalkable(cx + dir.x, cy) || !this.isWalkable(cx, cy + dir.y))) continue;
+        seen[nKey] = run;
+        cameFrom[nKey] = current;
+        queue[tail++] = nKey;
       }
     }
 
-    if (!cameFrom.has(goalKey)) return [];
+    if (!found && seen[goalKey] !== run) return [];
 
     const path: TilePoint[] = [];
-    for (let k = goalKey; k !== startKey; k = cameFrom.get(k)!) {
+    for (let k = goalKey; k !== startKey; k = cameFrom[k]) {
       path.push({ x: k % width, y: Math.floor(k / width) });
     }
     return path.reverse();
   }
+
+  // Búfers de `findPath` (se crean en la primera búsqueda).
+  private bfsSeen = new Uint32Array(0);
+  private bfsFrom = new Int32Array(0);
+  private bfsQueue = new Int32Array(0);
+  private bfsRun = 0;
 }
 
 /** ¿(x, y) está pegado al área (incluye diagonales), sin estar adentro? */

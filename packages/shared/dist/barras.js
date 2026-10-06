@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BARRA_COLORS = exports.BARRA_INVITE_MS = exports.BARRA_TAG_MAX = exports.BARRA_TAG_MIN = exports.BARRA_NAME_MAX = exports.BARRA_NAME_MIN = exports.BARRA_MAX_MEMBERS = exports.BARRA_FOUND_COST = void 0;
 exports.isBarraColorId = isBarraColorId;
 exports.barraColorHex = barraColorHex;
+exports.readableOn = readableOn;
 exports.normalizeBarraTag = normalizeBarraTag;
 exports.normalizeBarraName = normalizeBarraName;
 exports.barraNameProblem = barraNameProblem;
@@ -42,6 +43,12 @@ function isBarraColorId(value) {
 }
 function barraColorHex(id) {
     return exports.BARRA_COLORS.find((color) => color.id === id)?.hex ?? "#f1f1f1";
+}
+/** Texto que se lee sobre un fondo de este color ("#rrggbb"): negro sobre claros, blanco sobre oscuros (la sigla de la barra). */
+function readableOn(hex) {
+    const value = Number.parseInt(hex.slice(1), 16);
+    const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
+    return luminance > 0.6 ? "#1a1a1f" : "#ffffff";
 }
 /** Siglas que nadie puede usar (parecen del staff del juego). Se comparan en mayúsculas. */
 const RESERVED_TAGS = new Set(["ADM", "ADMN", "ADMI", "MOD", "MODS", "STAF", "SIST", "SYS", "GM", "DEV", "MW", "OFIC"]);

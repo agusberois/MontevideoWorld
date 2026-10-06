@@ -20,7 +20,7 @@ Diseño completo y etapas siguientes en `docs/pending/funcionalidades-primera-ve
 - **Dónde se funda:** el **Registro de Barras**, casona sobre la peatonal Sarandí en Ciudad Vieja
   (landmark `barraRegistry`, 77,45, 3 × 3, `registroBarras.ts`: banderines de colores y bandera) con
   una tienda `building: "none"` y `registry: true` en la misma área: clic o F → `ShopPanel` abre
-  `BarraRegistry` (formulario con vista previa de la sigla). El server exige estar al lado
+  `BarraRegistry`: la bandera flameando en su mástil con los dos colores en franjas, la sigla y el nombre (vista previa en vivo), cómo queda la pastillita sobre tu nombre real, pasos numerados (nombre y sigla con contador y error al lado, colores con ✓, invertir y al azar), lo que da la barra, el costo con lo que te queda y el botón con los colores elegidos; ya en una barra, muestra su bandera y "Ver mi barra". `readableOn` (shared) elige texto blanco o negro según el color. El server exige estar al lado
   (`isNearShop`), tener clave, no ser de otra barra y la plata.
 - **Guardado** (`apps/server/src/barraStore.ts`): la interfaz `BarraRepository` (lo único que usa el
   resto del server) y hoy `JsonBarraStore`, un archivo `apps/server/data/barras.json`

@@ -1,0 +1,57 @@
+/* Panel de opciones (tecla O). Las clases que no están acá son globales (`modal`, `key-hint`…). */
+
+.options {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.options-group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 16px 12px;
+  border: 0;
+}
+
+.options-group legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.options-choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.options-choice:has(input:checked) {
+  border-color: var(--system);
+  background: rgba(255, 209, 102, 0.08);
+}
+
+.options-choice input {
+  margin-top: 3px;
+}
+
+.options-choice span {
+  display: grid;
+  gap: 2px;
+}
+
+.options-choice small {
+  color: var(--muted);
+}
+
+.options-now {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}

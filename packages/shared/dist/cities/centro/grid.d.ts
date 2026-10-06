@@ -11,7 +11,7 @@ import type { TileRect } from "../types";
  * 18 de Julio, de norte a sur (filas), y las que la cruzan, de la Plaza Independencia a la
  * Intendencia (columnas).
  */
-export declare const WIDTH = 126;
+export declare const WIDTH = 127;
 export declare const HEIGHT = 68;
 /** Primera fila de cada calle "de oeste a este". */
 export declare const ROW_STREETS: {

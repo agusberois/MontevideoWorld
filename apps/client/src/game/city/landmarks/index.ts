@@ -7,6 +7,7 @@ import { artDeco } from "./centro/artDeco";
 import { columnaDeLaPaz } from "./centro/columnaDeLaPaz";
 import { david } from "./centro/david";
 import { entrevero } from "./centro/entrevero";
+import { fuenteCandados } from "./centro/fuenteCandados";
 import { lapido } from "./centro/lapido";
 import { londonParis } from "./centro/londonParis";
 import { nike } from "./centro/nike";
@@ -26,6 +27,7 @@ import { puertaCiudadela } from "./ciudadVieja/puertaCiudadela";
 import { teatroSolis } from "./ciudadVieja/teatroSolis";
 import { termas } from "./ciudadVieja/termas";
 import { casino } from "./ciudadVieja/casino";
+import { barCounter, barShelf } from "./casino/barra";
 import { blackjackTable, rouletteTable, slotMachine } from "./casino/juegos";
 import { torreEjecutiva } from "./ciudadVieja/torreEjecutiva";
 import { palacio } from "./ciudadVieja/palacio";
@@ -71,6 +73,7 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   victoryStatue: nike,
   departmentStore: londonParis,
   entrevero,
+  lockFountain: fuenteCandados,
   peaceColumn: columnaDeLaPaz,
   cinema: salaZitarrosa,
   cityHall: palacioMunicipal,
@@ -101,6 +104,8 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   slotMachine,
   rouletteTable,
   blackjackTable,
+  barShelf,
+  barCounter,
   barraRegistry: registroBarras,
 };
 

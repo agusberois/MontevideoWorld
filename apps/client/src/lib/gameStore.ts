@@ -3,6 +3,7 @@ import { BarraView, InventoryMessage, MatchMode, OutfitIds, TutorialMessage, Wea
 import { type PlayerSummary, eventBus } from "./eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
 import { loadBlocked, saveBlocked, toggleInList } from "../features/players/blockStorage";
+import { QualitySetting, loadQuality, saveQuality } from "./quality";
 
 /**
  * Estado de la UI del juego que llega por el EventBus (de la red o de la escena) más qué panel está
@@ -12,7 +13,7 @@ import { loadBlocked, saveBlocked, toggleInList } from "../features/players/bloc
  */
 
 /** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
-export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails" | "barra";
+export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails" | "barra" | "options";
 
 export interface GameStoreState {
   /** Un solo panel abierto a la vez. */
@@ -46,6 +47,11 @@ export interface GameStoreState {
   pet: { id: string; name: string } | null;
   /** Preso en el COMCAR: segundos de condena que quedan (0 = libre). */
   jailLeft: number;
+  /** Calidad gráfica elegida (Opciones) y si la escena está dibujando en baja ahora. */
+  quality: QualitySetting;
+  qualityLow: boolean;
+  /** A quién seguís (sessionId y nombre), o null. */
+  following: { sessionId: string; name: string } | null;
   /** Energía del avatar propio; null hasta que se sincroniza. */
   energy: number | null;
   /** Hambre (saciedad) y salud del avatar propio, privadas; null hasta que llegan. */
@@ -88,6 +94,9 @@ const INITIAL: GameStoreState = {
   barra: null,
   interaction: null,
   jailLeft: 0,
+  following: null,
+  quality: "auto",
+  qualityLow: false,
   pet: null,
   energy: null,
   hunger: null,
@@ -103,7 +112,7 @@ const INITIAL: GameStoreState = {
 };
 
 /** Lo que depende del barrio en el que estás: al viajar se borra (mochila, plata, energía… siguen). */
-const CITY_FIELDS = ["panel", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "interaction", "trading", "jailLeft"] as const;
+const CITY_FIELDS = ["panel", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "interaction", "trading", "jailLeft", "following"] as const;
 
 let state = INITIAL;
 const listeners = new Set<() => void>();
@@ -167,6 +176,13 @@ export function setHotbar(hotbar: HotbarSlots) {
   saveHotbar(hotbar);
 }
 
+/** Elegir la calidad gráfica (se recuerda en el navegador y la escena la aplica en el acto). */
+export function setQuality(quality: QualitySetting) {
+  setState({ quality });
+  saveQuality(quality);
+  eventBus.emit("quality:set", quality);
+}
+
 /** Bloquear a un jugador (o desbloquearlo, si ya estaba). */
 export function toggleBlocked(name: string) {
   const blocked = toggleInList(state.blocked, name);
@@ -185,7 +201,7 @@ export function isBlocked(name: string): boolean {
  * crear el store porque `localStorage` no existe en el server (SSR).
  */
 export function bindGameStore(): () => void {
-  setState({ hotbar: loadHotbar(), blocked: loadBlocked() });
+  setState({ hotbar: loadHotbar(), blocked: loadBlocked(), quality: loadQuality() });
   const offs = [
     eventBus.on("player:outfit", (outfit) => setState({ outfit })),
     eventBus.on("inventory:update", (inventory) => setState({ inventory })),
@@ -200,6 +216,8 @@ export function bindGameStore(): () => void {
     eventBus.on("player:energy", (energy) => setState({ energy })),
     eventBus.on("needs:update", ({ hunger, health }) => setState({ hunger, health })),
     eventBus.on("player:jail", (jailLeft) => setState({ jailLeft })),
+    eventBus.on("player:following", (following) => setState({ following })),
+    eventBus.on("quality:low", (qualityLow) => setState({ qualityLow })),
     eventBus.on("player:pet", (pet) => setState({ pet: pet.id ? pet : null })),
     eventBus.on("player:admin", (isAdmin) => setState({ isAdmin })),
     eventBus.on("admin:coords", (adminCoords) => setState({ adminCoords })),

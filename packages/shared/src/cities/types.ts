@@ -1,3 +1,4 @@
+import type { Appearance } from "../appearance";
 import type { ItemCategory } from "../items";
 
 export interface TilePoint {
@@ -97,9 +98,12 @@ export type LandmarkKind =
   | "slotMachine"
   | "rouletteTable"
   | "blackjackTable"
+  | "barShelf"
+  | "barCounter"
   | "barraRegistry"
   // Centro
   | "entrevero"
+  | "lockFountain"
   | "peaceColumn"
   | "departmentStore"
   | "artDeco"
@@ -287,8 +291,11 @@ export interface Door {
 
 /**
  * Jacuzzi: un área (no caminable) con lugares (`seats`, tiles del área) donde se mete uno por
- * lugar. Adentro se recupera energía y salud mucho más rápido (`JACUZZI_ENERGY_REGEN`).
+ * lugar. Adentro se recargan energía, saciedad y salud (`JACUZZI_ENERGY_REGEN`…).
  */
+/** Cuántos entran como máximo en un jacuzzi (arriba se ve "x/20"). */
+export const JACUZZI_CAPACITY = 20;
+
 export interface Jacuzzi {
   id: string;
   area: TileRect;
@@ -340,5 +347,50 @@ export interface CityDefinition extends Omit<CityInfo, "prison"> {
   boats?: readonly Boat[];
   /** Faroles de la rambla (sólo decorado, no ocupan el tile): de noche se prenden. */
   streetLamps?: readonly TilePoint[];
+  /** Decoración propia de un interior (piso, paredes, luz); sin esto, baldosas claras y azulejos. */
+  interior?: InteriorStyle;
+  /** Personajes quietos del barrio (el barman del casino): sólo se dibujan, no son jugadores. */
+  npcs?: readonly Npc[];
+  /** Guirnaldas de lucecitas colgadas entre postes, por arriba de las cabezas (decorado): de noche se prenden. */
+  stringLights?: readonly StringLight[];
   jacuzzis?: readonly Jacuzzi[];
+}
+
+/** Cómo se ve un interior (colores "#rrggbb"). */
+export interface InteriorStyle {
+  /** Los dos colores del piso, alternados por tile. */
+  floor: readonly [string, string];
+  /** Alfombra: el dibujo (rombos y guarda) de este color encima del piso. */
+  carpet?: string;
+  /** Pared, zócalo y moldura de arriba. */
+  wall: string;
+  wallBase: string;
+  wallTrim: string;
+  /** Tubo de neón a lo largo de las paredes (opcional). */
+  neon?: string;
+  /**
+   * Ambiente de boliche: siempre de noche (sin importar la hora), las máquinas, mesas y la barra
+   * con su luz de color, y luces de colores que barren el salón.
+   */
+  nightclub?: boolean;
+}
+
+/**
+ * Personaje del barrio que no es jugador (el barman del casino). Lo dibuja el cliente como un avatar
+ * más, con nombre, pero no se puede clickear; anda de acá para allá dentro de `roam` (tiles que no
+ * se caminan, p. ej. detrás de la barra).
+ */
+export interface Npc {
+  id: string;
+  name: string;
+  appearance: Appearance;
+  outfit: { hat: string; top: string; bottom: string; shoes: string };
+  /** Por dónde se mueve (empieza en el medio). */
+  roam: TileRect;
+}
+
+/** Una guirnalda: un cable con lamparitas que cuelga de un poste en `from` a otro en `to`. */
+export interface StringLight {
+  from: TilePoint;
+  to: TilePoint;
 }

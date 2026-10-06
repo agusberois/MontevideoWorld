@@ -11,8 +11,9 @@ import { chatBarra } from "./barras";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, isWalking } from "../session";
 import { leaveRestricted } from "./doors";
+import { startFollowing, stopFollowing } from "./follow";
 import { startGesture } from "./gestures";
-import { teleport } from "./movement";
+import { land, startFlying, teleport } from "./movement";
 import { restartTutorial } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
@@ -168,6 +169,12 @@ export function createCommandHost(room: CityRoom): CommandHost {
       const session = sessionOf(client);
       if (session) restartTutorial(room, session);
     },
+    setFlying: (client, flying) => {
+      const session = sessionOf(client);
+      if (!session) return;
+      if (flying) startFlying(room, session);
+      else land(room, session);
+    },
     healFully: (client) => {
       const session = sessionOf(client);
       if (!session) return;
@@ -192,6 +199,14 @@ export function createCommandHost(room: CityRoom): CommandHost {
       return ids.length;
     },
     mute: (to, until) => to.mailbox.mute(to.sessionId, until),
+    follow: (client, to) => {
+      const session = sessionOf(client);
+      if (!session) return;
+      if (!to) return session.follow ? stopFollowing(room, session) : room.notice(session, "Usá: /seguir <jugador>.");
+      const target = to.mailbox.roomId === room.roomId ? room.sessions.get(to.sessionId) : undefined;
+      if (!target) return room.notice(session, `${to.name} está en ${to.cityName}: para seguirlo tenés que estar en el mismo barrio.`);
+      startFollowing(room, session, target);
+    },
     traceTo: (client, to) => {
       const session = sessionOf(client);
       if (!session) return;

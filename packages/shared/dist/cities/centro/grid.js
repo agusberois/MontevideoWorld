@@ -14,7 +14,7 @@ exports.rect = rect;
  * 18 de Julio, de norte a sur (filas), y las que la cruzan, de la Plaza Independencia a la
  * Intendencia (columnas).
  */
-exports.WIDTH = 126;
+exports.WIDTH = 127;
 exports.HEIGHT = 68;
 /** Primera fila de cada calle "de oeste a este". */
 exports.ROW_STREETS = {

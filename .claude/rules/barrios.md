@@ -53,7 +53,7 @@ paths:
   al sur; Teatro Solís al suroeste; Plaza Matriz con la Catedral (oeste) y el Cabildo (este); Plaza
   Zabala con el Palacio Taranco; Mercado del Puerto frente a la bahía; Templo Inglés y Plaza España
   sobre la rambla sur. La guía de bienvenida toma sus áreas de `CIUDAD_VIEJA_INFO` (por id).
-- Centro (126×68, `centro/grid.ts`, spawn en la Plaza Cagancha): **el mismo patrón que Ciudad Vieja**
+- Centro (127×68, `centro/grid.ts`, spawn en las dos mitades de la Plaza Cagancha): **el mismo patrón que Ciudad Vieja**
   (franjas de 4 tiles, sin vereda en los cruces, manzanas de 6 × 8 llenas de `fillers` de 2 × 2,
   `bigTowerSpec`: ~580). **Delante de cada emblemático y cada local** (al sur y al este, las fachadas
   que ve la cámara) quedan dos tiles de patio de baldosa, y los lotes cercanos a ese frente son casonas
@@ -68,18 +68,20 @@ paths:
   (`decoTower`: 17 pisos con pilastras corridas y el remate escalonado), London París
   (`departmentStore`: torre octogonal de la esquina con el letrero, el reloj triple, el templete, la
   cúpula de zinc y el Atlas; además es la tienda `building: "none"` con ropa exclusiva,
-  `LONDON_PARIS_FASHION`), Plaza Fabini con El Entrevero (`entrevero`, en la fuente) y canteros, el
+  `LONDON_PARIS_FASHION`), Plaza Fabini con El Entrevero (`entrevero`, en la fuente) y canteros, la Fuente de los Candados (`lockFountain`, 2×2 pegada al este del Café Facal, `centro/fuenteCandados.ts`), el
   Edificio Rex / Sala Zitarrosa (`cinema`: esquina curva y la cúpula mirador iluminada), Plaza
-  Cagancha con la Columna de la Paz (`peaceColumn`) en su cantero y el Mercado de los Artesanos,
+  Cagancha a los dos lados de 18 de Julio (`CAGANCHA` al sur y `CAGANCHA_NORTE`, sin edificios de
+  relleno), con la Columna de la Paz (`peaceColumn`) en el medio de la calzada, sobre una isla de
+  baldosa, y el Mercado de los Artesanos en la mitad sur,
   Palacio Piria (`frenchPalace`: mansarda, frontón y el pabellón de la esquina con cúpula), Palacio
   Santos (`italianPalace`: renacimiento italiano, pórtico y balaustrada con jarrones) y, pasando
-  Ejido, la explanada con el David (`statue`), la Niké de Samotracia (`victoryStatue`) y el Palacio
-  Municipal (`cityHall`, 8 × 8: torre de 22 pisos de hormigón con el ascensor exterior y el mirador,
+  Ejido, la explanada con el David (`statue`), la Niké de Samotracia (`victoryStatue`) y la
+  Intendencia (`cityHall`, 8 × 8: torre de 22 pisos de hormigón con el ascensor exterior y el mirador,
   pórtico y escalinata; con el cartel "MW").
   Es **el barrio con más tiendas** (11): London París, ropería, sombrerería, Calzados 18 de Julio
   (también los championes rápidos), farmacia, kiosco, confitería, Café Facal (`cafe`), Mercado de
   los Artesanos (`crafts`), Mercado de la Abundancia (rotisería) y la Casa de Música (`music`,
-  instrumentos). Faroles sobre 18 de Julio. Su actividad es **tocar en la calle** (`busking`: toda
+  instrumentos). Faroles sobre 18 de Julio y en la explanada. La Plaza Cagancha tiene **guirnaldas de lucecitas** (`CityDefinition.stringLights`: postes en las esquinas de cada mitad, guirnaldas por el borde y en cruz, y dos que cruzan la avenida; las dibuja `game/city/stringLights.ts`: cada tramo con la profundidad de su tile, horneados juntos en una textura por profundidad; de noche cada lamparita suma un halo). Su actividad es **tocar en la calle** (`busking`: toda
   18 de Julio, Fabini, Cagancha y la explanada; ver `pesca-y-venta.md`).
   **Se llega caminando desde Ciudad Vieja** (ver "Barrios conectados a pie", abajo).
 - Tres Cruces (84×64, spawn en la explanada del shopping): manzanas con **edificios en altura** (`TileChar.Tower` → `towerSpec`) y casas
@@ -119,6 +121,7 @@ paths:
   "🚶 Caminando a…"). Se aparece en la otra punta de 18 de Julio (Centro 1,30; Ciudad Vieja 148,53).
   `CityInfo.onFoot`: al volver a entrar al juego se vuelve a ese barrio sin boleto (`canResumeTo`).
   El Centro igual sale en la lista de barrios y se puede ir en ómnibus.
+- **NPCs** (`CityDefinition.npcs`, hoy el barman del casino): personajes que no son jugadores, sólo del cliente (`objects/Npcs.ts`: un `Avatar` con nombre que pasea por su `roam`, sin clic). Su `roam` tiene que ser no caminable (p. ej. dentro de un landmark) para que nadie se le pare encima.
 - Salas con acceso (`CityInfo.access`, hoy las Termas del Donador): no salen en la lista ni en la
   landing, no se llega en ómnibus y se entra por una `Door` (ver `termas.md`). `indoor`: sin noche
   ni lluvia. Tiles de interior: `Floor` e `InnerWall`.
@@ -128,8 +131,10 @@ paths:
   emblemático (en Ciudad Vieja, el **Cabildo**). El punto del techo de cada tipo es el `roof` de su
   dibujo (`landmarks/<barrio>/<edificio>.ts`, coordenadas del dibujo base; se escala con el edificio) y el nombre del edificio se
   sube por encima del cartel. La escena carga `/mw-logo.svg` en `preload` (`LOGO_TEXTURE`).
-- Render (`game/city/`): cada volumen se dibuja con `IsoPainter` y se **hornea una vez a textura**
-  (`generateTexture`); piezas iguales comparten textura. Las áreas de un solo volumen deben ser
+- Render (`game/city/`): cada volumen se dibuja con `IsoPainter` y se **hornea una vez**, en el
+  atlas del barrio (`PieceAtlas`: páginas de 2048 px, `atlas-<barrio>-N`, que se suben a la GPU al
+  terminar de armarlo); piezas iguales comparten cuadro. Al irse del barrio se liberan el atlas, el
+  piso y las guirnaldas (`CityRenderer.destroy`); el `Phaser.Game` sigue vivo entre viajes. Las áreas de un solo volumen deben ser
   **cuadradas**: así un único depth `(x + w - 1 + y) * TILE_HEIGHT/2 + 1` ordena bien contra los avatares
   (depth = y de los pies). Áreas alargadas se parten en piezas 1×1 (ver `gatePieces`).
 - El piso se hornea en trozos de `GROUND_CHUNK` (2048 px) como mucho (`drawGround`): una sola textura

@@ -75,6 +75,8 @@ export interface PlayerSession {
   closed: boolean;
   /** IP desde la que entró (para el tope de conexiones por IP, `connectionLimits.ts`). */
   ip: string;
+  /** Siguiendo a alguien (`player.following`): su nombre y el último tile suyo hacia el que se buscó camino. */
+  follow: { name: string; seen: TilePoint | null } | null;
   /** Ya buscó camino en este tick (caminar, banco, palmera, tienda): ver `oncePerTick`. */
   searchedThisTick: boolean;
   /** El último de esos pedidos que llegó con el tick ya usado: se resuelve al empezar el próximo. */
@@ -113,6 +115,7 @@ export function createSession(client: Client, player: Player, inventory: Invento
     ip: "?",
     searchedThisTick: false,
     queuedSearch: null,
+    follow: null,
   };
 }
 
@@ -127,8 +130,10 @@ export function isWalking(session: PlayerSession): boolean {
   return session.path.length > 0;
 }
 
-/** Frena: sin camino ni nada pendiente para cuando llegue. */
+/** Frena: sin camino ni nada pendiente para cuando llegue (y deja de seguir a quien seguía). */
 export function halt(session: PlayerSession) {
+  session.follow = null;
+  session.player.following = "";
   session.path = [];
   session.stepWait = 0;
   session.stepCredit = 0;

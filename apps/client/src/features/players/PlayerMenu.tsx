@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PlayerClick, eventBus } from "@/lib/eventBus";
 import { openPlayerDetails, toggleBlocked, useGame } from "@/lib/gameStore";
 import { PAIR_GESTURES, PAIR_GESTURE_IDS, PairGestureId, nameKey } from "@montevideo-world/shared";
-import { CityRoom, sendBarraInvite, sendGreet, sendPairGesture, sendTaunt, sendTradeRequest } from "@/lib/network";
+import { CityRoom, sendBarraInvite, sendFollow, sendGreet, sendPairGesture, sendTaunt, sendTradeRequest, sendUnfollow } from "@/lib/network";
 import { moduleClasses } from "@/lib/cx";
 import styles from "./players.module.css";
 
@@ -15,7 +15,7 @@ interface PlayerMenuProps {
 }
 
 /**
- * Menú que aparece al hacer clic sobre otro jugador: Saludar, gestos de a dos (chocar los cinco,
+ * Menú que aparece al hacer clic sobre otro jugador: Saludar, Seguir (o dejar de seguirlo), gestos de a dos (chocar los cinco,
  * abrazo, pasar el mate: le llega una invitación), Intercambiar, Burlarse (si está preso),
  * Detalles del jugador (abre el panel `playerDetails`) y Bloquear (dejás de ver su chat; sólo en tu
  * navegador). Se cierra con Esc, con un clic afuera o
@@ -29,6 +29,8 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
   const blocked = useGame((state) => state.blocked);
   /** Sos fundador de una barra: podés invitar a los que no tienen. */
   const founder = useGame((state) => state.barra?.founder === true);
+  /** A quién seguís: si es éste, el botón es para dejar de seguirlo. */
+  const followingId = useGame((state) => state.following?.sessionId ?? null);
   const [target, setTarget] = useState<PlayerClick | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +75,15 @@ export function PlayerMenu({ room }: PlayerMenuProps) {
       <button type="button" role="menuitem" onClick={() => choose(sendGreet)}>
         👋 Saludar
       </button>
+      {followingId === target.sessionId ? (
+        <button type="button" role="menuitem" onClick={() => choose((room) => sendUnfollow(room))}>
+          ✋ Dejar de seguir
+        </button>
+      ) : (
+        <button type="button" role="menuitem" title="Caminás solo detrás de él (clic en el piso para dejar)" onClick={() => choose(sendFollow)}>
+          👣 Seguir
+        </button>
+      )}
       {PAIR_GESTURE_IDS.map((gesture: PairGestureId) => (
         <button
           key={gesture}

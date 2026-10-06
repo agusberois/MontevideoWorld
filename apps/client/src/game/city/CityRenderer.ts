@@ -1,11 +1,14 @@
 import * as Phaser from "phaser";
 import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRect, getCityInfo } from "@montevideo-world/shared";
+import { hexToNumber } from "@/lib/avatar/shapes";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, portalSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
+import { InnerDoorPart, InnerWallStyle, PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, portalSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
+import { PieceAtlas } from "./PieceAtlas";
 import { landmarkPieces, roofSpot } from "./landmarks";
+import { drawStringLights, stringLightGlows } from "./stringLights";
 
 export const FLOOR_DEPTH = -100000;
 /** Textura del logo de Montevideo World (la carga la escena en `preload`). */
@@ -28,6 +31,10 @@ const GROUND_CHUNK = 2048;
 const GROUND_CHUNK_OVERLAP = 2;
 /** Opacidad de un edificio que tapa al avatar propio. */
 const OCCLUDER_ALPHA = 0.35;
+/** Culling: se dibuja lo que cae en la vista de la cámara más este margen (px de mundo)… */
+const CULL_MARGIN = 320;
+/** …y se recalcula recién cuando la vista se corrió esto (o cambió el zoom). */
+const CULL_STEP = 96;
 const FADE_MS = 120;
 
 const GROUND_COLORS: Record<string, readonly [number, number]> = {
@@ -62,6 +69,12 @@ interface Piece {
   bounds: Phaser.Geom.Rectangle;
 }
 
+/** Algo fijo del mapa que se deja de dibujar fuera de la cámara (pieza, cartel), con su caja de mundo. */
+interface Cullable {
+  object: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+  rect: Phaser.Geom.Rectangle;
+}
+
 /** Punto de referencia del avatar propio para decidir qué edificios lo tapan. */
 export interface OcclusionFocus {
   x: number;
@@ -77,11 +90,22 @@ export interface OcclusionFocus {
  */
 export class CityRenderer {
   private readonly pieces: Piece[] = [];
+  /** Todo lo que entra en el culling (las piezas, también las que no tapan, y los carteles). */
+  private readonly cullables: Cullable[] = [];
+  /** Vista con la que se hizo el último culling (null = nunca). */
+  private culledView: { x: number; y: number; width: number; height: number } | null = null;
+  /** Última posición del foco de la oclusión y si quedó algún fundido a medias (si no, no se recorre nada). */
+  private occlusionKey = "";
+  private fading = false;
+  /** Las piezas del barrio, horneadas juntas en pocas páginas (ver `PieceAtlas`). */
+  private readonly atlas: PieceAtlas;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly map: CityMap,
-  ) {}
+  ) {
+    this.atlas = new PieceAtlas(scene, `atlas-${map.city.id}`);
+  }
 
   build() {
     this.drawGround();
@@ -122,6 +146,20 @@ export class CityRenderer {
     this.drawPortals();
     this.drawPlaceLabels();
     if (logo) this.drawLogoSign(logo);
+    // Todo horneado: recién ahora se suben las páginas del atlas a la GPU (una vez cada una).
+    this.atlas.upload();
+  }
+
+  /**
+   * Al irse del barrio: libera las texturas que son sólo de él (piso, guirnaldas y atlas). Las que
+   * comparten todos los barrios (avatares, halos, clima) quedan para el próximo.
+   */
+  destroy() {
+    this.atlas.destroy();
+    const id = this.map.city.id;
+    for (const key of this.scene.textures.getTextureKeys()) {
+      if (key.startsWith(`ground-${id}-`) || key.startsWith(`garland-${id}-`)) this.scene.textures.remove(key);
+    }
   }
 
   /**
@@ -213,6 +251,9 @@ export class CityRenderer {
     for (const lamp of this.map.city.streetLamps ?? []) {
       lights.push({ ...isoPoint(lamp.x + 0.32, lamp.y + 0.32, 50), radius: 85, color: 0xffd98a });
     }
+    if (this.map.city.interior?.nightclub) lights.push(...this.nightclubLights());
+    // Las lamparitas de las guirnaldas (Plaza Cagancha).
+    lights.push(...stringLightGlows(this.map.city.stringLights ?? []));
     for (const stop of this.map.city.busStops) {
       lights.push({ ...isoPoint(stop.x, stop.y, 30), radius: 50, color: 0xdff1ff });
     }
@@ -227,7 +268,7 @@ export class CityRenderer {
   /** Cartel flotante sobre un edificio (emblemático o tienda), por encima de todos los volúmenes. */
   private addSign(text: string, area: TileRect, maxZ: number, color: string, background: string) {
     const top = isoPoint(area.x + (area.width - 1) / 2, area.y + (area.height - 1) / 2, maxZ + 8);
-    this.scene.add
+    const sign = this.scene.add
       .text(top.x, top.y, text, {
         fontFamily: "system-ui, sans-serif",
         fontSize: "11px",
@@ -238,6 +279,7 @@ export class CityRenderer {
       })
       .setOrigin(0.5, 1)
       .setDepth(LANDMARK_LABEL_DEPTH);
+    this.cullables.push({ object: sign, rect: sign.getBounds() });
   }
 
   /** Rectángulo del mundo para los límites de la cámara (con aire arriba para los edificios altos). */
@@ -252,8 +294,18 @@ export class CityRenderer {
 
   /** Atenúa los edificios que están delante del avatar propio y lo tapan. */
   updateOcclusion(focus: OcclusionFocus | null, delta: number) {
+    // Quieto y sin fundidos a medias: nada cambió, no se recorren las piezas.
+    const key = focus ? `${Math.round(focus.x)},${Math.round(focus.y)},${Math.round(focus.depth)}` : "";
+    if (key === this.occlusionKey && !this.fading) return;
+    this.occlusionKey = key;
+    this.fading = false;
     const t = Math.min(1, delta / FADE_MS);
     for (const { image, silhouette, bounds } of this.pieces) {
+      // Fuera de cámara (culling): no tapa a nadie que se vea; si quedó transparente, vuelve de golpe.
+      if (!image.visible) {
+        if (image.alpha !== 1) image.setAlpha(1);
+        continue;
+      }
       let target = 1;
       if (focus && image.depth > focus.depth) {
         const feetY = focus.y - 8;
@@ -265,8 +317,36 @@ export class CityRenderer {
       }
       if (image.alpha === target) continue;
       const next = Phaser.Math.Linear(image.alpha, target, t);
-      image.setAlpha(Math.abs(next - target) < 0.01 ? target : next);
+      const done = Math.abs(next - target) < 0.01;
+      image.setAlpha(done ? target : next);
+      if (!done) this.fading = true;
     }
+  }
+
+  /**
+   * Deja de dibujar las piezas y los carteles que quedan fuera de la cámara (Phaser no lo hace solo:
+   * sin esto cada frame procesa los cientos de edificios del barrio aunque no se vean). Llamar en
+   * cada frame: sólo recorre la lista cuando la vista se movió `CULL_STEP` o cambió de tamaño.
+   */
+  updateCulling(view: Phaser.Geom.Rectangle) {
+    const last = this.culledView;
+    if (
+      last &&
+      Math.abs(last.x - view.x) < CULL_STEP &&
+      Math.abs(last.y - view.y) < CULL_STEP &&
+      Math.abs(last.width - view.width) < 1 &&
+      Math.abs(last.height - view.height) < 1
+    ) {
+      return;
+    }
+    this.culledView = { x: view.x, y: view.y, width: view.width, height: view.height };
+    const area = new Phaser.Geom.Rectangle(view.x - CULL_MARGIN, view.y - CULL_MARGIN, view.width + CULL_MARGIN * 2, view.height + CULL_MARGIN * 2);
+    for (const { object, rect } of this.cullables) {
+      const visible = Phaser.Geom.Intersects.RectangleToRectangle(area, rect);
+      if (object.visible !== visible) object.setVisible(visible);
+    }
+    // Lo que volvió a verse recalcula la oclusión.
+    this.occlusionKey = "";
   }
 
   // -------------------------------------------------------------------------------------------
@@ -319,11 +399,16 @@ export class CityRenderer {
       );
     };
 
+    // Interior con estilo (el casino): piso de sus colores y, si es alfombra, su dibujo encima.
+    const interior = this.map.city.interior;
+    const interiorFloor = interior ? ([hexToNumber(interior.floor[0]), hexToNumber(interior.floor[1])] as const) : undefined;
+    const carpet = interior?.carpet ? hexToNumber(interior.carpet) : undefined;
+
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         if (!touches(x, y)) continue;
         const char = this.map.tileAt(x, y) ?? TileChar.Block;
-        const colors = GROUND_COLORS[char] ?? GROUND_COLORS[TileChar.Plaza];
+        const colors = (char === TileChar.Floor ? interiorFloor : undefined) ?? GROUND_COLORS[char] ?? GROUND_COLORS[TileChar.Plaza];
         const color = colors[(x + y) % 2];
         const d = tileDiamond(x, y);
         const diamond = [offset(d.top), offset(d.right), offset(d.bottom), offset(d.left)];
@@ -362,6 +447,16 @@ export class CityRenderer {
             const c = offset(tileToWorld(x, y));
             g.lineStyle(1.5, 0x8cc3da, 0.45);
             g.lineBetween(c.x - 10, c.y, c.x + 6, c.y - 3);
+          }
+        } else if (char === TileChar.Floor && carpet !== undefined) {
+          // Alfombra: un rombo dorado en cada tile y, alternados, un punto en el medio; sin juntas.
+          const c = offset(tileToWorld(x, y));
+          const inset = (p: { x: number; y: number }) => ({ x: c.x + (p.x - c.x) * 0.55, y: c.y + (p.y - c.y) * 0.55 });
+          g.lineStyle(1.2, carpet, 0.55);
+          g.strokePoints(diamond.map(inset), true);
+          if ((x + y) % 2 === 0) {
+            g.fillStyle(carpet, 0.7);
+            g.fillEllipse(c.x, c.y, 6, 3);
           }
         } else {
           g.lineStyle(1, 0x000000, char === TileChar.Street ? 0.12 : 0.07);
@@ -420,7 +515,7 @@ export class CityRenderer {
           const isWall = (tx: number, ty: number) => this.map.tileAt(tx, ty) === TileChar.Wall;
           this.placePiece({ x, y }, wallSpec(isWall(x - 1, y) || isWall(x + 1, y), isWall(x, y - 1) || isWall(x, y + 1)));
         } else if (char === TileChar.InnerWall) {
-          this.placePiece({ x, y }, innerWallSpec(this.map.doorAt(x, y) !== undefined));
+          this.placePiece({ x, y }, innerWallSpec(this.doorPart(x, y), this.wallStyle()));
         } else if (char === TileChar.Fence) {
           const isBarrier = (tx: number, ty: number) => [TileChar.Fence, TileChar.Wall].includes(this.map.tileAt(tx, ty) as "F" | "W");
           this.placePiece({ x, y }, fenceSpec(isBarrier(x - 1, y) || isBarrier(x + 1, y)));
@@ -433,6 +528,7 @@ export class CityRenderer {
     }
     for (const bench of this.map.city.benches) this.placePiece(bench, benchSpec(bench.facing, bench.pair));
     for (const lamp of this.map.city.streetLamps ?? []) this.placePiece(lamp, streetLampSpec(), { occludes: false });
+    drawStringLights(this.scene, this.map.city.stringLights ?? [], `garland-${this.map.city.id}`);
     // Barcos pesqueros en la bahía: se mecen despacio (cada uno a su ritmo) y no tapan a nadie.
     for (const boat of this.map.city.boats ?? []) {
       const image = this.placePiece(boat, boatSpec(boat.variant, boat.facing), { occludes: false });
@@ -455,6 +551,57 @@ export class CityRenderer {
     }
   }
 
+  /**
+   * Interior de boliche (el casino): cada tragamonedas con su luz de color, las mesas con luz cálida
+   * colgando, el neón de la barra, el resplandor del neón a lo largo de las paredes y el verde de la salida.
+   */
+  private nightclubLights(): NightLight[] {
+    const lights: NightLight[] = [];
+    const neon = hexToNumber(this.map.city.interior?.neon ?? "#ff3d7f");
+    const slotColors = [0xff3d7f, 0xb06bff, 0x3de0ff, 0xffd166];
+    let slot = 0;
+    for (const { kind, area } of this.map.city.landmarks) {
+      const middle = { x: area.x + (area.width - 1) / 2, y: area.y + (area.height - 1) / 2 };
+      if (kind === "slotMachine") lights.push({ ...isoPoint(middle.x, middle.y, 36), radius: 48, color: slotColors[slot++ % slotColors.length] });
+      else if (kind === "rouletteTable" || kind === "blackjackTable") lights.push({ ...isoPoint(middle.x, middle.y, 26), radius: 95, color: 0xffc36b });
+      else if (kind === "barShelf") {
+        for (let i = 0; i < area.width; i += 2) lights.push({ ...isoPoint(area.x + i + 0.5, area.y, 70), radius: 60, color: neon });
+      } else if (kind === "barCounter") {
+        for (let i = 0; i < area.width; i += 2) lights.push({ ...isoPoint(area.x + i + 0.5, area.y + area.height - 1, 20), radius: 45, color: 0xffb347 });
+      }
+    }
+    // El neón de las paredes (norte y oeste).
+    const { width, height } = this.map;
+    for (let x = 2; x < width; x += 4) lights.push({ ...isoPoint(x, 0.4, 27), radius: 40, color: neon });
+    for (let y = 2; y < height; y += 4) lights.push({ ...isoPoint(0.4, y, 27), radius: 40, color: neon });
+    for (const door of this.map.city.doors ?? []) {
+      lights.push({ ...isoPoint(door.area.x + 0.4, door.area.y + (door.area.height - 1) / 2, 36), radius: 45, color: 0x3dff8a });
+    }
+    return lights;
+  }
+
+  /** Colores de las paredes de este interior (`CityDefinition.interior`), o los de siempre. */
+  private wallStyle(): InnerWallStyle | undefined {
+    const style = this.map.city.interior;
+    if (!style) return undefined;
+    return {
+      id: this.map.city.id,
+      wall: hexToNumber(style.wall),
+      base: hexToNumber(style.wallBase),
+      trim: hexToNumber(style.wallTrim),
+      neon: style.neon ? hexToNumber(style.neon) : undefined,
+    };
+  }
+
+  /** Qué parte de una puerta de interior cae en (x, y): las de dos tiles se dibujan como puerta doble. */
+  private doorPart(x: number, y: number): InnerDoorPart | null {
+    const door = this.map.doorAt(x, y);
+    if (!door) return null;
+    const { area } = door;
+    if (area.width === 1 && area.height === 1) return "single";
+    return y === area.y && x === area.x ? "start" : "end";
+  }
+
   private placePiece(tile: TilePoint, spec: PieceSpec, options: { depth?: number; occludes?: boolean } = {}): Phaser.GameObjects.Image {
     const scale = spec.scale ?? 1;
     const x1 = spec.width - 0.5;
@@ -464,19 +611,17 @@ export class CityRenderer {
     const textureWidth = Math.ceil(isoPoint(x1, -0.5).x + TEXTURE_MARGIN) - ox;
     const textureHeight = Math.ceil(isoPoint(x1, y1).y + TEXTURE_MARGIN) - oy;
 
-    if (!this.scene.textures.exists(spec.key)) {
-      // La escala se aplica al rasterizar (no al mostrar la imagen), así no se pixela.
-      const g = this.scene.make.graphics({}, false).setScale(scale);
+    // La escala se aplica al rasterizar (no al mostrar la imagen), así no se pixela.
+    const slot = this.atlas.add(spec.key, Math.ceil(textureWidth * scale), Math.ceil(textureHeight * scale), (g) => {
+      g.scaleCanvas(scale, scale);
       spec.draw(new IsoPainter(g, ox, oy));
-      g.generateTexture(spec.key, Math.ceil(textureWidth * scale), Math.ceil(textureHeight * scale));
-      g.destroy();
-    }
+    });
 
     // La esquina noroeste del dibujo (-0.5, -0.5) cae en la esquina noroeste del área en el mapa.
     const corner = isoPoint(-0.5, -0.5);
     const mapCorner = isoPoint(tile.x - 0.5, tile.y - 0.5);
     const image = this.scene.add
-      .image(mapCorner.x + (ox - corner.x) * scale, mapCorner.y + (oy - corner.y) * scale, spec.key)
+      .image(mapCorner.x + (ox - corner.x) * scale, mapCorner.y + (oy - corner.y) * scale, slot.texture, slot.frame)
       .setOrigin(0, 0);
 
     const width = spec.width * scale;
@@ -484,6 +629,8 @@ export class CityRenderer {
     // Áreas cuadradas: el borde frontal (x + w - 1) + y separa lo que queda delante y detrás.
     const frontSum = tile.x + width - 1 + tile.y;
     image.setDepth(options.depth ?? frontSum * HALF_H + 1);
+    // Caja con aire de más arriba y abajo (los barcos se mecen unos px).
+    this.cullables.push({ object: image, rect: new Phaser.Geom.Rectangle(image.x, image.y - 4, image.displayWidth, image.displayHeight + 8) });
     if (options.occludes === false) return image;
 
     const maxZ = spec.maxZ * scale;

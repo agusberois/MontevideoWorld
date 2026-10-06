@@ -1,11 +1,12 @@
 import * as Phaser from "phaser";
-import { AnyGestureId, CHAT_BUBBLE_MS, FishingSpot, InstrumentKind, OutfitIds, PAIR_GESTURES, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
+import { AnyGestureId, CHAT_BUBBLE_MS, readableOn, FishingSpot, InstrumentKind, OutfitIds, PAIR_GESTURES, STEP_MS, TILE_HEIGHT, TILE_WIDTH, TIRED_STEP_TICKS, TilePoint } from "@montevideo-world/shared";
 import { shade } from "../color";
 import { tileToWorld } from "../iso";
 import type { AvatarLook } from "./avatarLook";
 import { ARM_X, HIP_Y, LEG_X, arm, hat, leg, torso, wornOutfit } from "@/lib/avatar/clothing";
 import { EYE_Y, Expression, OUTLINE, OUTLINE_ALPHA, SHOULDER_Y, eyes, faceFeatures, frontHair, glasses, headBack, headFront } from "@/lib/avatar/head";
-import { paintShapes } from "./paintShapes";
+import { SHAPE_RES, ShapeSprite } from "./ShapeSprite";
+import { labelImage } from "./labels";
 
 /** Nombre sobre la cabeza (por encima del pelo más alto y de los gorros). */
 const NAME_Y = -92;
@@ -30,6 +31,12 @@ const CATCH_UP_FROM = 2;
 const CATCH_UP_PER_TILE = 0.3;
 const MAX_CATCH_UP = 2.5;
 const MAX_QUEUE = 8;
+/** Volando (`/god`): cuánto sube el cuerpo, cuánto se mece, su transparencia y que quede arriba de los edificios. */
+const FLY_HEIGHT = 46;
+const FLY_BOB = 4;
+const FLY_BOB_MS = 1400;
+const FLY_ALPHA = 0.7;
+const FLY_DEPTH = 390000;
 
 /** Ciclo de caminata: radianes de fase por ms y amplitud del balanceo de piernas/brazos. */
 const WALK_PHASE_PER_MS = 1 / 70;
@@ -61,11 +68,10 @@ const SIT_LEG_SCALE = 0.6;
 const SIT_ARM_ANGLE = 0.3;
 /**
  * En el jacuzzi (las Termas): el cuerpo se hunde hasta la cintura (las piernas no se ven), los brazos
- * apoyados en el borde y el agua por delante, con burbujas.
+ * apoyados en el borde, con burbujas por delante.
  */
 const BATH_DROP = 22;
 const BATH_ARM_ANGLE = 0.9;
-const BATH_WATER = 0x5ec4e0;
 
 /** Sentado en el banco: se dibuja apenas por delante del banco, que está en el mismo tile. */
 const SIT_DEPTH_BIAS = 2;
@@ -210,16 +216,16 @@ export class Avatar extends Phaser.GameObjects.Container {
   private readonly legs: [Phaser.GameObjects.Container, Phaser.GameObjects.Container];
   private readonly arms: [Phaser.GameObjects.Container, Phaser.GameObjects.Container];
   /** Partes que dependen de la ropa: se limpian y redibujan en `setOutfit`. */
-  private readonly legGraphics: [Phaser.GameObjects.Graphics, Phaser.GameObjects.Graphics];
-  private readonly armGraphics: [Phaser.GameObjects.Graphics, Phaser.GameObjects.Graphics];
-  private readonly torso: Phaser.GameObjects.Graphics;
-  private readonly hatFront: Phaser.GameObjects.Graphics;
-  private readonly hatBack: Phaser.GameObjects.Graphics;
+  private readonly legGraphics: [ShapeSprite, ShapeSprite];
+  private readonly armGraphics: [ShapeSprite, ShapeSprite];
+  private readonly torso: ShapeSprite;
+  private readonly hatFront: ShapeSprite;
+  private readonly hatBack: ShapeSprite;
   private readonly headFront: Phaser.GameObjects.Container;
   private readonly headBack: Phaser.GameObjects.Container;
-  private readonly eyes: Phaser.GameObjects.Graphics;
+  private readonly eyes: ShapeSprite;
   /** Barba, boca, bigote y cejas: se redibujan al cambiar la expresión (como los ojos). */
-  private readonly features: Phaser.GameObjects.Graphics;
+  private readonly features: ShapeSprite;
   private expression: Expression = "neutral";
   /** Lo que le queda a la expresión del momento (ms); al llegar a 0 vuelve a la normal. */
   private expressionLeft = 0;
@@ -231,9 +237,9 @@ export class Avatar extends Phaser.GameObjects.Container {
   /** Instrumento en las manos mientras toca en la calle (el tambor usa `drum`, el del candombe). */
   private readonly instrument: Phaser.GameObjects.Graphics;
   private readonly overlay: Phaser.GameObjects.Container;
-  private readonly donorTag: Phaser.GameObjects.Text;
+  private readonly donorTag: Phaser.GameObjects.Image;
   /** "🔒 PRESO" arriba del nombre mientras está preso en el COMCAR (`Player.jailLeft`). */
-  private readonly prisonerTag: Phaser.GameObjects.Text;
+  private readonly prisonerTag: Phaser.GameObjects.Image;
   /** El nombre y, pegada a su izquierda, la sigla de su barra en su color (`Player.barraTag`). */
   private readonly nameLabel: Phaser.GameObjects.Text;
   private readonly barraTag: Phaser.GameObjects.Text;
@@ -248,16 +254,21 @@ export class Avatar extends Phaser.GameObjects.Container {
   /** Paso en curso: de dónde sale (px), a qué tile va y cuánto lleva / dura (ms). */
   private segment: { fromX: number; fromY: number; to: TilePoint; elapsed: number; duration: number } | null = null;
   private walkTime = 0;
+  /** Volando con `/god` (el propio; a los demás que vuelan ni se los dibuja). */
+  private flying = false;
+  private flyTime = 0;
   /** Lo que tarda un tile: `STEP_MS`, o `TIRED_STEP_TICKS` veces más cansado (como lo mueve el server). */
   private stepMs = STEP_MS;
   private idleTime = 0;
   private blinkIn = Phaser.Math.Between(1500, 4000);
   private outfitKey = "";
+  /** La ropa puesta según el Schema (para redibujarla sin remera al meterse al jacuzzi). */
+  private outfitIds: OutfitIds | null = null;
   private sitting = false;
   private sitScaleX = 1;
   private bathing = false;
   private bathTime = 0;
-  /** El agua del jacuzzi por delante del cuerpo (sólo metido), con burbujas. */
+  /** Las burbujas del jacuzzi por delante del cuerpo (sólo metido). */
   private readonly water: Phaser.GameObjects.Graphics;
   private fishing = false;
   private fishFacing: FishFacing = "south";
@@ -309,8 +320,9 @@ export class Avatar extends Phaser.GameObjects.Container {
 
     const shadow = scene.add.ellipse(0, 0, 34, 14, 0x000000, 0.3);
 
-    this.legGraphics = [scene.add.graphics(), scene.add.graphics()];
-    this.armGraphics = [scene.add.graphics(), scene.add.graphics()];
+    // Las partes hechas con formas (`lib/avatar`) se hornean a texturas (`ShapeSprite`): no son `Graphics`.
+    this.legGraphics = [new ShapeSprite(scene), new ShapeSprite(scene)];
+    this.armGraphics = [new ShapeSprite(scene), new ShapeSprite(scene)];
     this.legs = [
       scene.add.container(-LEG_X, HIP_Y, [this.legGraphics[0]]),
       scene.add.container(LEG_X, HIP_Y, [this.legGraphics[1]]),
@@ -319,24 +331,20 @@ export class Avatar extends Phaser.GameObjects.Container {
       scene.add.container(-ARM_X, SHOULDER_Y, [this.armGraphics[0]]),
       scene.add.container(ARM_X, SHOULDER_Y, [this.armGraphics[1]]),
     ];
-    this.torso = scene.add.graphics();
+    this.torso = new ShapeSprite(scene);
 
     // Cabeza: las formas salen de `lib/avatar/head.ts` (las mismas que dibuja la vista previa en SVG).
-    const back = scene.add.graphics();
-    paintShapes(back, headBack(this.look));
-    this.hatBack = scene.add.graphics();
+    const back = new ShapeSprite(scene).paint(headBack(this.look));
+    this.hatBack = new ShapeSprite(scene);
     this.headBack = scene.add.container(0, 0, [back, this.hatBack]).setVisible(false);
 
-    const face = scene.add.graphics();
-    paintShapes(face, headFront(this.look));
-    this.features = scene.add.graphics();
-    this.eyes = scene.add.graphics({ x: 0, y: EYE_Y });
+    const face = new ShapeSprite(scene).paint(headFront(this.look));
+    this.features = new ShapeSprite(scene);
+    this.eyes = new ShapeSprite(scene, 0, EYE_Y);
     this.drawFace();
-    const lenses = scene.add.graphics();
-    paintShapes(lenses, glasses(this.look));
-    const hairFront = scene.add.graphics();
-    paintShapes(hairFront, frontHair(this.look));
-    this.hatFront = scene.add.graphics();
+    const lenses = new ShapeSprite(scene).paint(glasses(this.look));
+    const hairFront = new ShapeSprite(scene).paint(frontHair(this.look));
+    this.hatFront = new ShapeSprite(scene);
     this.headFront = scene.add.container(0, 0, [face, this.features, this.eyes, lenses, hairFront, this.hatFront]);
 
     this.rod = scene.add.graphics().setVisible(false);
@@ -384,27 +392,28 @@ export class Avatar extends Phaser.GameObjects.Container {
       })
       .setOrigin(0.5, 1);
 
-    this.donorTag = scene.add
-      .text(0, DONOR_TAG_Y, "♥ DONADOR", {
-        fontFamily: "system-ui, sans-serif",
-        fontSize: "9px",
-        fontStyle: "bold",
-        color: "#3a2600",
-        backgroundColor: "#ffd166",
-        padding: { x: 5, y: 2 },
-      })
+    // Distintivos iguales para todos: una textura compartida (`labelImage`), no un `Text` por avatar.
+    this.donorTag = labelImage(scene, "tag-donor", "♥ DONADOR", {
+      fontFamily: "system-ui, sans-serif",
+      fontSize: "9px",
+      fontStyle: "bold",
+      color: "#3a2600",
+      backgroundColor: "#ffd166",
+      padding: { x: 5, y: 2 },
+    })
+      .setPosition(0, DONOR_TAG_Y)
       .setOrigin(0.5, 1)
       .setVisible(Boolean(config.isDonor));
 
-    this.prisonerTag = scene.add
-      .text(0, DONOR_TAG_Y, "🔒 PRESO", {
-        fontFamily: "system-ui, sans-serif",
-        fontSize: "9px",
-        fontStyle: "bold",
-        color: "#ffffff",
-        backgroundColor: "#e63946",
-        padding: { x: 5, y: 2 },
-      })
+    this.prisonerTag = labelImage(scene, "tag-prisoner", "🔒 PRESO", {
+      fontFamily: "system-ui, sans-serif",
+      fontSize: "9px",
+      fontStyle: "bold",
+      color: "#ffffff",
+      backgroundColor: "#e63946",
+      padding: { x: 5, y: 2 },
+    })
+      .setPosition(0, DONOR_TAG_Y)
       .setOrigin(0.5, 1)
       .setVisible(false);
 
@@ -432,6 +441,20 @@ export class Avatar extends Phaser.GameObjects.Container {
   setTired(tired: boolean, speed = 1) {
     // Con calzado rápido (`walkSpeed`) cada tile dura menos, igual que en el server.
     this.stepMs = tired ? STEP_MS * TIRED_STEP_TICKS : STEP_MS / speed;
+  }
+
+  /**
+   * `/god`: el propio se ve volando (más arriba, translúcido, meciéndose, por encima de los
+   * edificios); a otro que vuela directamente no se lo dibuja (`hidden`), ni su nombre ni su globo.
+   */
+  setFlying(flying: boolean, hidden: boolean) {
+    this.flying = flying && !hidden;
+    this.setVisible(!(flying && hidden));
+    this.overlay.setVisible(!(flying && hidden));
+    if (!this.flying) {
+      this.shadow.setScale(1);
+      this.setFade(1);
+    }
   }
 
   /** Donador o no (lo marca el admin; puede cambiar estando conectado). */
@@ -487,6 +510,11 @@ export class Avatar extends Phaser.GameObjects.Container {
   pushTile(tileX: number, tileY: number) {
     const end = this.endTile();
     if (end.x === tileX && end.y === tileY) return;
+    // Volando el server avanza varios tiles por tick en línea recta: se planea hasta ahí, sin saltar.
+    if (this.flying && this.queue.length < MAX_QUEUE) {
+      this.queue.push({ x: tileX, y: tileY });
+      return;
+    }
     // Con calzado rápido el server puede avanzar dos tiles en un tick: se camina por el del medio.
     const gap = Math.max(Math.abs(end.x - tileX), Math.abs(end.y - tileY));
     if (gap === 2 && this.queue.length < MAX_QUEUE - 1) {
@@ -553,21 +581,24 @@ export class Avatar extends Phaser.GameObjects.Container {
 
   /** Llamado cuando el Schema cambia la ropa puesta. Sólo redibuja si algo cambió. */
   setOutfit(ids: OutfitIds) {
-    const key = `${ids.hat}|${ids.top}|${ids.bottom}|${ids.shoes}`;
+    this.outfitIds = ids;
+    // En el jacuzzi, sin remera (la ropa puesta no cambia: al salir vuelve a aparecer).
+    const shown = this.bathing ? { ...ids, top: "" } : ids;
+    const key = `${shown.hat}|${shown.top}|${shown.bottom}|${shown.shoes}`;
     if (key === this.outfitKey) return;
     this.outfitKey = key;
 
     // Cuerpo y ropa: las formas salen de `lib/avatar/clothing.ts` (las mismas que la vista previa en SVG).
-    const outfit = wornOutfit(ids);
+    const outfit = wornOutfit(shown);
     const { skin, gender } = this.look;
-    this.legGraphics.forEach((g) => paintShapes(g.clear(), leg(skin, outfit)));
-    this.armGraphics.forEach((g) => paintShapes(g.clear(), arm(skin, outfit)));
-    paintShapes(this.torso.clear(), torso(skin, gender, outfit));
-    paintShapes(this.hatFront.clear(), hat(outfit.hat, false));
-    paintShapes(this.hatBack.clear(), hat(outfit.hat, true));
+    this.legGraphics.forEach((g) => g.paint(leg(skin, outfit)));
+    this.armGraphics.forEach((g) => g.paint(arm(skin, outfit)));
+    this.torso.paint(torso(skin, gender, outfit));
+    this.hatFront.paint(hat(outfit.hat, false));
+    this.hatBack.paint(hat(outfit.hat, true));
   }
 
-  /** Metido en el jacuzzi (las Termas) o no: se hunde hasta la cintura y se ve el agua por delante. */
+  /** Metido en el jacuzzi (las Termas) o no: se hunde hasta la cintura, sin remera, con burbujas por delante. */
   setBathing(bathing: boolean) {
     if (bathing === this.bathing) return;
     this.bathing = bathing;
@@ -576,20 +607,15 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.shadow.setVisible(!bathing);
     this.water.setVisible(bathing);
     if (!bathing) this.water.clear();
+    if (this.outfitIds) this.setOutfit(this.outfitIds);
   }
 
-  /** El agua por delante del cuerpo hundido: la superficie que se mece y burbujas que suben y revientan. */
+  /** Burbujas por delante del cuerpo hundido, que suben y revientan. */
   private drawWater(delta: number) {
     this.bathTime += delta;
     const t = this.bathTime;
     const g = this.water.clear();
     const surface = -6 + Math.sin(t / 500) * 1;
-    g.fillStyle(BATH_WATER, 0.95);
-    g.fillEllipse(0, surface + 4, 52, 20);
-    g.fillStyle(0xffffff, 0.35);
-    g.fillEllipse(-8 + Math.sin(t / 700) * 3, surface + 2, 14, 3);
-    g.lineStyle(1.2, 0xffffff, 0.55);
-    g.strokeEllipse(0, surface + 3, 30 + Math.sin(t / 400) * 3, 8);
     for (let i = 0; i < 5; i++) {
       const life = (t / 900 + i * 0.21) % 1;
       const x = Math.sin(i * 2.7) * 16;
@@ -797,7 +823,16 @@ export class Avatar extends Phaser.GameObjects.Container {
     this.updateCartHold(delta);
     this.updateBlink(delta);
     this.updateExpression(delta);
+    if (this.flying) this.poseFlying(delta);
     this.syncDepth();
+  }
+
+  /** Arriba, meciéndose, con la sombra chiquita en el piso. */
+  private poseFlying(delta: number) {
+    this.flyTime += delta;
+    this.body_.y = -FLY_HEIGHT + Math.sin((this.flyTime / FLY_BOB_MS) * Math.PI * 2) * FLY_BOB;
+    this.shadow.setScale(0.55);
+    this.setFade(FLY_ALPHA);
   }
 
   /**
@@ -846,8 +881,8 @@ export class Avatar extends Phaser.GameObjects.Container {
   }
 
   private drawFace() {
-    paintShapes(this.features.clear(), faceFeatures(this.look, this.expression));
-    paintShapes(this.eyes.clear(), eyes(this.look, this.expression));
+    this.features.paint(faceFeatures(this.look, this.expression));
+    this.eyes.paint(eyes(this.look, this.expression));
   }
 
   private updateExpression(delta: number) {
@@ -923,7 +958,7 @@ export class Avatar extends Phaser.GameObjects.Container {
 
   /** Profundidad por Y (los de adelante tapan a los de atrás) y overlay pegado a la cabeza. */
   private syncDepth() {
-    this.setDepth(this.y + (this.sitting || this.bathing ? SIT_DEPTH_BIAS : 0));
+    this.setDepth(this.flying ? FLY_DEPTH + this.y : this.y + (this.sitting || this.bathing ? SIT_DEPTH_BIAS : 0));
     this.overlay.setPosition(this.x, this.y + this.body_.y).setDepth(OVERLAY_DEPTH + this.y);
   }
 
@@ -1634,9 +1669,10 @@ export class Avatar extends Phaser.GameObjects.Container {
   private updateBlink(delta: number) {
     this.blinkIn -= delta;
     if (this.blinkIn > 0) return;
-    this.eyes.scaleY = 0.15;
+    // La escala base de un `ShapeSprite` es 1 / SHAPE_RES.
+    this.eyes.scaleY = 0.15 / SHAPE_RES;
     if (this.blinkIn <= -BLINK_MS) {
-      this.eyes.scaleY = 1;
+      this.eyes.scaleY = 1 / SHAPE_RES;
       this.blinkIn = Phaser.Math.Between(2500, 5500);
     }
   }
@@ -1717,13 +1753,6 @@ function smooth(t: number): number {
 }
 
 /** Rotación y escala de un brazo para que la mano quede en `hand` (px desde el hombro). */
-/** Texto que se lee sobre un fondo de este color ("#rrggbb"): negro sobre claros, blanco sobre oscuros. */
-function readableOn(hex: string): string {
-  const value = Number.parseInt(hex.slice(1), 16);
-  const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
-  return luminance > 0.6 ? "#1a1a1f" : "#ffffff";
-}
-
 function reach(hand: { x: number; y: number }): { rotation: number; scale: number } {
   return { rotation: Math.atan2(-hand.x, hand.y), scale: Math.min(1.25, Math.max(0.3, Math.hypot(hand.x, hand.y) / ARM_LENGTH)) };
 }

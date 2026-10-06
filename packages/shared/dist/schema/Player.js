@@ -73,6 +73,14 @@ class Player extends schema_1.Schema {
         this.donor = false;
         /** Entró con el nombre de admin (`ADMIN_NAME` del server): puede cambiar cosas del barrio. */
         this.admin = false;
+        /**
+         * Admin volando con `/god`: se mueve en línea recta por arriba de todo (`GOD_FLIGHT_TILES` por
+         * tick) y los demás clientes no lo dibujan (ni en la lista de jugadores). Al bajar cae en la
+         * baldosa caminable más cercana.
+         */
+        this.flying = false;
+        /** A quién sigue (sessionId; "" = a nadie): camina solo detrás de él (`systems/follow.ts`). */
+        this.following = "";
         /** Prendas puestas: id de `ITEMS` o "" si no tiene nada en ese lugar. */
         this.hat = "";
         this.top = "";
@@ -189,6 +197,12 @@ __decorate([
 __decorate([
     (0, schema_1.type)("boolean")
 ], Player.prototype, "admin", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "flying", void 0);
+__decorate([
+    (0, schema_1.type)("string")
+], Player.prototype, "following", void 0);
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "hat", void 0);

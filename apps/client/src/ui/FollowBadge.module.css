@@ -1,0 +1,38 @@
+/* Cartel "Siguiendo a X" (arriba del de interactuar). */
+
+.follow-badge {
+  position: fixed;
+  bottom: calc(200px + var(--safe-bottom));
+  left: 50%;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid rgba(76, 201, 240, 0.6);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+}
+
+.follow-badge button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--system);
+  color: #0b0d14;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  /* En celulares va apilado en la columna de abajo (`.dock`). */
+  .follow-badge {
+    position: static;
+    transform: none;
+  }
+}

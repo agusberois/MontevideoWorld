@@ -4,12 +4,14 @@ import { barra } from "./barra";
 import { box } from "./box";
 import { curar } from "./curar";
 import { donador } from "./donador";
+import { god } from "./god";
 import { guia } from "./guia";
 import { help } from "./help";
 import { mensaje } from "./mensaje";
 import { mover } from "./mover";
 import { plata } from "./plata";
 import { post } from "./post";
+import { seguir } from "./seguir";
 import { silenciar } from "./silenciar";
 import { trace } from "./trace";
 import type { CommandContext, CommandHandler, CommandHost } from "./types";
@@ -20,7 +22,7 @@ export type { CommandHost } from "./types";
  * Handler de cada comando del catálogo (`COMMANDS` en shared). El `Record` obliga a que todo
  * comando definido tenga su handler: para sumar uno, definirlo en shared y agregarlo acá.
  */
-const HANDLERS: Record<CommandName, CommandHandler> = { help, barra, mensaje, post, box, plata, donador, guia, trace, mover, ban, curar, silenciar };
+const HANDLERS: Record<CommandName, CommandHandler> = { help, barra, mensaje, post, box, plata, donador, god, guia, trace, mover, ban, curar, silenciar, seguir };
 
 /**
  * Si el texto del chat es un comando, lo ejecuta (o avisa por qué no) y devuelve true: no va al

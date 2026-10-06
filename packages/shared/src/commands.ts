@@ -34,6 +34,12 @@ export const COMMANDS = [
     role: "user",
   },
   {
+    name: "seguir",
+    usage: "/seguir [jugador]",
+    description: "Caminás solo detrás de un jugador del barrio. Sin nombre (o clic en el piso), dejás de seguir.",
+    role: "user",
+  },
+  {
     name: "post",
     usage: "/post <mensaje>",
     description: "Anuncio en el medio de la pantalla para todos los barrios.",
@@ -79,6 +85,12 @@ export const COMMANDS = [
     name: "mover",
     usage: "/mover <jugador>",
     description: "Trae a un jugador conectado a tu mismo tile, esté en el barrio que esté (sin boleto).",
+    role: "admin",
+  },
+  {
+    name: "god",
+    usage: "/god",
+    description: "Modo vuelo: volás por arriba de todo, rápido y sin que nadie te vea (clic adonde ir). /god otra vez para bajar a la baldosa más cercana.",
     role: "admin",
   },
   {

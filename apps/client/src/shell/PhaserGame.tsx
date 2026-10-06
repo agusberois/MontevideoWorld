@@ -13,30 +13,38 @@ interface PhaserGameProps {
 }
 
 /**
- * Monta una única instancia de Phaser.Game dentro de un <div>.
+ * Monta una única instancia de Phaser.Game dentro de un <div> y le cambia el barrio con cada sesión.
  * - Phaser se importa dinámicamente dentro del efecto (toca `window`, no puede correr en SSR).
- * - En StrictMode el efecto corre → cleanup → corre: el flag `cancelled` evita que la primera
- *   importación (aún pendiente) cree un juego, y el cleanup destruye el canvas si ya existía.
+ * - El juego vive mientras esté montado el componente: al viajar sólo se cambia la escena
+ *   (`startCity`), no se recrea el contexto de WebGL ni las texturas compartidas.
+ * - En StrictMode los efectos corren → cleanup → corren: el flag `cancelled` evita que una
+ *   importación pendiente use una sesión vieja, y el cleanup del montaje destruye el canvas.
  */
 export function PhaserGame({ session }: PhaserGameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const gameRef = useRef<Phaser.Game | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    let game: Phaser.Game | null = null;
-
-    import("@/game/createGame").then(({ createGame }) => {
+    import("@/game/createGame").then(({ createGame, startCity }) => {
       const parent = containerRef.current;
       if (cancelled || !parent) return;
-      game = createGame(parent, session.room, session.cityId);
+      gameRef.current ??= createGame(parent);
+      startCity(gameRef.current, session.room, session.cityId);
     });
-
     return () => {
       cancelled = true;
-      game?.destroy(true);
-      game = null;
     };
   }, [session]);
+
+  // Al desmontar (salir del juego): se destruye el juego entero.
+  useEffect(
+    () => () => {
+      gameRef.current?.destroy(true);
+      gameRef.current = null;
+    },
+    [],
+  );
 
   // Phaser cancela el pointerdown del canvas, así que tocar el mapa no le saca el foco al chat (y
   // WASD, F, etc. seguían escribiendo). Se lo saca a mano, antes de que el evento llegue a Phaser.

@@ -1,4 +1,4 @@
-import { Door, MessageType, TRAVEL_TICKET_MS, TilePoint } from "@montevideo-world/shared";
+import { Door, JACUZZI_CAPACITY, Jacuzzi, MessageType, TRAVEL_TICKET_MS, TilePoint } from "@montevideo-world/shared";
 import { issueTravelTicket } from "../../playerStore";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, oncePerTick, standUp } from "../session";
@@ -43,7 +43,7 @@ export function doorRoutes(room: CityRoom) {
       const from = { x: player.x, y: player.y };
       // El lugar libre más cercano (o el que tocó, si está libre).
       const free = jacuzzi.seats.filter((seat) => !isSeatTaken(room, seat, session));
-      if (free.length === 0) return room.notice(session, "El jacuzzi está lleno: esperá que alguien salga.");
+      if (free.length === 0 || isJacuzziFull(room, jacuzzi, session)) return room.notice(session, jacuzziFullText);
       const clicked = free.find((seat) => seat.x === message.x && seat.y === message.y);
       const seat = clicked ?? free.reduce((best, seat) => (distance(seat, from) < distance(best, from) ? seat : best));
       const approach = room.map.seatApproach(seat, from);
@@ -91,9 +91,23 @@ export function leaveRestricted(room: CityRoom, session: PlayerSession) {
 /** Al llegar al borde: se mete al jacuzzi si el lugar sigue libre (un tick después, como el banco). */
 export function enterJacuzzi(room: CityRoom, session: PlayerSession, seat: TilePoint) {
   if (isSeatTaken(room, seat, session) || !room.map.isNextTo(seat, session.player.x, session.player.y)) return;
+  const jacuzzi = room.map.jacuzziAt(seat.x, seat.y);
+  if (!jacuzzi || isJacuzziFull(room, jacuzzi, session)) return room.notice(session, jacuzziFullText);
   session.player.x = seat.x;
   session.player.y = seat.y;
   session.player.bathing = true;
+  room.notice(session, "Estás en el jacuzzi: recargando energía, saciedad y salud.");
+}
+
+const jacuzziFullText = `El jacuzzi está lleno (${JACUZZI_CAPACITY}/${JACUZZI_CAPACITY}): esperá que alguien salga o probá en el otro.`;
+
+/** ¿Ya hay `JACUZZI_CAPACITY` metidos en este jacuzzi (sin contar a `except`)? */
+function isJacuzziFull(room: CityRoom, jacuzzi: Jacuzzi, except: PlayerSession): boolean {
+  let inside = 0;
+  for (const other of room.sessions.values()) {
+    if (other !== except && other.player.bathing && room.map.jacuzziAt(other.player.x, other.player.y) === jacuzzi) inside++;
+  }
+  return inside >= JACUZZI_CAPACITY;
 }
 
 function isSeatTaken(room: CityRoom, seat: TilePoint, except: PlayerSession): boolean {

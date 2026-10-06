@@ -1,8 +1,9 @@
-import { Bench, MAX_ROUTE_LENGTH, MessageType, TIRED_STEP_TICKS, TilePoint, WALK_HUNGER_COST, WEEVIL_REWARD, walkSpeed } from "@montevideo-world/shared";
+import { Bench, GOD_FLIGHT_TILES, MAX_ROUTE_LENGTH, MessageType, TIRED_STEP_TICKS, TilePoint, WALK_HUNGER_COST, WEEVIL_REWARD, walkSpeed } from "@montevideo-world/shared";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, isWalking, oncePerTick, standUp } from "../session";
 import { stopActivities } from "./activities";
 import { crossDoor, enterJacuzzi } from "./doors";
+import { stepFollowers } from "./follow";
 import { startGesture } from "./gestures";
 import { openShop } from "./shops";
 import { checkTutorialReach } from "./tutorial";
@@ -13,6 +14,13 @@ export function movementRoutes(room: CityRoom) {
   return {
     [MessageType.Move]: oncePerTick(MessageType.Move, (session, message) => {
       const { player } = session;
+      // Volando (`/god`): en línea recta a cualquier tile del mapa, por arriba de todo.
+      if (player.flying) {
+        if (!room.map.inBounds(message.x, message.y)) return;
+        halt(session);
+        session.path = room.map.flightPath({ x: player.x, y: player.y }, message, GOD_FLIGHT_TILES);
+        return;
+      }
       if (!room.map.isWalkable(message.x, message.y)) return;
       // Cualquier otra acción recoge la línea (o deja de vender).
       stopActivities(session);
@@ -105,6 +113,28 @@ export function teleport(session: PlayerSession, tile: TilePoint) {
   session.player.y = tile.y;
 }
 
+/** `/god`: deja lo que hacía y empieza a volar (los demás clientes dejan de dibujarlo). */
+export function startFlying(room: CityRoom, session: PlayerSession) {
+  stopActivities(session);
+  halt(session);
+  standUp(session.player);
+  session.player.flying = true;
+  room.notice(session, "🕊️ Estás volando: nadie te ve. Hacé clic adonde quieras ir; /god otra vez para bajar.");
+}
+
+/** Baja del vuelo en la baldosa caminable más cercana y vuelve a ser visible. */
+export function land(room: CityRoom, session: PlayerSession) {
+  const { player } = session;
+  halt(session);
+  const tile = room.map.nearestWalkable({ x: player.x, y: player.y });
+  if (tile) {
+    player.x = tile.x;
+    player.y = tile.y;
+  }
+  player.flying = false;
+  room.notice(session, "🪂 Bajaste: ya te ven de nuevo.");
+}
+
 /**
  * Cada `STEP_MS`: primero los pedidos de camino que quedaron en cola (`oncePerTick`), después los que ya llegaron (sin camino) hacen lo que tenían pendiente (sentarse
  * un tick después de llegar, así el avatar no salta dos tiles de golpe; sacudir la palmera; abrir la
@@ -120,6 +150,8 @@ export function stepPlayers(room: CityRoom) {
     session.searchedThisTick = true;
     queued();
   }
+  // Los que siguen a alguien buscan camino hasta él (si se movió).
+  stepFollowers(room);
 
   for (const session of room.sessions.values()) {
     const { pending, player } = session;
@@ -145,6 +177,13 @@ export function stepPlayers(room: CityRoom) {
 
   for (const session of room.sessions.values()) {
     if (!isWalking(session)) continue;
+    // Volando: un tramo del vuelo por tick, sin gastar energía ni hambre.
+    if (session.player.flying) {
+      const next = session.path.shift()!;
+      session.player.x = next.x;
+      session.player.y = next.y;
+      continue;
+    }
     // Cansado: un tile cada `TIRED_STEP_TICKS` ticks (camina más lento, pero llega al banco).
     if (session.stepWait > 0) {
       session.stepWait -= 1;

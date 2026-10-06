@@ -41,6 +41,13 @@ export function barraColorHex(id: string): string {
   return BARRA_COLORS.find((color) => color.id === id)?.hex ?? "#f1f1f1";
 }
 
+/** Texto que se lee sobre un fondo de este color ("#rrggbb"): negro sobre claros, blanco sobre oscuros (la sigla de la barra). */
+export function readableOn(hex: string): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
+  return luminance > 0.6 ? "#1a1a1f" : "#ffffff";
+}
+
 /** Siglas que nadie puede usar (parecen del staff del juego). Se comparan en mayúsculas. */
 const RESERVED_TAGS = new Set(["ADM", "ADMN", "ADMI", "MOD", "MODS", "STAF", "SIST", "SYS", "GM", "DEV", "MW", "OFIC"]);
 

@@ -9,6 +9,7 @@ import { CityMenu } from "../features/cities/CityMenu";
 import { CommandsPanel } from "../features/chat/CommandsPanel";
 import { GesturesPanel } from "../features/gestures/GesturesPanel";
 import { MakerPanel } from "../features/admin/MakerPanel";
+import { OptionsPanel } from "../features/options/OptionsPanel";
 import { PlayerDetails } from "../features/players/PlayerDetails";
 import { PlayersPanel } from "../features/players/PlayersPanel";
 import { ShopPanel } from "../features/shop/ShopPanel";
@@ -40,6 +41,7 @@ export const PANELS: Record<PanelId, PanelEntry> = {
   calendar: { component: CalendarPanel, shortcut: "KeyK" },
   barra: { component: BarraPanel, shortcut: "KeyB" },
   players: { component: PlayersPanel, shortcut: "Tab" },
+  options: { component: OptionsPanel, shortcut: "KeyO" },
   admin: { component: AdminPanel, shortcut: "KeyP", adminOnly: true },
   maker: { component: MakerPanel, shortcut: "KeyH", adminOnly: true },
   shop: { component: ShopPanel },
