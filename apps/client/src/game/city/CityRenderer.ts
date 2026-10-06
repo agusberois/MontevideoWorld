@@ -3,7 +3,7 @@ import { CityMap, Landmark, TILE_HEIGHT, TILE_WIDTH, TileChar, TilePoint, TileRe
 import { hexToNumber } from "@/lib/avatar/shapes";
 import { shade } from "../color";
 import { isoPoint, tileDiamond, tileToWorld } from "../iso";
-import { InnerDoorPart, InnerWallStyle, PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, portalSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
+import { InnerDoorPart, InnerWallStyle, PieceSpec, benchSpec, bigHouseSpec, boatSpec, streetLampSpec, bigTowerSpec, busStopSpec, houseSpec, innerWallSpec, jacuzziSpec, palmSpec, stairsSpec, portalSpec, shopBuildingSpec, tileHash, towerSpec, treeSpec, wallSpec, fenceSpec } from "./buildings";
 import type { NightLight } from "./DayNight";
 import { IsoPainter } from "./IsoPainter";
 import { PieceAtlas } from "./PieceAtlas";
@@ -542,6 +542,10 @@ export class CityRenderer {
         repeat: -1,
         ease: "Sine.InOut",
       });
+    }
+    // La escalera entre pisos (el hotel): sube, o el hueco que baja. Es la puerta, pero en el piso.
+    for (const door of this.map.city.doors ?? []) {
+      if (door.stairs) this.placePiece({ x: door.area.x, y: door.area.y }, stairsSpec(door.stairs));
     }
     // El jacuzzi es bajo: queda detrás de todos los avatares (los de adentro se dibujan encima, con
     // el agua por delante) y no se vuelve transparente.

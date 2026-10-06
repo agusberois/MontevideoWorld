@@ -16,6 +16,7 @@ const LOADERS: Record<CityId, () => Promise<CityDefinition>> = {
     import("@montevideo-world/shared/cities/barrioDeLosJudios").then((module) => module.BARRIO_DE_LOS_JUDIOS),
   comcar: () => import("@montevideo-world/shared/cities/comcar").then((module) => module.COMCAR),
   termas: () => import("@montevideo-world/shared/cities/termas").then((module) => module.TERMAS),
+  "termas-2": () => import("@montevideo-world/shared/cities/termasPiso2").then((module) => module.TERMAS_PISO_2),
   casino: () => import("@montevideo-world/shared/cities/casino").then((module) => module.CASINO),
 };
 

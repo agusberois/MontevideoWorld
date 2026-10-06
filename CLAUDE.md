@@ -148,7 +148,7 @@ Reglas:
   Centenario funciona igual (sin minijuego ni mercadería que reponer). Cañas y carritos se gastan
   por uso y se rompen; no se pueden reparar. Prendas sin comprarlas: sólo las que regalan los hinchas al vender.
 - Cuatro barrios (Ciudad Vieja, el Centro, Tres Cruces y el Barrio de los Judíos; los dos últimos ocultos por ahora), más el COMCAR (presos adentro, visitas afuera)
-  el **Hotel del Donador** (spa con jacuzzi al que sólo entran donadores y el admin) y el **Casino**
+  el **Hotel del Donador** (spa de dos pisos con jacuzzis al que sólo entran donadores y el admin) y el **Casino**
   (tragamonedas, ruleta y blackjack), interiores a los que se entra por la puerta de su edificio en
   Ciudad Vieja. Al volver a
   entrar se aparece donde se quedó (barrio y tile, guardado con el progreso; el COMCAR no cuenta); la

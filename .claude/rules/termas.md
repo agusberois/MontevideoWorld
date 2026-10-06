@@ -1,6 +1,7 @@
 ---
 paths:
   - "packages/shared/src/cities/termas/**"
+  - "packages/shared/src/cities/termasPiso2/**"
   - "apps/server/src/rooms/systems/doors.ts"
   - "apps/client/src/game/city/landmarks/ciudadVieja/termas.ts"
   - "apps/client/src/game/city/landmarks/termas/**"
@@ -35,7 +36,17 @@ llega en ómnibus (`TravelRequest` lo rechaza). Diseño completo en `docs/finish
   tres barras en `Needs.tick`: `JACUZZI_ENERGY_REGEN` (25/s, un banco da 10), `JACUZZI_HEALTH_REGEN`
   y `JACUZZI_HUNGER_REGEN` (0,5/s cada una; la saciedad sube en vez de bajar y el hambre no frena
   nada). Gestos: sólo los `seated`.
-- **Adentro** (22×18): el spa, con dos jacuzzis de 7 × 7 uno al lado del otro (20 lugares cada
+- **Dos pisos** (80 lugares de jacuzzi): la planta baja (`termas`) y el **piso 2** (`termas-2`,
+  `cities/termasPiso2/`), dos salas iguales armadas con `spaFloor` (`termas/map.ts`); sólo cambian
+  las puertas y el spawn. Se pasa por la **escalera**, que es una `Door` con `stairs` (`access:
+  "donor"`): un área de 2 × 2 sobre el piso, en la esquina noroeste contra la pared norte
+  (`STAIRS_AREA`; se aparece al pie, en `STAIRS_ARRIVAL`), que el cliente dibuja con `stairsSpec`
+  (`buildings.ts`): abajo, escalones de mármol que suben hasta el borde de la pared con baranda y
+  pasamanos dorados; arriba, el hueco con los escalones que bajan (recortados al rombo del hueco con
+  `clipConvex`, si no lo hondo asomaba por debajo del piso de adelante) y la misma baranda. El piso 2 no tiene
+  salida a la calle: `leaveRestricted` usa la de la planta baja (`publicExit`). Lo de acceso, la
+  vuelta al entrar al juego y el resto es genérico por `CityInfo.access`, así que vale para los dos.
+- **Adentro** (22×18, cada piso): el spa, con dos jacuzzis de 7 × 7 uno al lado del otro (20 lugares cada
   uno: el borde de adentro sin las esquinas), reposeras contra la pared norte y del lado sur, plantas de varios tipos (`plant`,
   `pottedPalm`, `flowers`) y faroles dorados (`lamp`) que se prenden de noche (`nightLights`). Adentro
   no llueve, pero la noche sí llega (sigue la hora del juego).

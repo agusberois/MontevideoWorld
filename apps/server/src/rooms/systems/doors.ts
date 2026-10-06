@@ -1,4 +1,5 @@
 import { Door, JACUZZI_CAPACITY, Jacuzzi, MessageType, TRAVEL_TICKET_MS, TilePoint } from "@montevideo-world/shared";
+import { getCity } from "@montevideo-world/shared/cities";
 import { issueTravelTicket } from "../../playerStore";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, oncePerTick, standUp } from "../session";
@@ -82,10 +83,24 @@ export function crossDoor(room: CityRoom, session: PlayerSession, door: Door) {
 
 /** Lo saca de una sala de acceso restringido (le sacaron el donador estando adentro). */
 export function leaveRestricted(room: CityRoom, session: PlayerSession) {
-  const exit = room.map.city.doors?.find((door) => !door.access);
+  const exit = publicExit(room.map.city.doors ?? []);
   if (!exit) return;
   room.notice(session, "Ya no tenés acceso al Hotel del Donador: te acompañamos a la salida.");
   crossDoor(room, session, exit);
+}
+
+/**
+ * La puerta a la calle (sin `access`). En un piso de arriba (el piso 2 del hotel) no hay: se usa la
+ * de la planta baja a la que lleva su escalera, que deja en el mismo lugar de la calle.
+ */
+function publicExit(doors: readonly Door[]): Door | undefined {
+  const exit = doors.find((door) => !door.access);
+  if (exit) return exit;
+  for (const door of doors) {
+    const below = getCity(door.to.cityId)?.doors?.find((other) => !other.access);
+    if (below) return below;
+  }
+  return undefined;
 }
 
 /** Al llegar al borde: se mete al jacuzzi si el lugar sigue libre (un tick después, como el banco). */

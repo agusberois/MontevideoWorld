@@ -17,10 +17,9 @@ export const TERMAS_INFO = {
   indoor: true,
   description: "El spa del hotel de los que bancan el proyecto: un jacuzzi termal para recuperar energía como en el Daymán.",
   landmarks: [
-    // Plantas de distintos tipos contra las paredes.
+    // Plantas de distintos tipos contra las paredes (la esquina noroeste es de la escalera).
     ...(
       [
-        [1, 1, "plant"],
         [5, 1, "pottedPalm"],
         [9, 1, "flowers"],
         [13, 1, "pottedPalm"],

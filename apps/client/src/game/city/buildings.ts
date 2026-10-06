@@ -1,6 +1,6 @@
 import { shade } from "../color";
 import type { ShopBuilding } from "@montevideo-world/shared";
-import { BoxColors, Face, IsoPainter, boxColors } from "./IsoPainter";
+import { BoxColors, Face, IsoPainter, Vec2, boxColors } from "./IsoPainter";
 
 /**
  * Volumen dibujable en coordenadas locales: el tile ancla está en (0, 0) y el área ocupa de
@@ -843,6 +843,133 @@ export function innerWallSpec(door: InnerDoorPart | null, style: InnerWallStyle 
       }
     },
   };
+}
+
+const STAIR_MARBLE = 0xece6da;
+const STAIR_GOLD = 0xe2b53e;
+const STAIR_HOLE = 0x2b2622;
+/** Escalones de la escalera del hotel y altura de cada uno al subir (llega justo al borde de la pared). */
+const STAIR_STEPS = 8;
+const STAIR_RISE = INNER_WALL_HEIGHT / STAIR_STEPS;
+/** Al bajar (el hueco del piso de arriba) los escalones son bajitos: casi todo el hueco se ve. */
+const STAIR_DROP = 4;
+const RAIL_HEIGHT = 14;
+
+/**
+ * La escalera entre los pisos del Hotel del Donador (`Door.stairs`), en un área de 2 × 2 contra la
+ * pared norte. `up`: escalones de mármol que suben hacia el norte hasta el borde de la pared, con
+ * baranda y pasamanos dorados del lado este. `down` (el piso de arriba): el hueco en el piso con los
+ * escalones que bajan hacia el norte, sus paredes de adentro y la misma baranda.
+ */
+export function stairsSpec(direction: "up" | "down"): PieceSpec {
+  return {
+    key: `stairs-${direction}`,
+    width: 2,
+    height: 2,
+    maxZ: direction === "up" ? INNER_WALL_HEIGHT + RAIL_HEIGHT + 4 : RAIL_HEIGHT + 4,
+    draw: (p) => (direction === "up" ? drawStairsUp(p) : drawStairsDown(p)),
+  };
+}
+
+const STAIR_X0 = -0.45;
+const STAIR_X1 = 1.45;
+const STAIR_SOUTH = 1.45;
+const STAIR_NORTH = -0.5;
+const STAIR_DEPTH = (STAIR_SOUTH - STAIR_NORTH) / STAIR_STEPS;
+
+function drawStairsUp(p: IsoPainter) {
+  // Del escalón de más atrás (el más alto, contra la pared) al de adelante: así cada uno tapa al de atrás.
+  for (let i = STAIR_STEPS - 1; i >= 0; i--) {
+    const front = STAIR_SOUTH - i * STAIR_DEPTH;
+    const back = front - STAIR_DEPTH;
+    const top = (i + 1) * STAIR_RISE;
+    p.box(STAIR_X0, back, STAIR_X1, front, 0, top, boxColors(shade(STAIR_MARBLE, i % 2 === 0 ? 0 : -4), shade(STAIR_MARBLE, 8)));
+    // La nariz del escalón, apenas más oscura.
+    p.line(p.p(STAIR_X0, front, top), p.p(STAIR_X1, front, top), shade(STAIR_MARBLE, -22), 1);
+  }
+  drawStairRail(p, (i) => (i + 1) * STAIR_RISE);
+}
+
+function drawStairsDown(p: IsoPainter) {
+  // El hueco en la pantalla (el rombo del área en el piso): lo de adentro se recorta a esto, porque
+  // lo hondo se dibuja más abajo y si no asomaría por debajo del piso de adelante.
+  const hole = [p.p(STAIR_X0, STAIR_NORTH), p.p(STAIR_X1, STAIR_NORTH), p.p(STAIR_X1, STAIR_SOUTH), p.p(STAIR_X0, STAIR_SOUTH)];
+  const deepest = STAIR_STEPS * STAIR_DROP + 30;
+  const clipped = (points: Vec2[]) => clipConvex(points, hole);
+  p.fill(STAIR_HOLE, hole);
+  // Las paredes de adentro que se ven (la del oeste y la del norte), oscuras.
+  p.fill(shade(STAIR_HOLE, 18), clipped([p.p(STAIR_X0, STAIR_NORTH, 0), p.p(STAIR_X0, STAIR_SOUTH, 0), p.p(STAIR_X0, STAIR_SOUTH, -deepest), p.p(STAIR_X0, STAIR_NORTH, -deepest)]));
+  p.fill(shade(STAIR_HOLE, 8), clipped([p.p(STAIR_X0, STAIR_NORTH, 0), p.p(STAIR_X1, STAIR_NORTH, 0), p.p(STAIR_X1, STAIR_NORTH, -deepest), p.p(STAIR_X0, STAIR_NORTH, -deepest)]));
+  // Los escalones bajan hacia el norte: primero los más hondos (atrás), después los de adelante.
+  for (let i = STAIR_STEPS - 1; i >= 0; i--) {
+    const front = STAIR_SOUTH - i * STAIR_DEPTH;
+    const back = front - STAIR_DEPTH;
+    const z = -(i + 1) * STAIR_DROP;
+    // Más oscuros cuanto más hondos (llega menos luz).
+    const color = shade(STAIR_MARBLE, -10 - i * 9);
+    const tread = clipped([p.p(STAIR_X0, back, z), p.p(STAIR_X1, back, z), p.p(STAIR_X1, front, z), p.p(STAIR_X0, front, z)]);
+    if (tread.length >= 3) p.fill(color, tread);
+    const nose = clipped([p.p(STAIR_X0, back, z), p.p(STAIR_X1, back, z), p.p(STAIR_X1, back, z - 1.2), p.p(STAIR_X0, back, z - 1.2)]);
+    if (nose.length >= 3) p.fill(shade(color, -25), nose);
+  }
+  p.outline(hole, 0.35);
+  // El borde de mármol del hueco, al ras del piso.
+  p.line(p.p(STAIR_X0, STAIR_SOUTH), p.p(STAIR_X1, STAIR_SOUTH), shade(STAIR_MARBLE, -15), 2);
+  p.line(p.p(STAIR_X1, STAIR_NORTH), p.p(STAIR_X1, STAIR_SOUTH), shade(STAIR_MARBLE, -15), 2);
+  drawStairRail(p, () => 0);
+}
+
+/** Baranda del lado este: un balaustre por escalón y el pasamanos dorado arriba (`base(i)`: altura del escalón). */
+function drawStairRail(p: IsoPainter, base: (step: number) => number) {
+  const x = STAIR_X1 - 0.06;
+  const at = (i: number) => STAIR_SOUTH - (i + 0.5) * STAIR_DEPTH;
+  for (let i = 0; i < STAIR_STEPS; i++) {
+    p.line(p.p(x, at(i), base(i)), p.p(x, at(i), base(i) + RAIL_HEIGHT), shade(STAIR_GOLD, -25), 1.4);
+  }
+  for (let i = 0; i < STAIR_STEPS - 1; i++) {
+    p.line(p.p(x, at(i), base(i) + RAIL_HEIGHT), p.p(x, at(i + 1), base(i + 1) + RAIL_HEIGHT), STAIR_GOLD, 2.4);
+  }
+  // Pilar del arranque, con su remate.
+  p.box(x - 0.06, STAIR_SOUTH - 0.12, x + 0.06, STAIR_SOUTH, base(0), base(0) + RAIL_HEIGHT + 3, boxColors(STAIR_GOLD));
+}
+
+/** Recorta un polígono a otro convexo (Sutherland–Hodgman, en coordenadas de pantalla). */
+function clipConvex(subject: Vec2[], clip: Vec2[]): Vec2[] {
+  // Orientación del recorte, para saber de qué lado de cada borde queda "adentro".
+  let area = 0;
+  for (let i = 0; i < clip.length; i++) {
+    const a = clip[i];
+    const b = clip[(i + 1) % clip.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  const sign = Math.sign(area) || 1;
+  let output = subject;
+  for (let i = 0; i < clip.length && output.length > 0; i++) {
+    const a = clip[i];
+    const b = clip[(i + 1) % clip.length];
+    const inside = (q: Vec2) => sign * ((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x)) >= 0;
+    const cross = (q: Vec2, r: Vec2): Vec2 => {
+      const dx = r.x - q.x;
+      const dy = r.y - q.y;
+      const ex = b.x - a.x;
+      const ey = b.y - a.y;
+      const t = (ex * (q.y - a.y) - ey * (q.x - a.x)) / (ey * dx - ex * dy);
+      return { x: q.x + dx * t, y: q.y + dy * t };
+    };
+    const input = output;
+    output = [];
+    for (let k = 0; k < input.length; k++) {
+      const current = input[k];
+      const previous = input[(k + input.length - 1) % input.length];
+      if (inside(current)) {
+        if (!inside(previous)) output.push(cross(previous, current));
+        output.push(current);
+      } else if (inside(previous)) {
+        output.push(cross(previous, current));
+      }
+    }
+  }
+  return output;
 }
 
 /**

@@ -14,8 +14,9 @@ const info_2 = require("./centro/info");
 const info_3 = require("./ciudadVieja/info");
 const info_4 = require("./comcar/info");
 const info_5 = require("./termas/info");
-const info_6 = require("./casino/info");
-const info_7 = require("./tresCruces/info");
+const info_6 = require("./termasPiso2/info");
+const info_7 = require("./casino/info");
+const info_8 = require("./tresCruces/info");
 const items_1 = require("../items");
 const needs_1 = require("../needs");
 /**
@@ -23,7 +24,7 @@ const needs_1 = require("../needs");
  * (tecla M). Lo usa el navegador siempre; los mapas completos están en `@montevideo-world/shared/cities`
  * (server) y el cliente los descarga de a uno al entrar (`lib/cityMaps.ts`).
  */
-exports.CITY_INFOS = [info_3.CIUDAD_VIEJA_INFO, info_2.CENTRO_INFO, info_7.TRES_CRUCES_INFO, info_1.BARRIO_DE_LOS_JUDIOS_INFO, info_4.COMCAR_INFO, info_5.TERMAS_INFO, info_6.CASINO_INFO];
+exports.CITY_INFOS = [info_3.CIUDAD_VIEJA_INFO, info_2.CENTRO_INFO, info_8.TRES_CRUCES_INFO, info_1.BARRIO_DE_LOS_JUDIOS_INFO, info_4.COMCAR_INFO, info_5.TERMAS_INFO, info_6.TERMAS_PISO_2_INFO, info_7.CASINO_INFO];
 /** Barrio donde aparece siempre el jugador al entrar al juego. */
 exports.SPAWN_CITY_ID = info_3.CIUDAD_VIEJA_INFO.id;
 /** Adonde va preso el que banea el admin (`/ban`): no se sale hasta cumplir. */

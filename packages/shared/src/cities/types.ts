@@ -232,7 +232,7 @@ export interface PlaceLabel {
 }
 
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export const CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "casino"] as const;
+export const CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "termas-2", "casino"] as const;
 export type CityId = (typeof CITY_IDS)[number];
 
 /**
@@ -287,15 +287,20 @@ export interface Door {
    * a…" en lugar de la puerta.
    */
   edge?: boolean;
+  /**
+   * Escalera entre pisos (el Hotel del Donador): el área (cuadrada, sobre el piso, no en la pared) se
+   * dibuja como una escalera que sube (`up`) o como el hueco con los escalones que bajan (`down`).
+   */
+  stairs?: "up" | "down";
 }
+
+/** Cuántos entran como máximo en un jacuzzi (arriba se ve "x/20"). */
+export const JACUZZI_CAPACITY = 20;
 
 /**
  * Jacuzzi: un área (no caminable) con lugares (`seats`, tiles del área) donde se mete uno por
  * lugar. Adentro se recargan energía, saciedad y salud (`JACUZZI_ENERGY_REGEN`…).
  */
-/** Cuántos entran como máximo en un jacuzzi (arriba se ve "x/20"). */
-export const JACUZZI_CAPACITY = 20;
-
 export interface Jacuzzi {
   id: string;
   area: TileRect;
