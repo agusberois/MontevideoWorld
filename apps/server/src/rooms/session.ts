@@ -1,5 +1,5 @@
 import type { Client, Delayed } from "@colyseus/core";
-import { type Bench, type Door, type GestureId, type NeedsMessage, type PairGestureId, type Shop, type TilePoint, type TutorialState, NEW_TUTORIAL } from "@montevideo-world/shared";
+import { type Bench, type Door, type GestureId, type NeedsMessage, type Npc, type PairGestureId, type Shop, type TilePoint, type WelcomeState, NEW_WELCOME } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import type { Inventory } from "../inventory";
 import type { Needs } from "../needs";
@@ -18,7 +18,9 @@ export type PendingAction =
   | { kind: "gesture"; gesture: GestureId }
   /** Va a una puerta (las Termas) o a meterse al jacuzzi en el lugar `seat`. */
   | { kind: "door"; door: Door }
-  | { kind: "jacuzzi"; seat: TilePoint };
+  | { kind: "jacuzzi"; seat: TilePoint }
+  /** Va a hablarle a un NPC (`systems/welcome.ts`). */
+  | { kind: "npc"; npc: Npc };
 
 /**
  * Todo el estado de un jugador en la sala que no va en el Schema (mochila, plata, necesidades,
@@ -32,8 +34,6 @@ export interface PlayerSession {
   readonly needs: Needs;
   /** Clave secreta (con ella se guarda el progreso, `playerStore`); null sin clave o después de cerrarla por duplicada. */
   key: string | null;
-  /** Guía de bienvenida (se guarda con el progreso; ver `systems/tutorial.ts`). */
-  tutorial: TutorialState;
   /** Tiles que le quedan por caminar (vacío = quieto). */
   path: TilePoint[];
   /** Cansado (`player.tired`): ticks que faltan para el próximo paso. */
@@ -41,6 +41,8 @@ export interface PlayerSession {
   /** Calzado rápido: lo que sobró de la velocidad de los ticks anteriores (ver `stepPlayers`). */
   stepCredit: number;
   pending: PendingAction | null;
+  /** Bienvenida del jugador nuevo (se guarda con el progreso; ver `systems/welcome.ts`). */
+  welcome: WelcomeState;
   /** Línea en el agua: resuelve la pesca. */
   fishingTimer: Delayed | null;
   /** Vendiendo: resuelve la venta y hace salir al hincha (`CUSTOMER_LEAD_MS` antes). */
@@ -53,6 +55,11 @@ export interface PlayerSession {
   crowdTimer: Delayed | null;
   /** Se le mandó que se arrima el público y todavía no dejó plata ni se fue: cortar el tema lo hace irse. */
   crowdOut: boolean;
+  /** Cuidando coches: resuelve el auto (la propina) y lo hace estacionar (`CAR_ARRIVE_MS` después). */
+  parkingTimer: Delayed | null;
+  carTimer: Delayed | null;
+  /** Se le mandó que estaciona el auto y todavía no dejó plata ni se fue: cortar lo hace arrancar. */
+  carOut: boolean;
   /** Hasta cuándo vale su último aviso de "escribiendo" (`player.typing`; ms, `Date.now()`). */
   typingUntil: number;
   /** Cuándo termina el gesto de `player.gesture` (ms, `Date.now()`). */
@@ -93,11 +100,11 @@ export function createSession(client: Client, player: Player, inventory: Invento
     wallet,
     needs,
     key,
-    tutorial: { ...NEW_TUTORIAL },
     path: [],
     stepWait: 0,
     stepCredit: 0,
     pending: null,
+    welcome: { ...NEW_WELCOME },
     fishingTimer: null,
     vendingTimer: null,
     customerTimer: null,
@@ -105,6 +112,9 @@ export function createSession(client: Client, player: Player, inventory: Invento
     buskingTimer: null,
     crowdTimer: null,
     crowdOut: false,
+    parkingTimer: null,
+    carTimer: null,
+    carOut: false,
     typingUntil: 0,
     gestureUntil: 0,
     pairRequest: null,

@@ -54,6 +54,14 @@ function shape(style: ItemStyle, fill: string, dark: string, light: string): Rea
           <path {...detail} d="M13.5 4.5 Q16 9 18.5 4.5" />
         </>
       );
+    case "vest":
+      // Chaleco abierto adelante, con las dos bandas reflectivas.
+      return (
+        <>
+          <path {...body} d="M10 4 L10 9 Q7 12 7 16 L7 28 L15 28 L15 12 L12.5 4 Z M22 4 L22 9 Q25 12 25 16 L25 28 L17 28 L17 12 L19.5 4 Z" />
+          <path d="M7.5 17.5 L15 17.5 M17 17.5 L24.5 17.5 M7.5 22.5 L15 22.5 M17 22.5 L24.5 22.5" stroke="#e6e9ee" strokeWidth={2} />
+        </>
+      );
     case "jeans":
     case "pants":
       return (
@@ -209,6 +217,17 @@ function cartShape(fill: string, dark: string, tier: number) {
 }
 
 /** Boleto de ómnibus: tarjeta con muescas, franja de color y "STM". */
+/** Sobre cerrado con el sello rojo (el de la bienvenida). */
+function letterShape(fill: string, dark: string) {
+  return (
+    <>
+      <rect x={4} y={9} width={24} height={16} rx={1.5} fill={fill} stroke={dark} strokeWidth={1.4} />
+      <path d="M4.8 9.8 L16 18 L27.2 9.8" fill="none" stroke={dark} strokeWidth={1.3} strokeLinejoin="round" />
+      <circle cx={16} cy={18} r={2.6} fill="#c0392b" stroke="#7a1f16" strokeWidth={0.8} />
+    </>
+  );
+}
+
 function ticketShape(fill: string, dark: string) {
   return (
     <>
@@ -472,6 +491,7 @@ const CATEGORY_ICONS: { [C in ItemCategory]: (item: Extract<ItemDefinition, { ca
   instrument: (item) => instrumentShape(item.kind, item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
   box: (item) => boxShape(item.color, mix(item.color, -0.45), mix(item.color, 0.55)),
   ticket: (item) => ticketShape(item.color, mix(item.color, -0.45)),
+  letter: (item) => letterShape(item.color, mix(item.color, -0.5)),
 };
 
 function itemShape(item: ItemDefinition): ReactNode {

@@ -13,6 +13,8 @@ import { OptionsPanel } from "../features/options/OptionsPanel";
 import { PlayerDetails } from "../features/players/PlayerDetails";
 import { PlayersPanel } from "../features/players/PlayersPanel";
 import { ShopPanel } from "../features/shop/ShopPanel";
+import { WelcomePanel } from "../features/welcome/WelcomePanel";
+import { NpcDialog } from "../features/npcs/NpcDialog";
 
 /** Lo que `App` le pasa a cada panel; lo demás (mochila, plata…) lo lee del store con `useGame`. */
 export interface PanelProps {
@@ -47,6 +49,10 @@ export const PANELS: Record<PanelId, PanelEntry> = {
   shop: { component: ShopPanel },
   // Del jugador `detailsId`: desde su menú o con un clic en tu avatar (`openPlayerDetails`).
   playerDetails: { component: PlayerDetails },
+  // Bienvenida del jugador nuevo: desde el sobre del HUD (y se abre sola al entregar el sobre).
+  welcome: { component: WelcomePanel },
+  // Lo que te dice un NPC al hablarle (clic o F).
+  npcDialog: { component: NpcDialog },
 };
 
 /** El panel que abre esta tecla, si hay (y si podés usarlo). */

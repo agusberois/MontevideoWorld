@@ -8,9 +8,11 @@
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.INSTRUMENTS = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.DRINKS = exports.FOODS = exports.FISH = exports.WALKING_SHOES = exports.LONDON_PARIS_FASHION = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.LOW_USES = exports.MAX_STACK = exports.INVENTORY_CAPACITY = exports.STARTER_KIT = exports.STARTER_INVENTORY = exports.ITEM_CATEGORY_IDS = exports.ITEM_CATEGORIES = exports.FISH_BUY_MARKUP = exports.SELL_RATIO = exports.ITEMS = exports.LETTERS = exports.TICKETS = exports.TICKET_ID = exports.BOXES = exports.MYSTERY_BOX_ID = exports.INSTRUMENTS = exports.CARTS = exports.RODS = exports.BASIC_ROD_ID = exports.MEDICINES = exports.DRINKS = exports.FOODS = exports.FISH = exports.WORK_CLOTHING = exports.SAFETY_VEST_ID = exports.NEWBIE_CLOTHING = exports.WALKING_SHOES = exports.LONDON_PARIS_FASHION = exports.KOREAN_FASHION = exports.CLOTHING = exports.ITEM_STYLES = exports.ITEM_SLOT_LABELS = exports.ITEM_SLOTS = void 0;
+exports.newbiePerk = newbiePerk;
 exports.walkSpeed = walkSpeed;
 exports.speedPerk = speedPerk;
+exports.isTradable = isTradable;
 exports.isRod = isRod;
 exports.bestRod = bestRod;
 exports.rodStars = rodStars;
@@ -41,6 +43,7 @@ exports.isItemSlot = isItemSlot;
 exports.buyPrice = buyPrice;
 exports.sellPrice = sellPrice;
 const money_1 = require("./money");
+const welcome_1 = require("./welcome");
 exports.ITEM_SLOTS = ["hat", "top", "bottom", "shoes"];
 exports.ITEM_SLOT_LABELS = {
     hat: "Cabeza",
@@ -55,32 +58,32 @@ exports.ITEM_SLOT_LABELS = {
  */
 exports.ITEM_STYLES = {
     hat: ["cap", "beanie", "beret"],
-    top: ["tshirt", "jersey", "hoodie", "tank"],
+    top: ["tshirt", "jersey", "hoodie", "tank", "vest"],
     bottom: ["jeans", "pants", "shorts"],
     shoes: ["sneakers", "boots", "flipflops"],
 };
 const clothing = (items) => items.map((item) => ({ ...item, category: "clothing" }));
 const fish = (items) => items.map((item) => ({ ...item, category: "fish" }));
 exports.CLOTHING = clothing([
-    { id: "gorra-azul", name: "Gorra azul", slot: "hat", style: "cap", color: "#1d4fa0", price: 20 },
-    // Regalo de la guía de bienvenida (`TUTORIAL_GIFT_ID`): ninguna tienda la vende.
-    { id: "gorra-celeste", name: "Gorra celeste", slot: "hat", style: "cap", color: "#6cace4", price: 25 },
-    { id: "gorro-lana", name: "Gorro de lana", slot: "hat", style: "beanie", color: "#b5651d", price: 18 },
-    { id: "boina-negra", name: "Boina negra", slot: "hat", style: "beret", color: "#26262b", price: 25 },
-    { id: "remera-blanca", name: "Remera blanca", slot: "top", style: "tshirt", color: "#f1f1f1", price: 20 },
-    { id: "remera-roja", name: "Remera roja", slot: "top", style: "tshirt", color: "#e63946", price: 20 },
-    { id: "remera-negra", name: "Remera negra", slot: "top", style: "tshirt", color: "#26262b", price: 20 },
-    { id: "camiseta-celeste", name: "Camiseta celeste", slot: "top", style: "jersey", color: "#6cace4", price: 45 },
-    { id: "buzo-gris", name: "Buzo gris", slot: "top", style: "hoodie", color: "#7a828c", price: 50 },
-    { id: "musculosa-blanca", name: "Musculosa blanca", slot: "top", style: "tank", color: "#f1f1f1", price: 15 },
-    { id: "jean", name: "Jean", slot: "bottom", style: "jeans", color: "#2b3a55", price: 40 },
-    { id: "pantalon-beige", name: "Pantalón beige", slot: "bottom", style: "pants", color: "#c8b28a", price: 35 },
-    { id: "short-verde", name: "Short verde", slot: "bottom", style: "shorts", color: "#3d6b4f", price: 15 },
-    { id: "short-azul", name: "Short azul", slot: "bottom", style: "shorts", color: "#1d4fa0", price: 15 },
-    { id: "championes-blancos", name: "Championes blancos", slot: "shoes", style: "sneakers", color: "#f0f0f0", price: 40 },
-    { id: "championes-rojos", name: "Championes rojos", slot: "shoes", style: "sneakers", color: "#c0392b", price: 40 },
-    { id: "botas-marrones", name: "Botas marrones", slot: "shoes", style: "boots", color: "#6b3e1e", price: 55 },
-    { id: "chancletas", name: "Chancletas", slot: "shoes", style: "flipflops", color: "#2a9d8f", price: 8 },
+    { id: "gorra-azul", name: "Gorra azul", slot: "hat", style: "cap", color: "#1d4fa0", price: 320 },
+    // Era el regalo de la guía de bienvenida (ya no existe): ninguna tienda la vende.
+    { id: "gorra-celeste", name: "Gorra celeste", slot: "hat", style: "cap", color: "#6cace4", price: 400 },
+    { id: "gorro-lana", name: "Gorro de lana", slot: "hat", style: "beanie", color: "#b5651d", price: 280 },
+    { id: "boina-negra", name: "Boina negra", slot: "hat", style: "beret", color: "#26262b", price: 400 },
+    { id: "remera-blanca", name: "Remera blanca", slot: "top", style: "tshirt", color: "#f1f1f1", price: 320 },
+    { id: "remera-roja", name: "Remera roja", slot: "top", style: "tshirt", color: "#e63946", price: 320 },
+    { id: "remera-negra", name: "Remera negra", slot: "top", style: "tshirt", color: "#26262b", price: 320 },
+    { id: "camiseta-celeste", name: "Camiseta celeste", slot: "top", style: "jersey", color: "#6cace4", price: 720 },
+    { id: "buzo-gris", name: "Buzo gris", slot: "top", style: "hoodie", color: "#7a828c", price: 800 },
+    { id: "musculosa-blanca", name: "Musculosa blanca", slot: "top", style: "tank", color: "#f1f1f1", price: 240 },
+    { id: "jean", name: "Jean", slot: "bottom", style: "jeans", color: "#2b3a55", price: 640 },
+    { id: "pantalon-beige", name: "Pantalón beige", slot: "bottom", style: "pants", color: "#c8b28a", price: 560 },
+    { id: "short-verde", name: "Short verde", slot: "bottom", style: "shorts", color: "#3d6b4f", price: 240 },
+    { id: "short-azul", name: "Short azul", slot: "bottom", style: "shorts", color: "#1d4fa0", price: 240 },
+    { id: "championes-blancos", name: "Championes blancos", slot: "shoes", style: "sneakers", color: "#f0f0f0", price: 640 },
+    { id: "championes-rojos", name: "Championes rojos", slot: "shoes", style: "sneakers", color: "#c0392b", price: 640 },
+    { id: "botas-marrones", name: "Botas marrones", slot: "shoes", style: "boots", color: "#6b3e1e", price: 880 },
+    { id: "chancletas", name: "Chancletas", slot: "shoes", style: "flipflops", color: "#2a9d8f", price: 120 },
 ]);
 /**
  * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
@@ -88,13 +91,13 @@ exports.CLOTHING = clothing([
  * roperías ("todo el catálogo") no las tengan.
  */
 exports.KOREAN_FASHION = clothing([
-    { id: "buzo-lila", name: "Buzo lila", slot: "top", style: "hoodie", color: "#b39ddb", price: 55 },
-    { id: "buzo-negro-oversize", name: "Buzo negro oversize", slot: "top", style: "hoodie", color: "#1f1f24", price: 60 },
-    { id: "remera-rosa-pastel", name: "Remera rosa pastel", slot: "top", style: "tshirt", color: "#f4b6c2", price: 22 },
-    { id: "gorra-negra", name: "Gorra negra", slot: "hat", style: "cap", color: "#1f1f24", price: 22 },
-    { id: "jean-nevado", name: "Jean nevado", slot: "bottom", style: "jeans", color: "#8fb3d9", price: 45 },
-    { id: "pantalon-cargo", name: "Pantalón cargo", slot: "bottom", style: "pants", color: "#6b6b3a", price: 40 },
-    { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 45 },
+    { id: "buzo-lila", name: "Buzo lila", slot: "top", style: "hoodie", color: "#b39ddb", price: 880 },
+    { id: "buzo-negro-oversize", name: "Buzo negro oversize", slot: "top", style: "hoodie", color: "#1f1f24", price: 960 },
+    { id: "remera-rosa-pastel", name: "Remera rosa pastel", slot: "top", style: "tshirt", color: "#f4b6c2", price: 360 },
+    { id: "gorra-negra", name: "Gorra negra", slot: "hat", style: "cap", color: "#1f1f24", price: 360 },
+    { id: "jean-nevado", name: "Jean nevado", slot: "bottom", style: "jeans", color: "#8fb3d9", price: 720 },
+    { id: "pantalon-cargo", name: "Pantalón cargo", slot: "bottom", style: "pants", color: "#6b6b3a", price: 640 },
+    { id: "championes-negros", name: "Championes negros", slot: "shoes", style: "sneakers", color: "#2b2b30", price: 720 },
 ]);
 /**
  * Ropa de vestir de London París, la gran tienda de 18 de Julio en el Centro: sólo se vende ahí. Más
@@ -102,12 +105,12 @@ exports.KOREAN_FASHION = clothing([
  * moda coreana.
  */
 exports.LONDON_PARIS_FASHION = clothing([
-    { id: "boina-gris", name: "Boina gris", slot: "hat", style: "beret", color: "#7a7f87", price: 35 },
-    { id: "buzo-bordo", name: "Buzo bordó", slot: "top", style: "hoodie", color: "#7b1e2b", price: 65 },
-    { id: "remera-azul-marino", name: "Remera azul marino", slot: "top", style: "tshirt", color: "#1b2a4a", price: 30 },
-    { id: "pantalon-vestir-negro", name: "Pantalón de vestir negro", slot: "bottom", style: "pants", color: "#22232a", price: 60 },
-    { id: "pantalon-vestir-gris", name: "Pantalón de vestir gris", slot: "bottom", style: "pants", color: "#6b6f78", price: 60 },
-    { id: "botas-negras", name: "Botas negras", slot: "shoes", style: "boots", color: "#1d1d22", price: 75 },
+    { id: "boina-gris", name: "Boina gris", slot: "hat", style: "beret", color: "#7a7f87", price: 560 },
+    { id: "buzo-bordo", name: "Buzo bordó", slot: "top", style: "hoodie", color: "#7b1e2b", price: 1040 },
+    { id: "remera-azul-marino", name: "Remera azul marino", slot: "top", style: "tshirt", color: "#1b2a4a", price: 480 },
+    { id: "pantalon-vestir-negro", name: "Pantalón de vestir negro", slot: "bottom", style: "pants", color: "#22232a", price: 960 },
+    { id: "pantalon-vestir-gris", name: "Pantalón de vestir gris", slot: "bottom", style: "pants", color: "#6b6f78", price: 960 },
+    { id: "botas-negras", name: "Botas negras", slot: "shoes", style: "boots", color: "#1d1d22", price: 1200 },
 ]);
 /**
  * Calzado para caminar rápido: lo venden Calzados Sarandí (Ciudad Vieja) y Calzados 18 de Julio
@@ -115,12 +118,33 @@ exports.LONDON_PARIS_FASHION = clothing([
  * roperías no los tienen.
  */
 exports.WALKING_SHOES = clothing([
-    { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 15 },
-    { id: "championes-caminata", name: "Championes de caminata", slot: "shoes", style: "sneakers", color: "#8fa3ad", price: 90, speed: 1.1 },
-    { id: "championes-deportivos", name: "Championes deportivos", slot: "shoes", style: "sneakers", color: "#2a9d8f", price: 240, speed: 1.2 },
-    { id: "championes-running", name: "Championes de running", slot: "shoes", style: "sneakers", color: "#f28c28", price: 560, speed: 1.35 },
-    { id: "championes-atleta", name: "Championes de atleta", slot: "shoes", style: "sneakers", color: "#e9b10a", price: 1300, speed: 1.5 },
+    { id: "alpargatas", name: "Alpargatas", slot: "shoes", style: "flipflops", color: "#d8c3a5", price: 120 },
+    { id: "championes-caminata", name: "Championes de caminata", slot: "shoes", style: "sneakers", color: "#8fa3ad", price: 800, speed: 1.1 },
+    { id: "championes-deportivos", name: "Championes deportivos", slot: "shoes", style: "sneakers", color: "#2a9d8f", price: 2000, speed: 1.2 },
+    { id: "championes-running", name: "Championes de running", slot: "shoes", style: "sneakers", color: "#f28c28", price: 4500, speed: 1.35 },
+    { id: "championes-atleta", name: "Championes de atleta", slot: "shoes", style: "sneakers", color: "#e9b10a", price: 9000, speed: 1.5 },
 ]);
+/**
+ * Ropa de recién llegado: la musculosa y el short con los que aparece un jugador nuevo
+ * (`STARTER_KIT`). Colores propios para que se note que es nuevo; ninguna tienda la vende (no está en
+ * `CLOTHING`) y venderla da casi nada ($1 cada una, por `SELL_RATIO`).
+ */
+exports.NEWBIE_CLOTHING = clothing([
+    { id: "musculosa-novato", name: "Musculosa de recién llegado", slot: "top", style: "tank", color: "#f4d35e", price: 2, newbie: true },
+    { id: "short-novato", name: "Short de recién llegado", slot: "bottom", style: "shorts", color: "#9aa3ad", price: 2, newbie: true },
+]);
+/**
+ * Ropa de trabajo: la que da una profesión al elegirla (`PROFESSION_KIT`), como el chaleco flúo del
+ * cuidacoches. Ninguna tienda la vende (no está en `CLOTHING`).
+ */
+exports.SAFETY_VEST_ID = "chaleco-fluo";
+exports.WORK_CLOTHING = clothing([
+    { id: exports.SAFETY_VEST_ID, name: "Chaleco flúo", slot: "top", style: "vest", color: "#c6f432", price: 10 },
+]);
+/** "Ropa de recién llegado" para mostrar en la mochila (vacío si no lo es). */
+function newbiePerk(item) {
+    return item.newbie ? ["🆕 Ropa de recién llegado: no se vende en tiendas"] : [];
+}
 /** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
 function walkSpeed(shoesId) {
     const item = shoesId ? exports.ITEMS.find((candidate) => candidate.id === shoesId) : undefined;
@@ -137,13 +161,13 @@ function speedPerk(item) {
 exports.FISH = fish([
     { id: "pejerrey", name: "Pejerrey", gender: "m", difficulty: 1, shape: "fish", color: "#b8c4cc", price: 6, catchWeight: 30 },
     { id: "lisa", name: "Lisa", gender: "f", difficulty: 1, shape: "fish", color: "#9aa7a0", price: 7, catchWeight: 24 },
-    { id: "bagre", name: "Bagre", gender: "m", difficulty: 2, shape: "fish", color: "#6b5a4a", price: 9, catchWeight: 18 },
-    { id: "burriqueta", name: "Burriqueta", gender: "f", difficulty: 2, shape: "fish", color: "#c9a66b", price: 12, catchWeight: 14 },
-    { id: "pescadilla", name: "Pescadilla", gender: "f", difficulty: 3, shape: "fish", color: "#d9cbb0", price: 16, catchWeight: 10 },
-    { id: "corvina-blanca", name: "Corvina blanca", gender: "f", difficulty: 3, shape: "fish", color: "#cfc6b8", price: 20, catchWeight: 9 },
-    { id: "brotola", name: "Brótola", gender: "f", difficulty: 3, shape: "fish", color: "#a0614a", price: 18, catchWeight: 8 },
-    { id: "lenguado", name: "Lenguado", gender: "m", difficulty: 4, shape: "flat", color: "#8a7a5c", price: 35, catchWeight: 4 },
-    { id: "corvina-negra", name: "Corvina negra", gender: "f", difficulty: 5, shape: "fish", color: "#3e3a38", price: 60, catchWeight: 2 },
+    { id: "bagre", name: "Bagre", gender: "m", difficulty: 2, shape: "fish", color: "#6b5a4a", price: 10, catchWeight: 18 },
+    { id: "burriqueta", name: "Burriqueta", gender: "f", difficulty: 2, shape: "fish", color: "#c9a66b", price: 13, catchWeight: 14 },
+    { id: "pescadilla", name: "Pescadilla", gender: "f", difficulty: 3, shape: "fish", color: "#d9cbb0", price: 20, catchWeight: 10 },
+    { id: "corvina-blanca", name: "Corvina blanca", gender: "f", difficulty: 3, shape: "fish", color: "#cfc6b8", price: 25, catchWeight: 9 },
+    { id: "brotola", name: "Brótola", gender: "f", difficulty: 3, shape: "fish", color: "#a0614a", price: 22, catchWeight: 8 },
+    { id: "lenguado", name: "Lenguado", gender: "m", difficulty: 4, shape: "flat", color: "#8a7a5c", price: 70, catchWeight: 4 },
+    { id: "corvina-negra", name: "Corvina negra", gender: "f", difficulty: 5, shape: "fish", color: "#3e3a38", price: 150, catchWeight: 2 },
 ]);
 const food = (items) => items.map((item) => ({ ...item, category: "food" }));
 /**
@@ -184,26 +208,26 @@ exports.MEDICINES = medicine([
 exports.BASIC_ROD_ID = "cana-basica";
 /** Cañas de pescar, de la básica a la profesional. Se compran en Pesca Sarandí. */
 exports.RODS = [
-    { id: exports.BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 30, rareBoost: 0, nothingChance: 0.2, doubleChance: 0, waitFactor: 1, maxUses: 40 },
-    { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 150, rareBoost: 0.2, nothingChance: 0.15, doubleChance: 0.05, waitFactor: 0.9, maxUses: 80 },
-    { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 450, rareBoost: 0.4, nothingChance: 0.1, doubleChance: 0.12, waitFactor: 0.8, maxUses: 110 },
-    { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 1200, rareBoost: 0.7, nothingChance: 0.06, doubleChance: 0.25, waitFactor: 0.7, maxUses: 150 },
+    { id: exports.BASIC_ROD_ID, name: "Caña básica", category: "rod", tier: 1, color: "#8a6a45", price: 60, rareBoost: 0, nothingChance: 0.3, doubleChance: 0, waitFactor: 1, maxUses: 60 },
+    { id: "cana-fibra", name: "Caña de fibra", category: "rod", tier: 2, color: "#2a9d8f", price: 500, rareBoost: 0.35, nothingChance: 0.2, doubleChance: 0.05, waitFactor: 0.9, maxUses: 100 },
+    { id: "cana-carbono", name: "Caña de carbono", category: "rod", tier: 3, color: "#3a3f4c", price: 1300, rareBoost: 0.65, nothingChance: 0.14, doubleChance: 0.1, waitFactor: 0.8, maxUses: 150 },
+    { id: "cana-profesional", name: "Caña profesional", category: "rod", tier: 4, color: "#c9a227", price: 3000, rareBoost: 1.05, nothingChance: 0.08, doubleChance: 0.18, waitFactor: 0.7, maxUses: 200 },
 ];
 const cart = (items) => items.map((item) => ({ ...item, category: "cart" }));
 /** Carritos de venta, de la conservadora a la parrillita. Se compran en el Kiosco del Parque. */
 exports.CARTS = cart([
-    { id: "conservadora", name: "Conservadora", tier: 1, color: "#2a7bd1", price: 35, product: "un refresco", cry: "¡Refresco, refresquito frío!", saleMin: 3, saleMax: 6, noSaleChance: 0.25, giftChance: 0.01, waitFactor: 1, maxUses: 40 },
-    { id: "carrito-garrapinada", name: "Carrito de garrapiñada", tier: 2, color: "#c1440e", price: 160, product: "una garrapiñada", cry: "¡Garrapiñada, garrapiñada!", saleMin: 6, saleMax: 10, noSaleChance: 0.2, giftChance: 0.02, waitFactor: 0.9, maxUses: 80 },
-    { id: "carrito-panchos", name: "Carrito de panchos", tier: 3, color: "#e9b10a", price: 480, product: "un pancho", cry: "¡Panchos, panchos calentitos!", saleMin: 10, saleMax: 16, noSaleChance: 0.15, giftChance: 0.035, waitFactor: 0.8, maxUses: 110 },
-    { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 1250, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 16, saleMax: 26, noSaleChance: 0.1, giftChance: 0.05, waitFactor: 0.7, maxUses: 150 },
+    { id: "conservadora", name: "Conservadora", tier: 1, color: "#2a7bd1", price: 60, product: "un refresco", cry: "¡Refresco, refresquito frío!", saleMin: 10, saleMax: 16, noSaleChance: 0.25, giftChance: 0.004, waitFactor: 1, maxUses: 60 },
+    { id: "carrito-garrapinada", name: "Carrito de garrapiñada", tier: 2, color: "#c1440e", price: 500, product: "una garrapiñada", cry: "¡Garrapiñada, garrapiñada!", saleMin: 18, saleMax: 26, noSaleChance: 0.2, giftChance: 0.006, waitFactor: 0.9, maxUses: 100 },
+    { id: "carrito-panchos", name: "Carrito de panchos", tier: 3, color: "#e9b10a", price: 1300, product: "un pancho", cry: "¡Panchos, panchos calentitos!", saleMin: 28, saleMax: 38, noSaleChance: 0.15, giftChance: 0.009, waitFactor: 0.8, maxUses: 150 },
+    { id: "parrillita-choripan", name: "Parrillita de choripán", tier: 4, color: "#7a2e1e", price: 3000, product: "un choripán", cry: "¡Choripán, choripán al pan!", saleMin: 40, saleMax: 54, noSaleChance: 0.1, giftChance: 0.014, waitFactor: 0.7, maxUses: 200 },
 ]);
 const instrument = (items) => items.map((item) => ({ ...item, category: "instrument" }));
 /** Instrumentos para tocar en la calle: los vende la Casa de Música del Centro. */
 exports.INSTRUMENTS = instrument([
-    { id: "armonica", name: "Armónica", tier: 1, kind: "harmonica", song: "♪ Un blues con la armónica", color: "#9aa3ad", price: 30, tipMin: 2, tipMax: 6, noTipChance: 0.25, waitFactor: 1, maxUses: 40 },
-    { id: "guitarra", name: "Guitarra criolla", tier: 2, kind: "guitar", song: "♪ Una de Los Olimareños", color: "#b5651d", price: 150, tipMin: 5, tipMax: 10, noTipChance: 0.2, waitFactor: 0.9, maxUses: 80 },
-    { id: "bandoneon", name: "Bandoneón", tier: 3, kind: "bandoneon", song: "♪ La Cumparsita", color: "#2b2b30", price: 450, tipMin: 9, tipMax: 15, noTipChance: 0.15, waitFactor: 0.8, maxUses: 110 },
-    { id: "tambor-candombe", name: "Tambor de candombe", tier: 4, kind: "drum", song: "♪ ¡Candombe! Chico, repique y piano", color: "#c0392b", price: 1200, tipMin: 15, tipMax: 25, noTipChance: 0.1, waitFactor: 0.7, maxUses: 150 },
+    { id: "armonica", name: "Armónica", tier: 1, kind: "harmonica", song: "♪ Un blues con la armónica", color: "#9aa3ad", price: 60, tipMin: 10, tipMax: 16, noTipChance: 0.25, waitFactor: 1, maxUses: 60 },
+    { id: "guitarra", name: "Guitarra criolla", tier: 2, kind: "guitar", song: "♪ Una de Los Olimareños", color: "#b5651d", price: 500, tipMin: 18, tipMax: 26, noTipChance: 0.2, waitFactor: 0.9, maxUses: 100 },
+    { id: "bandoneon", name: "Bandoneón", tier: 3, kind: "bandoneon", song: "♪ La Cumparsita", color: "#2b2b30", price: 1300, tipMin: 28, tipMax: 38, noTipChance: 0.15, waitFactor: 0.8, maxUses: 150 },
+    { id: "tambor-candombe", name: "Tambor de candombe", tier: 4, kind: "drum", song: "♪ ¡Candombe! Chico, repique y piano", color: "#c0392b", price: 3000, tipMin: 40, tipMax: 54, noTipChance: 0.1, waitFactor: 0.7, maxUses: 200 },
 ]);
 /** Caja que da el comando de admin `/box`. */
 exports.MYSTERY_BOX_ID = "caja-sorpresa";
@@ -236,7 +260,10 @@ exports.TICKET_ID = "boleto-stm";
 exports.TICKETS = [
     { id: exports.TICKET_ID, name: "Boleto STM", category: "ticket", color: "#1d6fb8", price: money_1.TRAVEL_FARE },
 ];
-exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.LONDON_PARIS_FASHION, ...exports.WALKING_SHOES, ...exports.FISH, ...exports.FOODS, ...exports.DRINKS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.INSTRUMENTS, ...exports.BOXES, ...exports.TICKETS];
+exports.LETTERS = [
+    { id: welcome_1.WELCOME_LETTER_ID, name: "Sobre de bienvenida", category: "letter", color: "#e9dcc0", price: 10 },
+];
+exports.ITEMS = [...exports.CLOTHING, ...exports.KOREAN_FASHION, ...exports.LONDON_PARIS_FASHION, ...exports.WALKING_SHOES, ...exports.NEWBIE_CLOTHING, ...exports.WORK_CLOTHING, ...exports.FISH, ...exports.FOODS, ...exports.DRINKS, ...exports.MEDICINES, ...exports.RODS, ...exports.CARTS, ...exports.INSTRUMENTS, ...exports.BOXES, ...exports.TICKETS, ...exports.LETTERS];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 exports.SELL_RATIO = 0.5;
 /**
@@ -329,7 +356,21 @@ exports.ITEM_CATEGORIES = {
         sellNote: "",
         nothingToSell: "No tenés cajas en la mochila para vender.",
     },
+    letter: {
+        label: "cartas",
+        tool: false,
+        buyMarkup: 1,
+        sellRatio: exports.SELL_RATIO,
+        sellNote: "Ojo: si vendés el sobre de bienvenida, se termina la misión y te toca ser cuidacoches.",
+        nothingToSell: "No tenés cartas en la mochila.",
+        untradable: true,
+        droppable: true,
+    },
 };
+/** ¿Se puede ofrecer en un intercambio? (El sobre de la bienvenida, no.) */
+function isTradable(item) {
+    return item !== undefined && !exports.ITEM_CATEGORIES[item.category].untradable;
+}
 exports.ITEM_CATEGORY_IDS = Object.keys(exports.ITEM_CATEGORIES);
 function isRod(item) {
     return item?.category === "rod";
@@ -449,16 +490,15 @@ function fishWithArticle(fish) {
 function difficultyStars(difficulty) {
     return "★".repeat(difficulty) + "☆".repeat(5 - difficulty);
 }
-/** Lo que tiene en la mochila un jugador nuevo: la caña básica para poder pescar. */
-exports.STARTER_INVENTORY = [exports.BASIC_ROD_ID];
+/** Lo que tiene en la mochila un jugador nuevo: una torta frita (arranca con hambre, `STARTING_HUNGER`). */
+exports.STARTER_INVENTORY = ["torta-frita"];
 /**
- * Kit con el que aparece un jugador nuevo: una remera, un short y chancletas, puestos (y en la
- * mochila, `STARTER_INVENTORY`). De cada lista se elige una opción al azar (para que no estén todos vestidos iguales).
+ * Kit con el que aparece un jugador nuevo, puesto: la ropa de recién llegado (`NEWBIE_CLOTHING`),
+ * descalzo (y en la mochila, `STARTER_INVENTORY`). Si un lugar tiene varias opciones, se elige una al azar.
  */
 exports.STARTER_KIT = {
-    top: ["remera-blanca", "remera-roja", "remera-negra"],
-    bottom: ["short-verde", "short-azul"],
-    shoes: ["chancletas"],
+    top: ["musculosa-novato"],
+    bottom: ["short-novato"],
 };
 /** Casilleros de la mochila. Cada casillero guarda una pila de prendas iguales. */
 exports.INVENTORY_CAPACITY = 20;

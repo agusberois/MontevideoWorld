@@ -1,4 +1,4 @@
-import { FISH, FishItem, RodItem } from "./items";
+import { FISH, FishDifficulty, FishItem, RodItem } from "./items";
 import { formatMoney } from "./money";
 
 /**
@@ -53,3 +53,23 @@ export function rodPerks(rod: RodItem): string[] {
   perks.push(`Dura ${rod.maxUses} tiradas y rinde ~${formatMoney(Math.floor(catchValue(rod) * rod.maxUses))} en total`);
   return perks;
 }
+
+/**
+ * La Parrilla del Mercado (`Shop.grill`, al lado del Mercado del Puerto): cada pescado de la mochila
+ * se cocina y sale siempre **pescado a la plancha** (`GRILLED_FISH_ID`), más porciones cuanto más
+ * difícil el pez (`GRILL_YIELD`): un bagre da una, una corvina negra, cinco. Pero cada porción se
+ * puede **quemar** (`GRILL_BURN_CHANCE`): de 40 te quedan unas 34. Es gratis: es la forma de que el
+ * pescador coma bien de lo que saca (ninguna tienda compra comida, así que no es negocio).
+ */
+export const GRILLED_FISH_ID = "pescado-plancha";
+
+export const GRILL_YIELD: Readonly<Record<FishDifficulty, number>> = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 5 };
+
+/** Probabilidad de que se queme cada porción en la parrilla (el server la sortea porción por porción). */
+export const GRILL_BURN_CHANCE = 0.15;
+
+/** Porciones de pescado a la plancha que salen de este pez. */
+export function grillYield(fish: FishItem): number {
+  return GRILL_YIELD[fish.difficulty];
+}
+

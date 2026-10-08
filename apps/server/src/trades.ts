@@ -6,6 +6,7 @@ import {
   TradeOffer,
   formatMoney,
   getItem,
+  isTradable,
 } from "@montevideo-world/shared";
 import { Inventory } from "./inventory";
 import { Wallet } from "./wallet";
@@ -111,6 +112,7 @@ export interface TradeParty {
 /** ¿Tiene en la mochila y en la billetera todo lo que ofrece? Si no, el motivo. */
 export function checkOffer(party: TradeParty, subject = "No tenés"): string | null {
   for (const { itemId, quantity } of party.offer.items) {
+    if (!isTradable(getItem(itemId))) return `${getItem(itemId)?.name ?? itemId} no se puede intercambiar.`;
     if (party.inventory.count(itemId) < quantity) {
       return `${subject} ${quantity > 1 ? `${quantity} × ` : ""}${getItem(itemId)?.name ?? itemId} en la mochila.`;
     }

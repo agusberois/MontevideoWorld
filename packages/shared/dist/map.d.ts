@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Door, Jacuzzi, Shop, TilePoint, TileRect } from "./cities/types";
+import { Bench, BusStop, CityDefinition, Door, Jacuzzi, Npc, Shop, TilePoint, TileRect } from "./cities/types";
 export type FishingFacing = "south" | "east" | "west" | "north";
 /** Hacia dónde mira quien pesca y a cuántos tiles cae la boya (ver `CityMap.fishingSpot`). */
 export interface FishingSpot {
@@ -58,6 +58,8 @@ export interface InteractionOptions {
  * Grilla de un barrio lista para consultar: qué hay en cada tile, qué se puede caminar
  * (layout menos los edificios emblemáticos) y pathfinding. Cliente y servidor la usan igual.
  */
+/** Hasta cuántos tiles de un edificio con nombre se cuidan coches (la vereda y la calle de enfrente). */
+export declare const PARKING_REACH = 2;
 export declare class CityMap {
     readonly city: CityDefinition;
     readonly width: number;
@@ -70,6 +72,15 @@ export declare class CityMap {
     canVendAt(x: number, y: number): boolean;
     /** Se toca en la calle parado en la zona del barrio (si tiene una: el Centro). */
     canBuskAt(x: number, y: number): boolean;
+    /**
+     * Se cuidan coches frente a cualquier edificio con nombre (`Landmark` que sea edificio, ver
+     * `NOT_PARKING_LANDMARKS`): en un tile caminable a `PARKING_REACH` tiles o menos de él, pero nunca
+     * frente a una tienda o kiosco (a esa misma distancia de un `Shop`), ni en un interior ni en la cárcel.
+     */
+    canParkAt(x: number, y: number): boolean;
+    /** Los tiles donde se cuidan coches (se arma la primera vez que se pregunta). */
+    private parkable;
+    private buildParkable;
     /**
      * Adónde tira la línea quien pesca parado en (x, y): hacia el agua más cercana en las 4
      * direcciones (buscando por la escollera hasta `FISHING_REACH` tiles; en el medio de la escollera
@@ -96,6 +107,12 @@ export declare class CityMap {
     isNearDoor(door: Door, x: number, y: number): boolean;
     /** Tile caminable pegado a la puerta más cercano a `from`. */
     doorApproach(door: Door, from: TilePoint): TilePoint | undefined;
+    /** NPC al que se le puede hablar (`Npc.talks`), por id. */
+    getTalkingNpc(id: string): Npc | undefined;
+    /** ¿Desde (x, y) se le habla al NPC? Pegado a él (o encima). */
+    isNearNpc(npc: Npc, x: number, y: number): boolean;
+    /** Tile caminable pegado al NPC más cercano a `from`. */
+    npcApproach(npc: Npc, from: TilePoint): TilePoint | undefined;
     jacuzziAt(x: number, y: number): Jacuzzi | undefined;
     /** ¿(x, y) es un lugar de algún jacuzzi? (Ahí está metido quien tiene `bathing`.) */
     isJacuzziSeat(x: number, y: number): boolean;

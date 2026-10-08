@@ -14,7 +14,6 @@ import { leaveRestricted } from "./doors";
 import { startFollowing, stopFollowing } from "./follow";
 import { startGesture } from "./gestures";
 import { land, startFlying, teleport } from "./movement";
-import { restartTutorial } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Canal de presence por el que viajan los anuncios del admin a todas las salas (todos los barrios). */
@@ -187,10 +186,6 @@ export function createCommandHost(room: CityRoom): CommandHost {
       if (!session?.wallet.credit(amount)) return false;
       room.markWallet(session);
       return true;
-    },
-    restartTutorial: (client) => {
-      const session = sessionOf(client);
-      if (session) restartTutorial(room, session);
     },
     setFlying: (client, flying) => {
       const session = sessionOf(client);

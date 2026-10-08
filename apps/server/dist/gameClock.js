@@ -11,6 +11,8 @@ class GameClock {
     constructor(dayLengthRealMinutes) {
         this.baseMinute = shared_1.START_MINUTE;
         this.baseAt = Date.now();
+        /** Partido forzado por el admin (global, como la hora): ver `MatchMode`. */
+        this.matchMode = "auto";
         this.msPerMinute = (dayLengthRealMinutes * 60_000) / shared_1.MINUTES_PER_DAY;
     }
     /** Minuto del día actual (con decimales), 0 ≤ m < 1440. */
@@ -22,6 +24,26 @@ class GameClock {
     set(minute) {
         this.baseMinute = minute;
         this.baseAt = Date.now();
+    }
+    /** El partido que se juega ahora: el del horario o el que forzó el admin. */
+    currentMatch() {
+        if (this.matchMode === "on")
+            return this.forcedMatch;
+        if (this.matchMode === "off")
+            return undefined;
+        return (0, shared_1.matchAt)(this.minuteOfDay());
+    }
+    getMatchMode() {
+        return this.matchMode;
+    }
+    /** Forzar el partido (admin). Con "on" hace falta un partido de `MATCHES`; devuelve false si no. */
+    forceMatch(mode, name) {
+        const match = mode === "on" ? (0, shared_1.getMatch)(name ?? "") : undefined;
+        if (mode === "on" && !match)
+            return false;
+        this.matchMode = mode;
+        this.forcedMatch = match;
+        return true;
     }
 }
 exports.GameClock = GameClock;

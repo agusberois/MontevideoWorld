@@ -31,138 +31,369 @@
   color: var(--danger);
 }
 
-.barra-empty p {
-  margin: 0 0 12px;
-  color: var(--muted);
-  line-height: 1.55;
+/* ---------- Panel "Mi barra" ---------- */
+
+.barra-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
 }
 
-/* La bandera de la barra: los dos colores en diagonal, con la sigla y el nombre encima. */
+.barra-body .barra-result {
+  margin: 0;
+}
+
+/* Sin barra: ícono, qué es y las dos formas de tener una. */
+.barra-empty {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+}
+
+.barra-empty h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.barra-empty > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.barra-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 209, 102, 0.35), rgba(255, 209, 102, 0.08));
+  color: var(--system);
+}
+
+.barra-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.barra-option {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+
+.barra-option-icon {
+  font-size: 1.4rem;
+}
+
+.barra-option small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.barra-option b {
+  color: var(--text);
+}
+
+/* La bandera: los dos colores en diagonal, con la sigla en su pastilla y el nombre. */
 .barra-banner {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  gap: 12px;
+  min-height: 84px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18), 0 6px 18px rgba(0, 0, 0, 0.3);
   color: #ffffff;
 }
 
+/* Un brillo suave encima, para que parezca tela. */
+.barra-banner::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.16), transparent 40%, rgba(0, 0, 0, 0.12));
+  content: "";
+  pointer-events: none;
+}
+
 .barra-tag {
-  font: 800 1.1rem ui-monospace, Menlo, monospace;
+  position: relative;
+  z-index: 1;
+  flex: none;
+  padding: 4px 10px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  font: 800 1.15rem ui-monospace, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+
+.barra-banner-text {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.42);
 }
 
 .barra-name {
-  font-size: 1.15rem;
+  overflow: hidden;
+  font-size: 1.2rem;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.barra-meta {
-  margin: 10px 0;
+.barra-banner-text small {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+}
+
+/* Integrantes, conectados y tu rol. */
+.barra-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.barra-stats > span {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 10px 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+}
+
+.barra-stats strong {
+  color: var(--text);
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.barra-stats strong small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.barra-stats .live strong {
+  color: #06d6a0;
+}
+
+.barra-section {
+  display: grid;
+  gap: 8px;
+}
+
+.barra-section h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .barra-members {
   display: grid;
-  gap: 4px;
-  max-height: 260px;
-  margin: 0 0 12px;
-  padding: 0;
+  gap: 6px;
+  max-height: 280px;
+  margin: 0;
+  padding: 0 2px 0 0;
   overflow-y: auto;
   list-style: none;
 }
 
 .barra-members li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  gap: 10px;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .barra-members li.online {
   color: var(--text);
 }
 
-.barra-dot {
-  width: 8px;
-  height: 8px;
+.barra-members li.you {
+  border-color: rgba(76, 201, 240, 0.35);
+}
+
+/* La inicial en los colores de la barra, con el punto de conectado. */
+.barra-avatar {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid transparent;
   border-radius: 50%;
-  background: var(--panel-border);
+  font-weight: 800;
+}
+
+.barra-members li:not(.online) .barra-avatar {
+  filter: grayscale(0.8);
+  opacity: 0.6;
+}
+
+.barra-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #1b1f2c;
+  border-radius: 50%;
+  background: #6b7280;
 }
 
 .barra-members li.online .barra-dot {
-  background: #2e9e5b;
+  background: #06d6a0;
+}
+
+.barra-member-text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
 }
 
 .barra-member-name {
   overflow: hidden;
+  font-size: 0.92rem;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.barra-role {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 209, 102, 0.14);
-  color: var(--system);
-  font-size: 0.75rem;
-  font-weight: 700;
+.barra-member-name small {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .barra-where {
-  font-size: 0.8rem;
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.barra-role {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 209, 102, 0.14);
+  color: var(--system);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .barra-hint {
-  margin: 0 0 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(76, 201, 240, 0.08);
   color: var(--muted);
   font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .barra-leave {
-  width: 100%;
+  justify-self: center;
   min-height: 40px;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  border-radius: 10px;
   background: transparent;
   color: var(--danger);
+  font: inherit;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.barra-leave:hover {
+  background: rgba(255, 107, 107, 0.1);
 }
 
 .barra-confirm {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 107, 107, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.barra-confirm p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.barra-confirm-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  justify-content: flex-end;
 }
 
-.barra-confirm span {
-  flex: 1 1 100%;
-}
-
-.barra-confirm button {
-  flex: 1;
+.barra-confirm-actions button {
   min-height: 40px;
+  padding: 8px 14px;
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--text);
+  font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
-.barra-confirm button.danger {
+.barra-confirm-actions button.danger {
   border-color: var(--danger);
   background: var(--danger);
   color: #0b0d14;
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .barra-body {
+    padding: 14px 14px 16px;
+  }
+
+  .barra-options {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-confirm-actions button {
+    flex: 1;
+  }
 }
 
 /* Formulario del Registro de Barras. */

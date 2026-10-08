@@ -178,6 +178,8 @@ function activityText(activity: PlayerActivity | null, gender: Gender): string {
       return `🛒 Vendiendo${toolName(activity.cart, " con ")}`;
     case "busking":
       return `🎵 Tocando${toolName(activity.instrument, " ")}`;
+    case "parking":
+      return "🦺 Cuidando coches";
     case "sitting":
       return `🪑 ${gender === "f" ? "Sentada" : "Sentado"} en un banco`;
   }

@@ -5,6 +5,7 @@ const layoutBuilder_1 = require("../layoutBuilder");
 const types_1 = require("../types");
 const grid_1 = require("./grid");
 const info_1 = require("./info");
+const welcome_1 = require("../../welcome");
 /**
  * El Centro, con el patrón de Ciudad Vieja (`grid.ts`): franjas de calle de 4 tiles (vereda, calzada
  * de 2, vereda), sin vereda en los cruces, y manzanas llenas de edificios del 900 de 2 × 2
@@ -257,6 +258,18 @@ exports.CENTRO = {
     stringLights,
     benches,
     busStops,
+    // La funcionaria que recibe el sobre de la bienvenida (`welcome.ts`), en la puerta de la Intendencia.
+    npcs: [
+        {
+            id: welcome_1.WELCOME_CLERK_ID,
+            name: "Funcionaria de la Intendencia",
+            role: "Intendencia de Montevideo · Atención al público",
+            appearance: { gender: "f", skin: 2, hairColor: 1, hairStyle: "bun", eyeColor: 0, facialHair: "none", glasses: "square", color: "#9b5de5" },
+            outfit: { hat: "", top: "buzo-bordo", bottom: "pantalon-vestir-negro", shoes: "botas-negras" },
+            roam: (0, grid_1.rect)(grid_1.INTENDENCIA_X + 9, grid_1.AVENUE.southFront + 5, 1, 1),
+            talks: true,
+        },
+    ],
     logoSign: { landmarkId: "intendencia" },
     // Se toca en la calle sobre 18 de Julio (calzada y veredas), en las plazas y en la explanada.
     busking: { name: "18 de Julio", areas: [(0, grid_1.rect)(0, grid_1.AVENUE.y0, grid_1.WIDTH, grid_1.AVENUE_WIDTH), info_1.FABINI, info_1.CAGANCHA, info_1.CAGANCHA_NORTE, explanada] },

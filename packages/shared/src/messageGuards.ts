@@ -3,6 +3,7 @@ import { isRouletteBet } from "./casino";
 import { isGestureId, isPairGestureId } from "./gestures";
 import { isItemSlot } from "./items";
 import { isWeatherMode } from "./weather";
+import { isChoosableProfession } from "./welcome";
 import {
   AdminGiveMessage,
   AdminMatchMessage,
@@ -23,11 +24,13 @@ import {
   DoorEnterMessage,
   GesturePairRequestMessage,
   GesturePairRespondMessage,
+  InventoryDropMessage,
   InventoryMoveMessage,
   MAKER_MAX_QUANTITY,
   MAX_ROUTE_LENGTH,
   MessageType,
   MoveMessage,
+  NpcTalkMessage,
   PetAdoptMessage,
   PetRenameMessage,
   SHOP_MAX_QUANTITY,
@@ -42,6 +45,7 @@ import {
   TradeRespondMessage,
   TravelMessage,
   WeevilKickMessage,
+  WelcomeProfessionMessage,
 } from "./messages";
 import { isValidMinuteOfDay } from "./time";
 import { TradeOffer, normalizeTradeOffer } from "./trade";
@@ -133,8 +137,16 @@ export function isShopCheckoutMessage(message: unknown): message is ShopCheckout
   );
 }
 
-/** `{ itemId }`: comer algo, abrir una caja. */
-export function isItemIdMessage(message: unknown): message is FoodEatMessage & BoxOpenMessage {
+export function isWelcomeProfessionMessage(message: unknown): message is WelcomeProfessionMessage {
+  return isObject(message) && isChoosableProfession(message.profession);
+}
+
+export function isNpcTalkMessage(message: unknown): message is NpcTalkMessage {
+  return isObject(message) && typeof message.npcId === "string";
+}
+
+/** `{ itemId }`: comer algo, abrir una caja, tirar algo. */
+export function isItemIdMessage(message: unknown): message is FoodEatMessage & BoxOpenMessage & InventoryDropMessage {
   return isObject(message) && typeof message.itemId === "string";
 }
 
@@ -242,8 +254,6 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.InventoryMove]: isInventoryMoveMessage,
   [MessageType.RequestWallet]: noPayload,
   [MessageType.RequestNeeds]: noPayload,
-  [MessageType.RequestTutorial]: noPayload,
-  [MessageType.TutorialSkip]: noPayload,
   [MessageType.HospitalHeal]: isShopIdMessage,
   [MessageType.ShopVisit]: isTileMessage,
   [MessageType.ShopBuy]: isShopTradeMessage,
@@ -267,12 +277,20 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.BarraLeave]: noPayload,
   [MessageType.BarraRequest]: noPayload,
   [MessageType.BuskStop]: noPayload,
+  [MessageType.ParkStart]: noPayload,
+  [MessageType.ParkStop]: noPayload,
   [MessageType.AdminSetTime]: isAdminSetTimeMessage,
   [MessageType.AdminNearbyRequest]: noPayload,
   [MessageType.AdminGive]: isAdminGiveMessage,
   [MessageType.AdminMatch]: isAdminMatchMessage,
   [MessageType.AdminWeather]: isAdminWeatherMessage,
   [MessageType.BoxOpen]: isItemIdMessage,
+  [MessageType.RequestWelcome]: noPayload,
+  [MessageType.WelcomeRead]: noPayload,
+  [MessageType.WelcomeProfession]: isWelcomeProfessionMessage,
+  [MessageType.NpcTalk]: isNpcTalkMessage,
+  [MessageType.InventoryDrop]: isItemIdMessage,
+  [MessageType.GrillCook]: isShopCheckoutMessage,
   [MessageType.TravelRequest]: isTravelMessage,
   [MessageType.CitiesRequest]: noPayload,
   [MessageType.PalmShake]: isTileMessage,

@@ -37,7 +37,7 @@ import {
 } from "@montevideo-world/shared";
 import type { Player } from "@montevideo-world/shared/schema";
 import { PlayerActivity, PlayerSummary, eventBus } from "@/lib/eventBus";
-import type { CityRoom } from "@/lib/network";
+import { type CityRoom, sendNpcTalk } from "@/lib/network";
 import { CameraControl, DRAG_SLOP, FOLLOW_OFFSET_Y, isTyping } from "../CameraControl";
 import { AdminCoords } from "../AdminCoords";
 import { LocalMover, WASD_KEYS } from "../movement";
@@ -49,11 +49,11 @@ import { PerfOverlay } from "../PerfOverlay";
 import { QualityWatch } from "../QualityWatch";
 import { loadQuality } from "@/lib/quality";
 import { WeatherFx } from "../city/WeatherFx";
-import { TutorialPointer } from "../objects/TutorialPointer";
 import { tileDiamond, tileToWorld, worldToTile } from "../iso";
 import { Avatar } from "../objects/Avatar";
 import { Customers } from "../objects/Customers";
 import { Audience } from "../objects/Audience";
+import { ParkedCars } from "../objects/ParkedCars";
 import { Npcs } from "../objects/Npcs";
 import { Pet } from "../objects/Pet";
 import { Weevil } from "../objects/Weevil";
@@ -122,7 +122,6 @@ export class CityScene extends Phaser.Scene {
   private city!: CityRenderer;
   private dayNight!: DayNight;
   private weatherFx!: WeatherFx;
-  private tutorialPointer!: TutorialPointer;
   private localAvatar: Avatar | null = null;
   /** El avatar propio vuela (`/god`): los clics van en línea recta a cualquier tile, sin predicción ni WASD. */
   private flying = false;
@@ -144,6 +143,7 @@ export class CityScene extends Phaser.Scene {
   /** A quién sigue el avatar propio ("" = a nadie), para avisarle a React sólo cuando cambia. */
   private followingId = "";
   private audience!: Audience;
+  private parkedCars!: ParkedCars;
   /** Mascota de cada jugador que tiene una (sessionId → mascota). */
   private pets = new Map<string, Pet>();
   /** Último estado de pesca avisado a React, para emitir sólo cuando cambia. */
@@ -151,6 +151,7 @@ export class CityScene extends Phaser.Scene {
   /** Último estado de venta avisado a React. */
   private vendingStatus = "";
   private buskingStatus = "";
+  private parkingStatus = "";
   private lastEnergy = -1;
   /**
    * Parada a la que está caminando el avatar propio y el tile donde va a quedar: al llegar se abre
@@ -200,11 +201,13 @@ export class CityScene extends Phaser.Scene {
     this.weevils = new Map();
     this.customers = new Customers(this, map, (id) => this.avatars.get(id));
     this.audience = new Audience(this, map, (id) => this.avatars.get(id));
+    this.parkedCars = new ParkedCars(this, map, (id) => this.avatars.get(id));
     this.pets = new Map();
     this.roster = new Map();
     this.fishingStatus = "";
     this.vendingStatus = "";
     this.buskingStatus = "";
+    this.parkingStatus = "";
     this.lastEnergy = -1;
     this.pendingBusStop = null;
     this.disposers = [];
@@ -242,14 +245,6 @@ export class CityScene extends Phaser.Scene {
       eventBus.emit("quality:low", low);
     }, () => eventBus.emit("notice", { text: "🐢 El juego iba lento: bajamos la calidad gráfica (sin luces de noche ni lluvia). Cambiala en Opciones (tecla O)." }));
     this.disposers.push(eventBus.on("quality:set", (setting) => this.quality.set(setting)));
-    // Guía de bienvenida: React dice adónde apuntar (sólo si es en este barrio).
-    this.tutorialPointer = new TutorialPointer(this, () => this.arrowInset());
-    this.disposers.push(
-      eventBus.on("tutorial:target", (target) => {
-        this.tutorialPointer.setTarget(target && target.cityId === this.map.city.id ? target.area : null);
-      }),
-    );
-    eventBus.emit("tutorial:target:request", null);
     this.hover = this.add.graphics().setDepth(HOVER_DEPTH);
 
     const camera = this.cameras.main;
@@ -311,6 +306,11 @@ export class CityScene extends Phaser.Scene {
         const self = this.room.state.players.get(this.room.sessionId);
         if (self) this.audience.update(this.room.sessionId, state, { x: self.x, y: self.y });
       }),
+      // El auto que estaciona al lado del cuidacoches: llega, el dueño deja plata (o no) y se va.
+      eventBus.on("parking:car", ({ state }) => {
+        const self = this.room.state.players.get(this.room.sessionId);
+        if (self) this.parkedCars.update(this.room.sessionId, state, { x: self.x, y: self.y });
+      }),
     );
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
@@ -349,7 +349,6 @@ export class CityScene extends Phaser.Scene {
     this.slotLights?.tick(delta);
     this.jacuzziCounters?.update(this.room.state.players.values());
     this.weatherFx.update(delta);
-    this.tutorialPointer.update(time);
     const self = this.localAvatar;
     this.city.updateCulling(this.cameras.main.worldView);
     this.city.updateOcclusion(self ? { x: self.x, y: self.y, depth: self.depth } : null, delta);
@@ -406,6 +405,9 @@ export class CityScene extends Phaser.Scene {
       const id: string = weevilId;
       return { key: `weevil:${id}`, label: "Patear al picudo", run: () => this.kickWeevil(id) };
     }
+
+    const npc = this.npcs.talkingNear(at);
+    if (npc) return { key: `npc:${npc.id}`, label: `Hablar con ${npc.name}`, run: () => this.talkTo(npc.id) };
 
     // Lo del mapa que está pegado (un banco ocupado no cuenta), en el orden de `NEARBY_PRIORITY`.
     const around = this.map
@@ -672,6 +674,7 @@ export class CityScene extends Phaser.Scene {
         this.applyFishing(avatar, player, isLocal);
         this.applyVending(avatar, player, isLocal);
         this.applyBusking(avatar, player, isLocal);
+        this.applyParking(avatar, player, isLocal);
         avatar.setTyping(player.typing);
         this.avatars.set(sessionId, avatar);
         if (isLocal) {
@@ -782,6 +785,7 @@ export class CityScene extends Phaser.Scene {
             this.applyFishing(avatar, player, isLocal);
             this.applyVending(avatar, player, isLocal);
             this.applyBusking(avatar, player, isLocal);
+            this.applyParking(avatar, player, isLocal);
             avatar.setOutfit(outfitIds(player));
             avatar.setTyping(player.typing);
             if (isLocal) this.emitEnergy(player.energy);
@@ -853,6 +857,7 @@ export class CityScene extends Phaser.Scene {
         this.pets.delete(sessionId);
         this.customers.remove(sessionId);
         this.audience.remove(sessionId);
+        this.parkedCars.remove(sessionId);
         this.avatars.delete(sessionId);
         this.roster.delete(sessionId);
         this.rosterKeys.delete(sessionId);
@@ -951,6 +956,17 @@ export class CityScene extends Phaser.Scene {
     eventBus.emit("busking:status", status);
   }
 
+  /** Señas con la franela mientras cuida un auto; al avatar propio además le avisa a React si puede cuidar coches. */
+  private applyParking(avatar: Avatar, player: Player, isLocal: boolean) {
+    avatar.setParking(player.parking);
+    if (!isLocal) return;
+    const status = { canPark: this.map.canParkAt(player.x, player.y), parking: player.parking };
+    const key = `${status.canPark}|${status.parking}`;
+    if (key === this.parkingStatus) return;
+    this.parkingStatus = key;
+    eventBus.emit("parking:status", status);
+  }
+
   private emitEnergy(energy: number) {
     if (energy === this.lastEnergy) return;
     this.lastEnergy = energy;
@@ -1014,6 +1030,12 @@ export class CityScene extends Phaser.Scene {
     return found?.sessionId ?? null;
   }
 
+  /** NPC al que se le puede hablar bajo el puntero. */
+  private npcAt(pointer: Phaser.Input.Pointer) {
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    return this.npcs.talkingAt(world.x, world.y);
+  }
+
   /** Picudo vivo bajo el puntero (el de más adelante si se superponen). */
   private weevilAt(pointer: Phaser.Input.Pointer): string | null {
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -1055,7 +1077,7 @@ export class CityScene extends Phaser.Scene {
     const tile = this.pointerTile(pointer);
     this.hover.clear();
     this.adminCoords.hover(tile);
-    if (this.weevilAt(pointer) || this.playerAt(pointer)) {
+    if (this.weevilAt(pointer) || this.playerAt(pointer) || this.npcAt(pointer)) {
       this.input.setDefaultCursor("pointer");
       return;
     }
@@ -1120,6 +1142,14 @@ export class CityScene extends Phaser.Scene {
       return;
     }
 
+    // Clic en un NPC al que se le habla: camina hasta él y le habla (lo decide el server).
+    const npc = this.npcAt(pointer);
+    if (npc) {
+      this.talkTo(npc.id);
+      this.cameraControl.returnToTarget();
+      return;
+    }
+
     // Clic en un jugador: no se camina. En otro, React abre su menú (Saludar / Intercambiar /
     // Detalles…); en el propio, directo tus detalles.
     const clicked = this.playerAt(pointer);
@@ -1152,6 +1182,10 @@ export class CityScene extends Phaser.Scene {
   }
 
   // --- Acciones sobre las cosas del barrio (las usan el clic y la tecla de interactuar) ---------
+
+  private talkTo(npcId: string) {
+    sendNpcTalk(this.room, npcId);
+  }
 
   private kickWeevil(id: string) {
     const kick: WeevilKickMessage = { id };
@@ -1224,12 +1258,12 @@ export class CityScene extends Phaser.Scene {
     this.disposers = [];
     this.dayNight.dispose();
     this.weatherFx.dispose();
-    this.tutorialPointer.dispose();
     this.adminCoords?.dispose();
     this.avatars.clear();
     this.weevils.clear();
     this.customers.dispose();
     this.audience.dispose();
+    this.parkedCars.dispose();
     this.pets.clear();
     this.roster.clear();
     this.rosterKeys.clear();
@@ -1252,7 +1286,7 @@ function rosterKey(player: Player, isSelf: boolean): string {
     player.name, player.color, isSelf, player.donor, player.admin, player.barraTag, player.barraColor, player.barraName,
     player.gender, player.skin, player.hairColor, player.hairStyle, player.eyeColor, player.facialHair, player.glasses,
     player.hat, player.top, player.bottom, player.shoes, player.pet, player.petName, player.jailLeft,
-    player.fishing, player.rod, player.vending, player.cart, player.busking, player.instrument, player.sitting, player.energy,
+    player.fishing, player.rod, player.vending, player.cart, player.busking, player.instrument, player.parking, player.sitting, player.energy,
   ].join("|");
 }
 
@@ -1262,6 +1296,7 @@ function summarize(sessionId: string, player: Player, isSelf: boolean): PlayerSu
   if (player.fishing) activity = { kind: "fishing", rod: player.rod };
   else if (player.vending) activity = { kind: "vending", cart: player.cart };
   else if (player.busking) activity = { kind: "busking", instrument: player.instrument };
+  else if (player.parking) activity = { kind: "parking" };
   else if (player.sitting) activity = { kind: "sitting" };
   return {
     sessionId,

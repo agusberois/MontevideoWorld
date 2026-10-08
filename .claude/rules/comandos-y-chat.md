@@ -48,8 +48,7 @@ su sala le emite el pase con `at` = ese tile, `PrivateMailbox.summon`; no trae p
 del Hotel del Donador, a quien no es donador) y
 `/god` (admin: modo vuelo para recorrer el mapa rápido; ver "Vuelo" en `movimiento.md`) y
 `/ban <minutos> <jugador>` (admin; 0 = liberar, ver `.claude/rules/carcel.md`) y
-`/guia` (todos: vuelve a abrir la guía de bienvenida, sin premios si ya la había empezado; ver
-`primeros-pasos.md`), `/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier
+`/silenciar <minutos> <jugador>` (admin, hasta `MAX_MUTE_MINUTES`, sólo a conectados de cualquier
 barrio vía `mailbox.mute`; 0 = levantarlo: `mutes.ts`, por id la condena entera y por nombre como
 mucho 1 h, sólo en memoria. Silenciado no sale su chat, `/mensaje`, saludo ni burla; los demás
 comandos sí) y `/curar [jugador]` (admin:

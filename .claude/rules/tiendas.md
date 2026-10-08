@@ -54,3 +54,4 @@ del Barrio de los Judíos usan 0,75; tiene que quedar por encima de lo que la ti
 sólo la vende Moda Coreana y la de `LONDON_PARIS_FASHION`, sólo London París (Centro); ninguna está en `CLOTHING`.
 Los instrumentos (`INSTRUMENTS`) los vende y los compra usados la **Casa de Música** (Centro, `building: "music"`). El edificio de cada tienda sale de `Shop.building` (`ShopBuilding`):
 para un tipo nuevo, sumar su estilo en `SHOP_STYLES` (`buildings.ts`).
+La **Parrilla del Mercado** (`grill`) no compra ni vende: cocina pescados (ver `pesca-y-venta.md`).

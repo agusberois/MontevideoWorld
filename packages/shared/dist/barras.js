@@ -16,7 +16,7 @@ const sanitize_1 = require("./sanitize");
  * (que arma el formulario). Ver `docs/pending/funcionalidades-primera-version.md` (2.2).
  */
 /** Lo que cuesta fundar una barra (saca plata de la economía y hace que fundarla sea un logro). */
-exports.BARRA_FOUND_COST = 1000;
+exports.BARRA_FOUND_COST = 5000;
 /** Tope de integrantes, para que haya muchas barras y no una gigante. */
 exports.BARRA_MAX_MEMBERS = 30;
 exports.BARRA_NAME_MIN = 3;

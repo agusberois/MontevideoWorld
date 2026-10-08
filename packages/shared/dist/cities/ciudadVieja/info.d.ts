@@ -15,7 +15,7 @@ export declare const ESCOLLERA_PLATFORM: TileRect;
  * la rambla oeste en la fila 15 (de 14 a 16) hasta esta plataforma.
  */
 export declare const ESCOLLERA_NORTE_PLATFORM: TileRect;
-/** Paradas de ómnibus (la de la Plaza Independencia es la de la guía de bienvenida). */
+/** Paradas de ómnibus. */
 export declare const PLAZA_BUS_STOP: BusStop;
 export declare const MERCADO_BUS_STOP: BusStop;
 export declare const CIUDAD_VIEJA_INFO: {
@@ -141,6 +141,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         buys: never[];
         registry: true;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -151,6 +152,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         stock: string[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -161,6 +163,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         buys: "ticket"[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -171,6 +174,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         stock: string[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -178,9 +182,10 @@ export declare const CIUDAD_VIEJA_INFO: {
         area: TileRect;
         building: "kiosk";
         stock: string[];
-        buys: never[];
+        buys: "letter"[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -191,6 +196,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         buys: never[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -201,6 +207,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         buys: never[];
         pets: string[];
         registry?: undefined;
+        grill?: undefined;
     } | {
         id: string;
         name: string;
@@ -209,6 +216,18 @@ export declare const CIUDAD_VIEJA_INFO: {
         building: "none";
         stock: string[];
         buys: "fish"[];
+        registry?: undefined;
+        pets?: undefined;
+        grill?: undefined;
+    } | {
+        id: string;
+        name: string;
+        description: string;
+        area: TileRect;
+        building: "grill";
+        stock: never[];
+        buys: never[];
+        grill: true;
         registry?: undefined;
         pets?: undefined;
     } | {
@@ -221,6 +240,7 @@ export declare const CIUDAD_VIEJA_INFO: {
         buys: "rod"[];
         registry?: undefined;
         pets?: undefined;
+        grill?: undefined;
     })[];
 };
 //# sourceMappingURL=info.d.ts.map

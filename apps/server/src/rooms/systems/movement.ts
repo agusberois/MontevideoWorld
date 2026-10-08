@@ -6,7 +6,7 @@ import { crossDoor, enterJacuzzi } from "./doors";
 import { stepFollowers } from "./follow";
 import { startGesture } from "./gestures";
 import { openShop } from "./shops";
-import { checkTutorialReach } from "./tutorial";
+import { talkToNpc } from "./welcome";
 import type { MessageRoutes } from "./types";
 
 /** Caminar, sentarse, sacudir palmeras y patear picudos; el paso de cada tick (`stepPlayers`). */
@@ -170,6 +170,8 @@ export function stepPlayers(room: CityRoom) {
       if (room.map.isNearDoor(pending.door, player.x, player.y)) crossDoor(room, session, pending.door);
     } else if (pending.kind === "jacuzzi") {
       enterJacuzzi(room, session, pending.seat);
+    } else if (pending.kind === "npc") {
+      if (room.map.isNearNpc(pending.npc, player.x, player.y)) talkToNpc(room, session, pending.npc);
     } else if (room.map.isNearShop(pending.shop, player.x, player.y)) {
       openShop(room, session, pending.shop);
     }
@@ -207,7 +209,6 @@ export function stepPlayers(room: CityRoom) {
       const next = session.path.shift()!;
       session.player.x = next.x;
       session.player.y = next.y;
-      checkTutorialReach(room, session);
     }
     if (!isWalking(session)) session.stepCredit = 0;
   }

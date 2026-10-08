@@ -15,6 +15,8 @@ exports.isShopHaggleMessage = isShopHaggleMessage;
 exports.isShopSellManyMessage = isShopSellManyMessage;
 exports.isShopHaggleManyMessage = isShopHaggleManyMessage;
 exports.isShopCheckoutMessage = isShopCheckoutMessage;
+exports.isWelcomeProfessionMessage = isWelcomeProfessionMessage;
+exports.isNpcTalkMessage = isNpcTalkMessage;
 exports.isItemIdMessage = isItemIdMessage;
 exports.isAdminSetTimeMessage = isAdminSetTimeMessage;
 exports.isAdminGiveMessage = isAdminGiveMessage;
@@ -40,6 +42,7 @@ const casino_1 = require("./casino");
 const gestures_1 = require("./gestures");
 const items_1 = require("./items");
 const weather_1 = require("./weather");
+const welcome_1 = require("./welcome");
 const messages_1 = require("./messages");
 const time_1 = require("./time");
 const trade_1 = require("./trade");
@@ -108,7 +111,13 @@ function isShopCheckoutMessage(message) {
         items.length <= 50 &&
         items.every((line) => isObject(line) && typeof line.itemId === "string" && Number.isInteger(line.quantity) && line.quantity >= 1));
 }
-/** `{ itemId }`: comer algo, abrir una caja. */
+function isWelcomeProfessionMessage(message) {
+    return isObject(message) && (0, welcome_1.isChoosableProfession)(message.profession);
+}
+function isNpcTalkMessage(message) {
+    return isObject(message) && typeof message.npcId === "string";
+}
+/** `{ itemId }`: comer algo, abrir una caja, tirar algo. */
 function isItemIdMessage(message) {
     return isObject(message) && typeof message.itemId === "string";
 }
@@ -194,8 +203,6 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.InventoryMove]: isInventoryMoveMessage,
     [messages_1.MessageType.RequestWallet]: noPayload,
     [messages_1.MessageType.RequestNeeds]: noPayload,
-    [messages_1.MessageType.RequestTutorial]: noPayload,
-    [messages_1.MessageType.TutorialSkip]: noPayload,
     [messages_1.MessageType.HospitalHeal]: isShopIdMessage,
     [messages_1.MessageType.ShopVisit]: isTileMessage,
     [messages_1.MessageType.ShopBuy]: isShopTradeMessage,
@@ -219,12 +226,20 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.BarraLeave]: noPayload,
     [messages_1.MessageType.BarraRequest]: noPayload,
     [messages_1.MessageType.BuskStop]: noPayload,
+    [messages_1.MessageType.ParkStart]: noPayload,
+    [messages_1.MessageType.ParkStop]: noPayload,
     [messages_1.MessageType.AdminSetTime]: isAdminSetTimeMessage,
     [messages_1.MessageType.AdminNearbyRequest]: noPayload,
     [messages_1.MessageType.AdminGive]: isAdminGiveMessage,
     [messages_1.MessageType.AdminMatch]: isAdminMatchMessage,
     [messages_1.MessageType.AdminWeather]: isAdminWeatherMessage,
     [messages_1.MessageType.BoxOpen]: isItemIdMessage,
+    [messages_1.MessageType.RequestWelcome]: noPayload,
+    [messages_1.MessageType.WelcomeRead]: noPayload,
+    [messages_1.MessageType.WelcomeProfession]: isWelcomeProfessionMessage,
+    [messages_1.MessageType.NpcTalk]: isNpcTalkMessage,
+    [messages_1.MessageType.InventoryDrop]: isItemIdMessage,
+    [messages_1.MessageType.GrillCook]: isShopCheckoutMessage,
     [messages_1.MessageType.TravelRequest]: isTravelMessage,
     [messages_1.MessageType.CitiesRequest]: noPayload,
     [messages_1.MessageType.PalmShake]: isTileMessage,

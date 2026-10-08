@@ -18,6 +18,7 @@ import {
   TRAVEL_TICKET_MS,
   STARTER_INVENTORY,
   STARTER_KIT,
+  sanitizeWelcome,
   STARTING_MONEY,
   STEP_MS,
   ServerToClientMessages,
@@ -35,7 +36,6 @@ import {
   sanitizeName,
   truncate,
   sanitizePetName,
-  sanitizeTutorial,
 } from "@montevideo-world/shared";
 import { getCityMap } from "@montevideo-world/shared/cities";
 import { GameState, Player } from "@montevideo-world/shared/schema";
@@ -65,11 +65,11 @@ import { doorRoutes } from "./systems/doors";
 import { followRoutes } from "./systems/follow";
 import { gestureRoutes, stepGestures } from "./systems/gestures";
 import { movementRoutes, stepPlayers } from "./systems/movement";
+import { checkWelcomeLetter, welcomeRoutes } from "./systems/welcome";
 import { shopRoutes } from "./systems/shops";
 import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes, tickTyping } from "./systems/social";
 import { cancelTrade, revalidateTrade, tradeRoutes } from "./systems/trading";
 import { jail, travelRoutes, updateJail } from "./systems/travel";
-import { tutorialRoutes } from "./systems/tutorial";
 import type { MessageRoutes } from "./systems/types";
 
 /** Cada cuánto se mueven los picudos (más seguido que los jugadores: se arrastran de a poco). */
@@ -271,6 +271,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     // Todos los mensajes del cliente, cada uno con su sistema. No compila si falta alguno.
     const routes: MessageRoutes = {
       ...movementRoutes(this),
+      ...welcomeRoutes(this),
       ...shopRoutes(this),
       ...activityRoutes(this),
       ...lifeRoutes(this),
@@ -283,7 +284,6 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       ...barraRoutes(this),
       ...adminRoutes(this),
       ...travelRoutes(this),
-      ...tutorialRoutes(this),
     };
     for (const type of Object.keys(routes) as Array<keyof MessageRoutes>) this.route(type, routes[type]);
     // Tipos sin handler (cliente modificado): se cuentan contra el límite y se descartan sin loguear.
@@ -434,7 +434,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       const money = Number.isSafeInteger(saved.money) && saved.money >= 0 && saved.money <= MAX_MONEY ? saved.money : STARTING_MONEY;
       wallet = new Wallet(money);
     } else {
-      // Jugador nuevo: aparece con el kit inicial puesto y una caña básica en la mochila.
+      // Jugador nuevo: aparece con el kit inicial puesto y una torta frita en la mochila.
       for (const slot of ITEM_SLOTS) {
         const options = STARTER_KIT[slot];
         player[slot] = options ? options[Math.floor(Math.random() * options.length)] : "";
@@ -443,13 +443,13 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       for (const itemId of STARTER_INVENTORY) inventory.add(itemId);
       wallet = new Wallet();
     }
-    // Necesidades guardadas (sin guardado, o uno viejo sin ellas: todo lleno).
-    const needs = Needs.restore(saved?.needs);
+    // Necesidades guardadas (un guardado viejo sin ellas: todo lleno); jugador nuevo, con hambre.
+    const needs = saved ? Needs.restore(saved.needs) : Needs.starter();
     player.energy = needs.energy;
 
     const session = createSession(client, player, inventory, wallet, needs, key);
-    // Guía de bienvenida: sin guardado (o uno de antes de que existiera), desde el principio.
-    session.tutorial = sanitizeTutorial(saved?.tutorial);
+    // Bienvenida: un jugador nuevo la empieza; un guardado sin ella (de antes) ya la tiene terminada.
+    if (saved) session.welcome = sanitizeWelcome(saved.welcome);
     session.ip = auth?.ip ?? "?";
     // Su barra (sigla y color sobre el avatar): la ve todo el barrio.
     applyBarra(session);
@@ -528,7 +528,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
       jailedUntil: bans.savedUntil(key),
       pet: player.pet ? { id: player.pet, name: player.petName } : undefined,
       needs: session.needs.snapshot(),
-      tutorial: session.tutorial,
+      welcome: session.welcome,
       // En el COMCAR (preso o de visita) se conserva el lugar de antes: al volver no aparece en la cárcel.
       // Volando (`/god`) puede estar arriba de un edificio: se guarda la baldosa caminable más cercana.
       location: this.map.city.id === JAIL_CITY_ID ? playerStore.get(key)?.location : { cityId: this.map.city.id, ...this.savedTile(player) },
@@ -657,6 +657,8 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
    */
   markInventory(session: PlayerSession) {
     session.inventoryDirty = true;
+    // Vendió o tiró el sobre de la bienvenida antes de entregarlo: termina la misión (cuidacoches).
+    checkWelcomeLetter(this, session);
     this.queueFlush(session);
   }
 

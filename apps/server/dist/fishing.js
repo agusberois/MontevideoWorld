@@ -1,28 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NOTHING_CHANCE = void 0;
 exports.rollCatch = rollCatch;
 const shared_1 = require("@montevideo-world/shared");
-/** Probabilidad de que no pique nada en un intento. */
-exports.NOTHING_CHANCE = 0.2;
 /**
- * Sortea qué pica: nada (`NOTHING_CHANCE`) o un pez según su `catchWeight` (los fáciles pican más).
- * La espera crece con la dificultad: un pez difícil tarda más en picar.
+ * Espera de una tirada antes de `waitFactor`: entre `MIN` y `MIN + SPREAD` ms (promedio 6,5 s, el que
+ * usa `needsBalance.ts`). Igual que vender, tocar y cuidar coches: todas las actividades van al mismo ritmo.
  */
-function rollCatch(random = Math.random) {
-    if (random() < exports.NOTHING_CHANCE) {
-        return { fish: null, durationMs: 4000 + Math.floor(random() * 3000) };
-    }
-    const total = shared_1.FISH.reduce((sum, fish) => sum + fish.catchWeight, 0);
+const WAIT_MIN_MS = 5000;
+const WAIT_SPREAD_MS = 3000;
+/**
+ * Sortea qué pica con esta caña: nada (`rod.nothingChance`) o un pez según su peso con la caña
+ * (`catchWeight`: las mejores favorecen a los difíciles). Si picó, con `rod.doubleChance` sale un
+ * segundo pez. La espera se sortea **aparte** del resultado y sólo la achica `rod.waitFactor`: el
+ * cliente la recibe (`fish:started`) y cortar la pesca no cuesta nada, así que si dependiera de lo
+ * que picó, se podría tirar y cortar hasta ver una espera "de pez difícil".
+ */
+function rollCatch(rod, random = Math.random) {
+    const durationMs = Math.round((WAIT_MIN_MS + random() * WAIT_SPREAD_MS) * rod.waitFactor);
+    if (random() < rod.nothingChance)
+        return { fish: [], durationMs };
+    const fish = [pickFish(rod, random)];
+    if (random() < rod.doubleChance)
+        fish.push(pickFish(rod, random));
+    return { fish, durationMs };
+}
+function pickFish(rod, random) {
+    const total = shared_1.FISH.reduce((sum, fish) => sum + (0, shared_1.catchWeight)(fish, rod), 0);
     let roll = random() * total;
-    let picked = shared_1.FISH[shared_1.FISH.length - 1];
     for (const fish of shared_1.FISH) {
-        roll -= fish.catchWeight;
-        if (roll < 0) {
-            picked = fish;
-            break;
-        }
+        roll -= (0, shared_1.catchWeight)(fish, rod);
+        if (roll < 0)
+            return fish;
     }
-    return { fish: picked, durationMs: 2500 + picked.difficulty * 800 + Math.floor(random() * 2500) };
+    return shared_1.FISH[shared_1.FISH.length - 1];
 }
 //# sourceMappingURL=fishing.js.map

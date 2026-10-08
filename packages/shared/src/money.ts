@@ -4,7 +4,7 @@
  */
 
 /** Saldo con el que aparece un jugador nuevo. */
-export const STARTING_MONEY = 100;
+export const STARTING_MONEY = 20;
 
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 export const MAX_MONEY = 1_000_000_000;

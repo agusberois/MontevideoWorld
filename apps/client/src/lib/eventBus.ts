@@ -13,6 +13,9 @@ import type {
   BuskResultMessage,
   BuskStartedMessage,
   BuskCrowdMessage,
+  ParkCarMessage,
+  ParkResultMessage,
+  ParkStartedMessage,
   BarraInvitedMessage,
   BarraMessage,
   BarraResultMessage,
@@ -22,11 +25,11 @@ import type {
   CasinoResultMessage,
   InventoryMessage,
   MatchMode,
-  TileRect,
-  TutorialMessage,
   WeatherId,
   WeatherMode,
   NeedsMessage,
+  NpcSayMessage,
+  WelcomeMessage,
   FaintMessage,
   NoticeMessage,
   OutfitIds,
@@ -87,6 +90,14 @@ export interface GameEvents {
   "barra:result": BarraResultMessage;
   /** Sólo al músico: la gente de mentira que se arrima a escuchar, deja plata o se va. */
   "busking:crowd": BuskCrowdMessage;
+  /** Escena → React: si está parado donde se cuidan coches y si está cuidando uno. */
+  "parking:status": { canPark: boolean; parking: boolean };
+  /** Red → React: está cuidando un auto (para la barra de espera). */
+  "parking:started": ParkStartedMessage;
+  /** Red → React: cómo le fue con el auto. */
+  "parking:result": ParkResultMessage;
+  /** Red → Phaser: el auto de mentira que estaciona al lado del cuidacoches. */
+  "parking:car": ParkCarMessage;
   /** Te invitan a un gesto de a dos (chocar los cinco, abrazo, pasar el mate). */
   "gesture:invite": GesturePairInviteMessage;
   /** Cómo salió la jugada en el casino (sólo al que juega). */
@@ -95,12 +106,10 @@ export interface GameEvents {
   "player:energy": number;
   /** Red → React: necesidades privadas del jugador (hambre). */
   "needs:update": NeedsMessage;
-  /** Servidor → React: cómo va la guía de bienvenida (y, si se cumplió un paso, cuál y qué pagó). */
-  "tutorial:update": TutorialMessage;
-  /** React → Phaser: adónde apunta la flecha de la guía (un área de un barrio), o null para sacarla. */
-  "tutorial:target": { cityId: string; area: TileRect } | null;
-  /** Phaser → React: la escena (nueva, p. ej. al viajar) pide adónde apunta la guía ahora. */
-  "tutorial:target:request": null;
+  /** Servidor → React: cómo va la bienvenida del jugador nuevo (el sobre del HUD y su panel). */
+  "welcome:update": WelcomeMessage;
+  /** Servidor → React: lo que te dijo un NPC (abre el modal de diálogo). */
+  "npc:say": NpcSayMessage;
   /** Red → React: te desmayaste (pantalla negra con el texto). */
   faint: FaintMessage;
   /** Phaser → React: segundos de condena que le quedan al avatar propio en el COMCAR (0 = libre). */
@@ -203,7 +212,7 @@ export interface PlayerSummary {
   energy: number;
 }
 
-export type PlayerActivity = { kind: "fishing"; rod: string } | { kind: "vending"; cart: string } | { kind: "busking"; instrument: string } | { kind: "sitting" };
+export type PlayerActivity = { kind: "fishing"; rod: string } | { kind: "vending"; cart: string } | { kind: "busking"; instrument: string } | { kind: "parking" } | { kind: "sitting" };
 
 type Handler<T> = (payload: T) => void;
 

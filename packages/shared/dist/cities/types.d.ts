@@ -95,7 +95,7 @@ export interface BusStop {
  * cuya categoría esté en `buys` (a `sellPrice`).
  */
 /** Edificio propio de una tienda; "none" = funciona dentro de otro edificio ya dibujado. */
-export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "wholesale" | "shoes" | "bakery" | "rotisserie" | "cafe" | "crafts" | "music" | "none";
+export type ShopBuilding = "clothing" | "fishing" | "kiosk" | "stm" | "pets" | "pharmacy" | "wholesale" | "shoes" | "bakery" | "rotisserie" | "cafe" | "crafts" | "music" | "grill" | "none";
 export interface Shop {
     id: string;
     name: string;
@@ -116,6 +116,8 @@ export interface Shop {
     hospital?: boolean;
     /** Registro de Barras: la "tienda" abre el panel para fundar una barra (`barra:create`). */
     registry?: boolean;
+    /** Parrilla: no compra ni vende; cocina los pescados de la mochila (`grill:cook`, ver `grillYield`). */
+    grill?: boolean;
     /** Juego del casino: la "tienda" es la máquina o la mesa y abre su panel (`casino:*`). */
     casino?: import("../casino").CasinoGame;
     /**
@@ -301,8 +303,15 @@ export interface Npc {
         bottom: string;
         shoes: string;
     };
-    /** Por dónde se mueve (empieza en el medio). */
+    /** Quién es, debajo del nombre en el diálogo ("Correo · Plaza Independencia"). */
+    role?: string;
+    /** Por dónde se mueve (empieza en el medio). De 1 × 1 se queda quieto ahí. */
     roam: TileRect;
+    /**
+     * Se le puede hablar (clic o F): se camina hasta pegado a su `roam` y el server decide qué dice
+     * (`systems/npcs.ts`). Tiene que ser de 1 × 1, así el server sabe dónde está.
+     */
+    talks?: boolean;
 }
 /** Una guirnalda: un cable con lamparitas que cuelga de un poste en `from` a otro en `to`. */
 export interface StringLight {

@@ -16,7 +16,7 @@ export interface SaleRoll {
  * Con partido los hinchas llegan antes (`MATCH_WAIT_FACTOR`); los mejores carritos, también.
  */
 export function rollSale(cart: CartItem, match: boolean, random: () => number = Math.random): SaleRoll {
-  const durationMs = Math.round((3000 + random() * 3000) * cart.waitFactor * (match ? MATCH_WAIT_FACTOR : 1));
+  const durationMs = Math.round((5000 + random() * 3000) * cart.waitFactor * (match ? MATCH_WAIT_FACTOR : 1));
   if (random() < cart.noSaleChance) return { earned: 0, durationMs };
 
   const [min, max] = saleRange(cart, match);

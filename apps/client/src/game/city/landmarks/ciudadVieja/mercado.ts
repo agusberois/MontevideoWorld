@@ -3,7 +3,10 @@ import { IsoPainter, boxColors } from "../../IsoPainter";
 import { IRON, facesOf } from "../common";
 import type { LandmarkDrawing } from "../types";
 
-/** Mercado del Puerto: muros de ladrillo, gran techo de hierro y la torre del reloj al centro. */
+/**
+ * Mercado del Puerto: muros de ladrillo, gran techo de hierro y la torre del reloj al centro. Ocupa
+ * 4 × 4 tiles; al lado, sobre la misma manzana, está la Parrilla del Mercado.
+ */
 
 function drawMercado(p: IsoPainter) {
   const brick = 0xa4553c;

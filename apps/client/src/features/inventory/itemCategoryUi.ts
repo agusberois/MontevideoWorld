@@ -1,6 +1,7 @@
 import {
   ItemCategory,
   ItemDefinition,
+  SAFETY_VEST_ID,
   cartPerks,
   cartStars,
   difficultyStars,
@@ -8,6 +9,7 @@ import {
   edibleValue,
   instrumentPerks,
   instrumentStars,
+  newbiePerk,
   rodPerks,
   rodStars,
   speedPerk,
@@ -30,7 +32,11 @@ interface CategoryUi<I extends ItemDefinition> {
 
 const CATEGORY_UI: { [C in ItemCategory]: CategoryUi<ItemOf<C>> } = {
   clothing: {
-    perks: speedPerk,
+    perks: (item) => [
+      ...speedPerk(item),
+      ...newbiePerk(item),
+      ...(item.id === SAFETY_VEST_ID ? ["🦺 Puesto, cuidás coches frente a los edificios con nombre (no en tiendas)"] : []),
+    ],
   },
   fish: {
     rating: (fish) => ({ stars: difficultyStars(fish.difficulty), title: `Dificultad ${fish.difficulty} de 5` }),
@@ -58,6 +64,7 @@ const CATEGORY_UI: { [C in ItemCategory]: CategoryUi<ItemOf<C>> } = {
     perks: instrumentPerks,
   },
   box: {},
+  letter: {},
   ticket: {},
 };
 

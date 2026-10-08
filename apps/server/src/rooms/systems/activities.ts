@@ -14,6 +14,17 @@ import {
   VEND_ENERGY_COST,
   VEND_HUNGER_COST,
   BuskCrowdMessage,
+  CAR_ARRIVE_MS,
+  CarState,
+  PARK_ENERGY_COST,
+  PARK_HUNGER_COST,
+  PARK_NO_TIP_CHANCE,
+  PARK_TIP_MAX,
+  PARK_TIP_MIN,
+  PARK_WAIT_MAX_MS,
+  PARK_WAIT_MIN_MS,
+  ParkCarMessage,
+  wearsSafetyVest,
   VendCustomerMessage,
   bestCart,
   bestInstrument,
@@ -35,10 +46,9 @@ import { rollSale } from "../../vending";
 import { weather } from "../../weather";
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, isWalking, standUp } from "../session";
-import { tutorialEvent, tutorialWants } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
-/** Pescar en la escollera, vender en el Centenario, tocar en la calle y comer (o tomarse un remedio). */
+/** Pescar en la escollera, vender en el Centenario, tocar en la calle, cuidar coches y comer (o tomarse un remedio). */
 export function activityRoutes(room: CityRoom) {
   return {
     [MessageType.FishCast]: (session) => castLine(room, session),
@@ -47,6 +57,8 @@ export function activityRoutes(room: CityRoom) {
     [MessageType.VendStop]: (session) => stopVending(session),
     [MessageType.BuskStart]: (session) => startBusking(room, session),
     [MessageType.BuskStop]: (session) => stopBusking(session),
+    [MessageType.ParkStart]: (session) => startParking(room, session),
+    [MessageType.ParkStop]: (session) => stopParking(session),
 
     /** Comer algo de la mochila (comida, pescado crudo o un remedio): da lo de `edibleValue`. */
     [MessageType.FoodEat]: (session, message) => {
@@ -54,8 +66,7 @@ export function activityRoutes(room: CityRoom) {
       const item = getItem(message.itemId);
       const value = edibleValue(item);
       if (!item || !value || inventory.count(item.id) === 0) return;
-      // La torta frita de la guía se come aunque esté lleno (un jugador nuevo arranca lleno).
-      if (!needs.canEat(value) && !tutorialWants(session, { kind: "eat", itemId: item.id })) {
+      if (!needs.canEat(value)) {
         return room.notice(session, item.category === "medicine" ? "Estás sano: guardalo para cuando lo necesites." : "Estás lleno: guardalo para después.");
       }
 
@@ -67,7 +78,6 @@ export function activityRoutes(room: CityRoom) {
       if (item.category === "medicine") return room.notice(session, `💊 Te tomaste ${item.name}: ${edibleLabel(value)}.`);
       const what = item.category === "fish" ? fishWithArticle(item) : item.name.toLowerCase();
       room.notice(session, `🍽️ Te comiste ${what}: ${edibleLabel(value)}.`);
-      tutorialEvent(room, session, { kind: "eat", itemId: item.id });
     },
   } satisfies Partial<MessageRoutes>;
 }
@@ -80,7 +90,7 @@ export function activityRoutes(room: CityRoom) {
  */
 function castLine(room: CityRoom, session: PlayerSession) {
   const { player, inventory } = session;
-  if (player.fishing || player.vending || player.busking || isWalking(session)) return;
+  if (player.fishing || player.vending || player.busking || player.parking || isWalking(session)) return;
   // Pescar gasta la caña: con un intercambio abierto cambiaría algo que quizás está ofrecido.
   if (room.trades.get(session.client.sessionId)) return fishResult(room, session, false, "Terminá el intercambio antes de pescar.");
   if (!room.map.canFishAt(player.x, player.y)) {
@@ -135,7 +145,6 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
     kept.map((f) => f.id),
     fish,
   );
-  tutorialEvent(room, session, { kind: "catch" });
   const rare = kept.filter((f) => f.difficulty >= 4);
   if (rare.length > 0 || kept.length > 1) {
     room.broadcastSystem(`🎣 ${session.player.name} sacó ${names(kept)} en la Escollera Sarandí`);
@@ -151,7 +160,7 @@ function resolveCatch(room: CityRoom, session: PlayerSession, fish: FishItem[]) 
 function startVending(room: CityRoom, session: PlayerSession) {
   const { player, inventory } = session;
   const zone = room.map.city.vending;
-  if (player.vending || player.fishing || player.busking || isWalking(session)) return;
+  if (player.vending || player.fishing || player.busking || player.parking || isWalking(session)) return;
   // Vender gasta el carrito: con un intercambio abierto cambiaría algo que quizás está ofrecido.
   if (room.trades.get(session.client.sessionId)) return vendResult(room, session, false, "Terminá el intercambio antes de vender.");
   if (!zone || !room.map.canVendAt(player.x, player.y)) {
@@ -235,7 +244,7 @@ function resolveSale(room: CityRoom, session: PlayerSession, product: string, ea
 function startBusking(room: CityRoom, session: PlayerSession) {
   const { player, inventory } = session;
   const zone = room.map.city.busking;
-  if (player.busking || player.fishing || player.vending || isWalking(session)) return;
+  if (player.busking || player.fishing || player.vending || player.parking || isWalking(session)) return;
   // Tocar gasta el instrumento: con un intercambio abierto cambiaría algo que quizás está ofrecido.
   if (room.trades.get(session.client.sessionId)) return buskResult(room, session, false, "Terminá el intercambio antes de tocar.");
   if (!zone || !room.map.canBuskAt(player.x, player.y)) {
@@ -320,6 +329,73 @@ function resolveTip(room: CityRoom, session: PlayerSession, earned: number, list
 }
 
 /**
+ * Cuidar un auto (cuidacoches): hay que estar parado frente a un edificio con nombre (no una tienda
+ * ni un kiosco, `CityMap.canParkAt`), con el chaleco flúo puesto, sin estar haciendo otra cosa y con energía. No hay
+ * herramienta que se gaste. La propina se sortea ahora y la espera aparte (como al tocar: si
+ * dependiera del resultado, cortar y volver a empezar hasta ver una espera corta sería gratis).
+ * Energía y hambre se cobran recién al terminar.
+ */
+function startParking(room: CityRoom, session: PlayerSession) {
+  const { player } = session;
+  if (player.parking || player.fishing || player.vending || player.busking || isWalking(session)) return;
+  if (!room.map.canParkAt(player.x, player.y)) {
+    return parkResult(room, session, false, "Para cuidar coches parate frente a un edificio con nombre (un palacio, un teatro, una iglesia…). En las tiendas y kioscos no se puede.");
+  }
+  if (!wearsSafetyVest(player.top)) {
+    return parkResult(room, session, false, "Sin el chaleco flúo puesto nadie te va a dejar el auto: ponételo desde la mochila.");
+  }
+  if (!session.needs.hasEnergy(PARK_ENERGY_COST)) {
+    return parkResult(room, session, false, "Estás muy cansado para cuidar coches. Descansá un rato: sentarte en un banco ayuda.");
+  }
+
+  const durationMs = Math.round(PARK_WAIT_MIN_MS + Math.random() * (PARK_WAIT_MAX_MS - PARK_WAIT_MIN_MS));
+  const tip = Math.random() < PARK_NO_TIP_CHANCE ? 0 : PARK_TIP_MIN + Math.floor(Math.random() * (PARK_TIP_MAX - PARK_TIP_MIN + 1));
+  standUp(player);
+  player.parking = true;
+  session.pending = null;
+  room.sendTo(session, MessageType.ParkStarted, { durationMs });
+
+  // El auto llega y estaciona al rato de empezar. Sólo lo ve el cuidacoches (es dibujo).
+  session.carTimer = room.clock.setTimeout(() => {
+    session.carTimer = null;
+    session.carOut = true;
+    room.sendTo(session, MessageType.ParkCar, { state: CarState.Arriving });
+  }, CAR_ARRIVE_MS);
+
+  session.parkingTimer = room.clock.setTimeout(() => {
+    session.parkingTimer = null;
+    session.carTimer?.clear();
+    session.carTimer = null;
+    player.parking = false;
+    session.needs.drainEnergy(PARK_ENERGY_COST);
+    session.needs.drainHunger(PARK_HUNGER_COST);
+    // Se sacó el chaleco mientras esperaba: el dueño no le deja nada.
+    const paid = wearsSafetyVest(player.top) ? resolveParkTip(room, session, tip) : (parkResult(room, session, false, "Te sacaste el chaleco flúo: el dueño no te reconoció y se fue."), false);
+    if (session.carOut) {
+      session.carOut = false;
+      room.sendTo(session, MessageType.ParkCar, { state: paid ? CarState.Tipped : CarState.Left });
+    }
+  }, durationMs);
+}
+
+/** Se cobra la propina del dueño (si dejó). Devuelve si le dejó plata. */
+function resolveParkTip(room: CityRoom, session: PlayerSession, tip: number): boolean {
+  if (tip === 0) {
+    const misses = ["\"Hoy no tengo cambio, maestro\": se fue sin dejar nada.", "El dueño ni te miró y arrancó.", "\"La próxima te dejo\": nada esta vez."];
+    parkResult(room, session, false, misses[Math.floor(Math.random() * misses.length)]);
+    return false;
+  }
+  if (!session.wallet.credit(tip)) {
+    parkResult(room, session, false, "No podés tener más plata.");
+    return false;
+  }
+  session.player.tips += 1;
+  room.markWallet(session);
+  parkResult(room, session, true, `"¡Gracias, jefe!": te dejaron ${formatMoney(tip)} por cuidarle el auto.`, tip);
+  return true;
+}
+
+/**
  * Cobra una tirada / un intento que llegó al final: un uso de la herramienta (si se rompe, avisa
  * dónde comprar otra) y la energía. Lo que se corta antes (moverse, salir…) no llega acá y no cuesta
  * nada. Devuelve false si la herramienta ya no está (se intercambió mientras tanto): entonces no
@@ -377,15 +453,35 @@ export function stopBusking(session: PlayerSession) {
   }
 }
 
-/** Cortar lo que esté haciendo el jugador (pescar, vender o tocar): moverse, sentarse, ir a una tienda, salir. */
+/** Dejar de cuidar coches (moverse, sentarse, ir a una tienda, salir o cancelar a mano): el auto no se cobra. */
+export function stopParking(session: PlayerSession) {
+  session.parkingTimer?.clear();
+  session.parkingTimer = null;
+  session.carTimer?.clear();
+  session.carTimer = null;
+  session.player.parking = false;
+  // Si el auto estaba estacionado, arranca y se va. Es sólo dibujo: va directo al socket (como el hincha).
+  if (session.carOut) {
+    session.carOut = false;
+    const message: ParkCarMessage = { state: CarState.None };
+    session.client.send(MessageType.ParkCar, message);
+  }
+}
+
+/** Cortar lo que esté haciendo el jugador (pescar, vender, tocar o cuidar coches): moverse, sentarse, ir a una tienda, salir. */
 export function stopActivities(session: PlayerSession) {
   stopFishing(session);
   stopVending(session);
   stopBusking(session);
+  stopParking(session);
 }
 
 function vendResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, earned = 0, giftId?: string) {
   room.sendTo(session, MessageType.VendResult, { ok, text, earned, giftId });
+}
+
+function parkResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, earned = 0) {
+  room.sendTo(session, MessageType.ParkResult, { ok, text, earned });
 }
 
 function buskResult(room: CityRoom, session: PlayerSession, ok: boolean, text: string, earned = 0, listeners = 0, partners = 0) {

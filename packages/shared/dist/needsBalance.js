@@ -36,11 +36,12 @@ function foodCostPerHour(hungerFactor = 1) {
 }
 /**
  * Segundos promedio de un intento (tirada, venta o tema, ver `fishing.ts` / `vending.ts` /
- * `busking.ts` del server: una tirada tarda ~5,5 s, una venta ~4,5 s y un tema ~5 s, por el `waitFactor` de la herramienta) más lo que hay que
+ * `busking.ts` del server: una tirada, una venta y un tema tardan ~6,5 s (5–8 s), por el `waitFactor` de la herramienta) más lo que hay que
  * descansar sentado para reponer la energía que gasta.
  */
 function secondsPerUse(tool) {
-    const [attempt, energy] = tool.category === "rod" ? [5.5, needs_1.FISH_ENERGY_COST] : tool.category === "cart" ? [4.5, needs_1.VEND_ENERGY_COST] : [5, needs_1.BUSK_ENERGY_COST];
+    const attempt = 6.5;
+    const energy = tool.category === "rod" ? needs_1.FISH_ENERGY_COST : tool.category === "cart" ? needs_1.VEND_ENERGY_COST : needs_1.BUSK_ENERGY_COST;
     return attempt * tool.waitFactor + energy / needs_1.SIT_ENERGY_REGEN;
 }
 /** Plata por hora que deja una herramienta, descontando lo que se gasta (su precio repartido en sus usos). */

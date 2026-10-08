@@ -2,7 +2,7 @@ import { getItem } from "@montevideo-world/shared";
 import { eventBus } from "./eventBus";
 import { gameStore } from "./gameStore";
 import { ItemActionContext, itemAction } from "../features/inventory/itemActions";
-import { CityRoom, sendBusking, sendFishing, sendTravelRequest, sendVending } from "./network";
+import { CityRoom, sendBusking, sendFishing, sendParking, sendTravelRequest, sendVending } from "./network";
 
 /**
  * Acciones del jugador que dependen del estado de la UI (`gameStore`). Las usan los atajos de
@@ -36,20 +36,29 @@ export function toggleBusking(room: CityRoom) {
   else if (busking.canBusk) sendBusking(room, "start");
 }
 
+/** Botón (o F frente a un edificio con nombre): cuidar un auto si se puede ahí, o dejar de cuidar. */
+export function toggleParking(room: CityRoom) {
+  const { parking } = gameStore.getState();
+  if (parking.parking) sendParking(room, "stop");
+  else if (parking.canPark) sendParking(room, "start");
+}
+
 /**
- * F, en este orden: si estás pescando, vendiendo o tocando, lo corta; si tenés algo al lado (tienda,
- * banco, palmera, parada, otro jugador, un picudo), interactúa con eso; si no, pesca en la
- * escollera, vende en la explanada del Centenario o toca en 18 de Julio.
+ * F, en este orden: si estás pescando, vendiendo, tocando o cuidando un auto, lo corta; si tenés algo
+ * al lado (tienda, banco, palmera, parada, otro jugador, un picudo), interactúa con eso; si no, pesca
+ * en la escollera, vende en la explanada del Centenario, toca en 18 de Julio o cuida coches frente a un edificio con nombre.
  */
 export function pressF(room: CityRoom) {
-  const { fishing, vending, busking, interaction } = gameStore.getState();
+  const { fishing, vending, busking, parking, interaction } = gameStore.getState();
   if (fishing.fishing) toggleFishing(room);
   else if (vending.vending) toggleVending(room);
   else if (busking.busking) toggleBusking(room);
+  else if (parking.parking) toggleParking(room);
   else if (interaction) eventBus.emit("interact:use", null);
   else if (fishing.canFish) toggleFishing(room);
   else if (vending.canVend) toggleVending(room);
   else if (busking.canBusk) toggleBusking(room);
+  else if (parking.canPark) toggleParking(room);
 }
 
 /** Atajo 1–9: usar el ítem (ponerse/sacarse ropa, pescar, vender, tocar, comer, abrir una caja). */

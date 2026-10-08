@@ -15,7 +15,8 @@ paths:
 
 Necesidades (diseño completo en `docs/finished/necesidades-del-personaje.md`): **energía** (antes
 "stamina"), **hambre** (saciedad, 100 = lleno) y **salud**, 0–100. Las lleva el server (`Needs` en la Room,
-con decimales). La energía va redondeada a `player.energy` (Schema) → la escena emite
+con decimales). Un jugador nuevo arranca con energía y salud llenas y hambre en `STARTING_HUNGER` (50;
+`Needs.starter()`); un guardado sin necesidades, todo lleno. La energía va redondeada a `player.energy` (Schema) → la escena emite
 `player:energy` → `state.energy`. Hambre y salud son **privadas**: no van en el Schema; el server
 se las manda sólo al dueño con `needs { hunger, health }` (lo pide el cliente con `needs:get` al
 entrar, y se reenvía cuando cambia algún valor redondeado) → `needs:update` → `state.hunger` /

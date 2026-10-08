@@ -46,7 +46,9 @@ class Player extends schema_1.Schema {
         this.busking = false;
         /** Instrumento con el que toca (id de `INSTRUMENTS`; "" si no toca). */
         this.instrument = "";
-        /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
+        /** Cuidando coches frente a un edificio con nombre (los demás lo ven haciendo señas con la franela). */
+        this.parking = false;
+        /** Sube con cada propina (al músico o al cuidacoches): los clientes muestran "🪙 ¡Propina!". */
         this.tips = 0;
         /** Barra a la que pertenece: sigla (2–4 letras; "" = ninguna) y su color principal ("#rrggbb"). La ven todos. */
         this.barraTag = "";
@@ -154,6 +156,9 @@ __decorate([
 __decorate([
     (0, schema_1.type)("string")
 ], Player.prototype, "instrument", void 0);
+__decorate([
+    (0, schema_1.type)("boolean")
+], Player.prototype, "parking", void 0);
 __decorate([
     (0, schema_1.type)("uint16")
 ], Player.prototype, "tips", void 0);

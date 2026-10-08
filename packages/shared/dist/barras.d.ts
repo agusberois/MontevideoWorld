@@ -5,7 +5,7 @@
  * (que arma el formulario). Ver `docs/pending/funcionalidades-primera-version.md` (2.2).
  */
 /** Lo que cuesta fundar una barra (saca plata de la economía y hace que fundarla sea un logro). */
-export declare const BARRA_FOUND_COST = 1000;
+export declare const BARRA_FOUND_COST = 5000;
 /** Tope de integrantes, para que haya muchas barras y no una gigante. */
 export declare const BARRA_MAX_MEMBERS = 30;
 export declare const BARRA_NAME_MIN = 3;

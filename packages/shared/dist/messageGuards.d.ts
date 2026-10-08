@@ -1,4 +1,4 @@
-import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BarraCreateMessage, BarraInviteMessage, BarraRespondMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryMoveMessage, MoveMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TypingMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage } from "./messages";
+import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BarraCreateMessage, BarraInviteMessage, BarraRespondMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryDropMessage, InventoryMoveMessage, MoveMessage, NpcTalkMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TypingMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage, WelcomeProfessionMessage } from "./messages";
 import { TradeOffer } from "./trade";
 /** Un tile (x, y enteros): mover, sentarse, visitar una tienda, sacudir una palmera. */
 export declare function isTileMessage(message: unknown): message is SitMessage;
@@ -19,8 +19,10 @@ export declare function isShopHaggleMessage(message: unknown): message is ShopHa
 export declare function isShopSellManyMessage(message: unknown): message is ShopSellManyMessage;
 export declare function isShopHaggleManyMessage(message: unknown): message is ShopHaggleManyMessage;
 export declare function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage;
-/** `{ itemId }`: comer algo, abrir una caja. */
-export declare function isItemIdMessage(message: unknown): message is FoodEatMessage & BoxOpenMessage;
+export declare function isWelcomeProfessionMessage(message: unknown): message is WelcomeProfessionMessage;
+export declare function isNpcTalkMessage(message: unknown): message is NpcTalkMessage;
+/** `{ itemId }`: comer algo, abrir una caja, tirar algo. */
+export declare function isItemIdMessage(message: unknown): message is FoodEatMessage & BoxOpenMessage & InventoryDropMessage;
 export declare function isAdminSetTimeMessage(message: unknown): message is AdminSetTimeMessage;
 export declare function isAdminGiveMessage(message: unknown): message is AdminGiveMessage;
 export declare function isAdminMatchMessage(message: unknown): message is AdminMatchMessage;

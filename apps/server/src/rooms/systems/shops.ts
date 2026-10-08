@@ -14,7 +14,11 @@ import {
   fishWithArticle,
   formatMoney,
   getClothing,
+  FishItem,
+  GRILLED_FISH_ID,
+  GRILL_BURN_CHANCE,
   getItem,
+  grillYield,
   getPet,
   haggleChance,
   hospitalPrice,
@@ -28,7 +32,6 @@ import {
 import type { CityRoom } from "../CityRoom";
 import { PlayerSession, halt, oncePerTick, standUp } from "../session";
 import { stopActivities } from "./activities";
-import { tutorialEvent } from "./tutorial";
 import type { MessageRoutes } from "./types";
 
 /** Tiendas (comprar, vender, regatear, carrito), ropa, mochila, cajas sorpresa, veterinaria y guardia. */
@@ -135,7 +138,6 @@ export function shopRoutes(room: CityRoom) {
         ? `Vendiste ${sold} de ${quantity} × ${item.name} por ${formatMoney(earned)}: ${stop}.`
         : `Vendiste ${what} por ${formatMoney(earned)}.`;
       shopResult(room, session, true, text, { action: "sell", itemId: item.id, quantity: sold });
-      tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category: item.category });
     },
 
     /**
@@ -166,7 +168,6 @@ export function shopRoutes(room: CityRoom) {
       room.markInventory(session);
       if (accepted) {
         shopResult(room, session, true, `🤝 ¡Aceptaron! Vendiste ${item.name} por ${formatMoney(message.price)}.`);
-        tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category: item.category });
       } else {
         shopResult(room, session, false, `🙅 No aceptaron: te quedaste sin ${item.name} y sin cobrar nada.`);
       }
@@ -185,7 +186,6 @@ export function shopRoutes(room: CityRoom) {
       room.markWallet(session);
       room.markInventory(session);
       shopResult(room, session, true, `Vendiste ${saleList(lines)} por ${formatMoney(total)}.`, { action: "sell", sold: soldLines(lines) });
-      for (const category of new Set(lines.map(({ item }) => item.category))) tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category });
     },
 
     /**
@@ -209,7 +209,6 @@ export function shopRoutes(room: CityRoom) {
       room.markInventory(session);
       if (accepted) {
         shopResult(room, session, true, `🤝 ¡Aceptaron! Vendiste ${saleList(lines)} por ${formatMoney(message.price)}.`, { action: "sell", sold: soldLines(lines) });
-        for (const category of new Set(lines.map(({ item }) => item.category))) tutorialEvent(room, session, { kind: "sell", shopId: shop.id, category });
       } else {
         shopResult(room, session, false, `🙅 No aceptaron: te quedaste sin ${saleList(lines)} y sin cobrar nada.`, { action: "sell" });
       }
@@ -295,6 +294,68 @@ export function shopRoutes(room: CityRoom) {
     [MessageType.InventoryMove]: (session, message) => {
       if (!room.trades.get(session.client.sessionId)) session.inventory.move(message.from, message.to);
       // Siempre se reenvía: si no cambió nada, el cliente vuelve a dibujar lo que hay de verdad.
+      room.markInventory(session);
+    },
+
+    /**
+     * Cocinar en la Parrilla del Mercado: los pescados elegidos se cambian por pescado a la plancha
+     * (`grillYield` porciones cada uno: más cuanto más difícil el pez), y cada porción se puede quemar
+     * (`GRILL_BURN_CHANCE`). Gratis y todo o nada: si no entra lo que salió en la mochila (probado en
+     * `inventory.clone()`), no se cocina nada.
+     */
+    [MessageType.GrillCook]: (session, message) => {
+      const { player, inventory } = session;
+      const shop = room.map.getShop(message.shopId);
+      if (!shop?.grill) return;
+      if (!room.map.isNearShop(shop, player.x, player.y)) return shopResult(room, session, false, `Acercate a ${shop.name} para cocinar.`);
+      if (room.trades.get(session.client.sessionId)) return shopResult(room, session, false, "Terminá el intercambio antes de cocinar.");
+
+      const lines = new Map<string, number>();
+      for (const { itemId, quantity } of message.items) lines.set(itemId, (lines.get(itemId) ?? 0) + quantity);
+      const batch: Array<{ fish: FishItem; quantity: number }> = [];
+      for (const [itemId, quantity] of lines) {
+        const fish = getItem(itemId);
+        if (fish?.category !== "fish") return shopResult(room, session, false, "En la parrilla sólo se cocinan pescados.");
+        if (inventory.count(fish.id) < quantity) return shopResult(room, session, false, `No tenés ${quantity} × ${fish.name} en la mochila.`);
+        batch.push({ fish, quantity });
+      }
+      if (batch.length === 0) return;
+
+      const total = batch.reduce((sum, { fish, quantity }) => sum + grillYield(fish) * quantity, 0);
+      let burnt = 0;
+      for (let i = 0; i < total; i++) if (Math.random() < GRILL_BURN_CHANCE) burnt += 1;
+      const portions = total - burnt;
+      const trial = inventory.clone();
+      for (const { fish, quantity } of batch) for (let i = 0; i < quantity; i++) trial.remove(fish.id);
+      for (let i = 0; i < portions; i++) {
+        if (!trial.add(GRILLED_FISH_ID)) return shopResult(room, session, false, "No te entra todo en la mochila: cociná menos o hacé lugar.");
+      }
+
+      for (const { fish, quantity } of batch) for (let i = 0; i < quantity; i++) inventory.remove(fish.id);
+      for (let i = 0; i < portions; i++) inventory.add(GRILLED_FISH_ID);
+      room.markInventory(session);
+      const list = batch.map(({ fish, quantity }) => (quantity > 1 ? `${quantity} × ${fish.name}` : fish.name)).join(", ");
+      const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+      const outcome =
+        burnt === 0
+          ? `salieron ${plural(portions, "porción", "porciones")} a la plancha, ¡sin quemar ninguna!`
+          : portions === 0
+            ? `se te quemó todo (${plural(burnt, "porción", "porciones")}). ¡Mala suerte!`
+            : `salieron ${total} porciones, pero se te ${burnt === 1 ? "quemó 1" : `quemaron ${burnt}`}: te quedan ${plural(portions, "pescado", "pescados")} a la plancha.`;
+      const cooked = batch.map(({ fish, quantity }) => ({ itemId: fish.id, quantity }));
+      shopResult(room, session, portions > 0, `🔥 Cocinaste ${list}: ${outcome}`, {
+        action: "sell",
+        sold: cooked,
+        grill: { cooked, total, burnt, kept: portions },
+      });
+    },
+
+    /** Tirar una unidad de algo que se puede tirar (`ItemCategoryInfo.droppable`: el sobre de la bienvenida). */
+    [MessageType.InventoryDrop]: (session, message) => {
+      const item = getItem(message.itemId);
+      if (!item || !ITEM_CATEGORIES[item.category].droppable || room.trades.get(session.client.sessionId)) return;
+      if (!session.inventory.remove(item.id)) return;
+      room.notice(session, `🗑️ Tiraste el ${item.name.toLowerCase()}.`);
       room.markInventory(session);
     },
 
@@ -462,7 +523,7 @@ function shopResult(
   session: PlayerSession,
   ok: boolean,
   text: string,
-  detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought" | "sold">,
+  detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought" | "sold" | "grill">,
 ) {
   room.sendTo(session, MessageType.ShopResult, { ok, text, ...detail });
 }

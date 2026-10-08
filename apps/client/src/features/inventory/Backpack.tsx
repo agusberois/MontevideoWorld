@@ -39,8 +39,8 @@ import {
 import { DragEvent, useRef, useState } from "react";
 import { isItemDrag, readItemDrag, startItemDrag } from "@/features/inventory/hotbarStorage";
 import { isTouchDevice } from "@/lib/viewport";
-import { useGame } from "@/lib/gameStore";
-import { sendBoxOpen, sendEquip, sendFoodEat, sendInventoryMove } from "@/lib/network";
+import { openPanel, useGame } from "@/lib/gameStore";
+import { sendBoxOpen, sendEquip, sendFoodEat, sendInventoryDrop, sendInventoryMove } from "@/lib/network";
 import type { PanelProps } from "../../shell/panels";
 import { ItemIcon, SlotPlaceholderIcon } from "./ItemIcon";
 import { ToolWear } from "./ToolWear";
@@ -78,6 +78,8 @@ export function Backpack({ room, onClose }: PanelProps) {
   const inventory = useGame((state) => state.inventory);
   /** Info del ítem tocado (cañas, carritos, pescados): en celulares no hay tooltips. */
   const [detail, setDetail] = useState<string | null>(null);
+  /** Carta tocada (el sobre de la bienvenida): sus acciones, y si ya pidió tirarla (falta confirmar). */
+  const [letter, setLetter] = useState<{ itemId: string; confirmDrop: boolean } | null>(null);
   // En pantallas táctiles el arrastre nativo no anda: la barra rápida se arma tocándola (HotbarPicker).
   const touch = isTouchDevice();
   const capacity = inventory?.capacity ?? INVENTORY_CAPACITY;
@@ -191,6 +193,15 @@ export function Backpack({ room, onClose }: PanelProps) {
           title: `${text}. Arrastralo a la barra 1–9 para tocar con un atajo.`,
         };
       }
+      case "letter":
+        return {
+          showsDetail: true,
+          onClick: () => {
+            setDetail(null);
+            setLetter({ itemId: item.id, confirmDrop: false });
+          },
+          title: `${item.name} — a tu nombre. Llevalo a la funcionaria de la Intendencia, en el Centro.`,
+        };
       case "ticket": {
         const text = `${item.name} — cada viaje en ómnibus a otro barrio usa uno. Se puede intercambiar.`;
         return {
@@ -353,6 +364,47 @@ export function Backpack({ room, onClose }: PanelProps) {
             <p className={cx("backpack-detail")} role="status">
               {detail}
             </p>
+          )}
+          {letter && stacks.some((stack) => stack.itemId === letter.itemId) && (
+            <div className={cx(`backpack-letter${letter.confirmDrop ? " confirm" : ""}`)} role="status">
+              {letter.confirmDrop ? (
+                <>
+                  <p>
+                    <strong>¿Seguro que lo tirás?</strong> Sin el sobre no hay carta de recomendación: se termina la misión y te toca ser
+                    cuidacoches 🦺.
+                  </p>
+                  <div className={cx("backpack-letter-actions")}>
+                    <button type="button" onClick={() => setLetter({ ...letter, confirmDrop: false })}>
+                      No, me lo quedo
+                    </button>
+                    <button
+                      type="button"
+                      className={cx("danger")}
+                      onClick={() => {
+                        sendInventoryDrop(room, letter.itemId);
+                        setLetter(null);
+                      }}
+                    >
+                      Sí, tirarlo
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p>
+                    <strong>{getItem(letter.itemId)?.name}</strong> — a tu nombre. Llevalo a la funcionaria de la Intendencia, en el Centro.
+                  </p>
+                  <div className={cx("backpack-letter-actions")}>
+                    <button type="button" onClick={() => setLetter({ ...letter, confirmDrop: true })}>
+                      🗑️ Tirar
+                    </button>
+                    <button type="button" className={cx("accent")} onClick={() => openPanel("welcome")}>
+                      ✉️ Ver la misión
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
           {stacks.length === 0 && <p className={cx("backpack-hint")}>Vacía. Lo que te saques se guarda acá.</p>}
           {moving !== null ? (

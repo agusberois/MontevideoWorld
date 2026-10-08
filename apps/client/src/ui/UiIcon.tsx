@@ -9,9 +9,23 @@ const cx = moduleClasses(styles);
  * pantalla, iguales en todos los sistemas (a diferencia de los emojis) y toman el color del texto
  * (`currentColor`).
  */
-export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "flag" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar" | "gear";
+export type UiIconName = "user" | "pin" | "moneyBag" | "users" | "map" | "backpack" | "shop" | "exit" | "fishingRod" | "cart" | "music" | "flag" | "wand" | "crosshair" | "zap" | "food" | "heart" | "shield" | "sun" | "moon" | "rain" | "wind" | "heat" | "horizon" | "megaphone" | "terminal" | "hand" | "calendar" | "gear" | "mail" | "car";
 
 const PATHS: Record<UiIconName, ReactNode> = {
+  car: (
+    <>
+      <path d="M3 16v-3l2-5h14l2 5v3z" />
+      <path d="M6 13h12M7.5 8l1-2.5h7l1 2.5" />
+      <circle cx={7} cy={17.5} r={1.8} />
+      <circle cx={17} cy={17.5} r={1.8} />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x={3} y={5} width={18} height={14} rx={2} />
+      <path d="M3.5 6.5 12 13l8.5-6.5" />
+    </>
+  ),
   user: (
     <>
       <circle cx={12} cy={8} r={4} />

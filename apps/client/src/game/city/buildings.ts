@@ -545,6 +545,27 @@ const SHOP_STYLES: Record<Exclude<ShopBuilding, "none">, ShopStyle> = {
       }
     },
   },
+  // Parrilla del Mercado: ladrillo, toldo rojo y en la vidriera la parrilla con brasas y pescados.
+  grill: {
+    facade: 0xa4553a,
+    trim: 0x2b2b30,
+    glass: 0xf2b36b,
+    awning: 0xd62828,
+    showcase: (p, face, u, i) => {
+      // Brasas abajo y la rejilla encima.
+      p.faceRect(face, u - 0.1, u + 0.1, 7, 9, 0x3a2a22);
+      for (const [du, color] of [[-0.06, 0xff7b00], [0, 0xffb347], [0.06, 0xff5500]] as const) {
+        p.faceRect(face, u + du - 0.025, u + du + 0.025, 9, 10.5, color);
+      }
+      p.line(p.facePoint(face, u - 0.1, 12), p.facePoint(face, u + 0.1, 12), 0x5b5b60, 1);
+      // Un pescado sobre la rejilla (de color distinto según la ventana).
+      const fish = p.facePoint(face, u, 13.5);
+      p.g.fillStyle(i % 2 === 0 ? 0xc9b48a : 0x9aa7a0, 1);
+      p.g.fillEllipse(fish.x, fish.y, 9, 3.5);
+      const tail = p.facePoint(face, u + 0.075, 13.5);
+      p.g.fillTriangle(tail.x, tail.y, tail.x + 3, tail.y - 2, tail.x + 3, tail.y + 2);
+    },
+  },
   // Café (el Facal): tazas sobre el mostrador (pares) y medialunas apiladas (impares), toldo bordó.
   cafe: {
     facade: 0xefe2c8,

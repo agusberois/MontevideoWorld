@@ -9,6 +9,10 @@ import {
   BoxOpenMessage,
   TravelMessage,
   FoodEatMessage,
+  NpcTalkMessage,
+  InventoryDropMessage,
+  ProfessionId,
+  WelcomeProfessionMessage,
   EquipMessage,
   AdminMatchMessage,
   AdminWeatherMessage,
@@ -164,7 +168,8 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "inventory:update": MessageType.Inventory,
   "wallet:update": MessageType.Wallet,
   "needs:update": MessageType.Needs,
-  "tutorial:update": MessageType.Tutorial,
+  "welcome:update": MessageType.Welcome,
+  "npc:say": MessageType.NpcSay,
   faint: MessageType.Faint,
   "shop:open": MessageType.ShopOpen,
   "shop:result": MessageType.ShopResult,
@@ -176,6 +181,9 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   "busking:started": MessageType.BuskStarted,
   "busking:result": MessageType.BuskResult,
   "busking:crowd": MessageType.BuskCrowd,
+  "parking:started": MessageType.ParkStarted,
+  "parking:result": MessageType.ParkResult,
+  "parking:car": MessageType.ParkCar,
   "barra:update": MessageType.Barra,
   "barra:invited": MessageType.BarraInvited,
   "barra:result": MessageType.BarraResult,
@@ -206,12 +214,12 @@ export function bindRoomMessages(room: CityRoom): () => void {
       eventBus.emit(event, message);
     }),
   );
-  // Mochila, saldo, hambre y guía se piden recién ahora: si el server los mandara en onJoin podrían llegar
+  // Mochila, saldo, hambre y bienvenida se piden recién ahora: si el server los mandara en onJoin podrían llegar
   // antes de que existan los handlers y colyseus.js los descartaría.
   room.send(MessageType.RequestInventory);
   room.send(MessageType.RequestWallet);
   room.send(MessageType.RequestNeeds);
-  room.send(MessageType.RequestTutorial);
+  room.send(MessageType.RequestWelcome);
   return () => unbinds.forEach((unbind) => unbind());
 }
 
@@ -259,6 +267,12 @@ export function sendTyping(room: CityRoom, typing: boolean) {
 export function sendShopCheckout(room: CityRoom, shopId: string, items: CartLine[]) {
   const message: ShopCheckoutMessage = { shopId, items };
   room.send(MessageType.ShopCheckout, message);
+}
+
+/** Parrilla del Mercado: cocinar estos pescados (sale pescado a la plancha, ver `grillYield`). */
+export function sendGrillCook(room: CityRoom, shopId: string, items: CartLine[]) {
+  const message: ShopCheckoutMessage = { shopId, items };
+  room.send(MessageType.GrillCook, message);
 }
 
 /** Casino: una tirada de la tragamonedas `shopId`. */
@@ -326,6 +340,11 @@ export function sendBusking(room: CityRoom, action: "start" | "stop") {
   room.send(action === "start" ? MessageType.BuskStart : MessageType.BuskStop);
 }
 
+/** Cuidar un auto (frente a un edificio con nombre, con el chaleco flúo puesto) o dejar de cuidar. */
+export function sendParking(room: CityRoom, action: "start" | "stop") {
+  room.send(action === "start" ? MessageType.ParkStart : MessageType.ParkStop);
+}
+
 /** Fundar una barra (al lado del Registro de Barras). */
 export function sendBarraCreate(room: CityRoom, message: BarraCreateMessage) {
   room.send(MessageType.BarraCreate, message);
@@ -353,6 +372,29 @@ export function requestBarra(room: CityRoom) {
   room.send(MessageType.BarraRequest);
 }
 
+/** Hablarle a un NPC (el server camina hasta él si está lejos). */
+export function sendNpcTalk(room: CityRoom, npcId: string) {
+  const message: NpcTalkMessage = { npcId };
+  room.send(MessageType.NpcTalk, message);
+}
+
+/** Tirar una unidad de algo que se puede tirar (el sobre de la bienvenida). */
+export function sendInventoryDrop(room: CityRoom, itemId: string) {
+  const message: InventoryDropMessage = { itemId };
+  room.send(MessageType.InventoryDrop, message);
+}
+
+/** Abrió el mensaje de bienvenida por primera vez. */
+export function sendWelcomeRead(room: CityRoom) {
+  room.send(MessageType.WelcomeRead);
+}
+
+/** Eligió profesión en la carta de bienvenida. */
+export function sendWelcomeProfession(room: CityRoom, profession: ProfessionId) {
+  const message: WelcomeProfessionMessage = { profession };
+  room.send(MessageType.WelcomeProfession, message);
+}
+
 /** Comerse un pescado de la mochila (recupera energía). */
 export function sendFoodEat(room: CityRoom, itemId: string) {
   const message: FoodEatMessage = { itemId };
@@ -366,9 +408,6 @@ export function sendAdminMatch(room: CityRoom, mode: MatchMode, name?: string) {
   room.send(MessageType.AdminMatch, message);
 }
 
-export function sendTutorialSkip(room: CityRoom) {
-  room.send(MessageType.TutorialSkip);
-}
 
 export function sendAdminWeather(room: CityRoom, mode: WeatherMode) {
   const message: AdminWeatherMessage = { mode };

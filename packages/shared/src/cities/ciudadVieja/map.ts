@@ -2,6 +2,7 @@ import { LayoutBuilder } from "../layoutBuilder";
 import { Bench, Boat, CityDefinition, Door, Filler, TileChar, TilePoint, TileRect, doubleBench } from "../types";
 import { COLUMN_BANDS, COLUMN_STREETS, HEIGHT, ROW_BANDS, ROW_STREETS, WIDTH, rect, streetBand, tileX, tileY } from "./grid";
 import { CIUDAD_VIEJA_INFO, ESCOLLERA_NORTE_PLATFORM, ESCOLLERA_PLATFORM, MERCADO_BUS_STOP, PLAZA_BUS_STOP } from "./info";
+import { WELCOME_COURIER_ID } from "../../welcome";
 
 /**
  * Ciudad Vieja, sobre el plano real (OpenStreetMap) a 12 m por tile, con la grilla girada como las
@@ -172,12 +173,19 @@ const fillers: Filler[] = [];
 const columnLimits = [[PUNTA_X + 2, COLUMN_BANDS[0][0] - 1], ...COLUMN_BANDS.slice(0, -1).map((band, i) => [band[1] + 1, COLUMN_BANDS[i + 1][0] - 1]), [floridaBand[1] + 1, WIDTH - 1]];
 const rowLimits = [[NORTH_WATER_Y + 1, ROW_BANDS[0][0] - 1], ...ROW_BANDS.slice(0, -1).map((band, i) => [band[1] + 1, ROW_BANDS[i + 1][0] - 1]), [ROW_BANDS[ROW_BANDS.length - 1][1] + 1, HEIGHT - 1]];
 const isGrass = (x: number, y: number) => builder.get(x, y) === TileChar.Grass;
+/**
+ * Lotes sin relleno: la manzana del Mercado del Puerto (entre Juan Lindolfo Cuestas y Maciel) queda
+ * para el Mercado y la Parrilla, y en la chica de al lado (entre Maciel y Pérez Castellano) sólo van
+ * las casas que dan a la rambla; el resto, patio.
+ */
+const patios = [rect(31, 11, 9, 5), rect(44, 13, 4, 3)];
+const inPatio = (x: number, y: number) => patios.some((p) => x >= p.x && x < p.x + p.width && y >= p.y && y < p.y + p.height);
 for (const [x0, x1] of columnLimits) {
   for (const [y0, y1] of rowLimits) {
     for (let y = y0; y + 1 <= y1; y += 2) {
       for (let x = x0; x + 1 <= x1; x += 2) {
         if (!isGrass(x, y) || !isGrass(x + 1, y) || !isGrass(x, y + 1) || !isGrass(x + 1, y + 1)) continue;
-        if (lotHash(x, y) < 0.22) continue;
+        if (inPatio(x, y) || lotHash(x, y) < 0.22) continue;
         builder.rect(rect(x, y, 2), TileChar.Building);
         fillers.push({ x, y, kind: x > floridaBand[1] ? "tower" : "house" });
       }
@@ -264,6 +272,18 @@ export const CIUDAD_VIEJA: CityDefinition = {
   streetLamps,
   benches,
   busStops,
+  // El cartero de la bienvenida (`welcome.ts`), en la Plaza Independencia, donde aparecen los nuevos.
+  npcs: [
+    {
+      id: WELCOME_COURIER_ID,
+      name: "Cartero",
+      role: "Correo · Plaza Independencia",
+      appearance: { gender: "m", skin: 1, hairColor: 6, hairStyle: "short", eyeColor: 1, facialHair: "mustache", glasses: "round", color: "#f2c94c" },
+      outfit: { hat: "gorra-azul", top: "remera-azul-marino", bottom: "pantalon-beige", shoes: "championes-negros" },
+      roam: rect(128, 50, 1, 1),
+      talks: true,
+    },
+  ],
   logoSign: { landmarkId: "cabildo" },
   placeLabels: [
     { name: "Plaza Independencia", x: 131.5, y: 60.4 },

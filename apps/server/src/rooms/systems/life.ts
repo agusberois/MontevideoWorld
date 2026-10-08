@@ -44,7 +44,7 @@ export function tickNeeds(room: CityRoom) {
   for (const session of room.sessions.values()) {
     const { player, needs } = session;
     needs.tick(seconds, {
-      resting: !isWalking(session) && !player.fishing && !player.vending && !player.busking,
+      resting: !isWalking(session) && !player.fishing && !player.vending && !player.busking && !player.parking,
       sitting: player.sitting,
       bathing: player.bathing,
       jailed: player.jailLeft > 0,

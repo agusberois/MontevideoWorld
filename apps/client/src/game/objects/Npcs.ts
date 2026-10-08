@@ -15,9 +15,10 @@ interface Walker {
 
 /**
  * Personajes del barrio que no son jugadores (`CityDefinition.npcs`, p. ej. el barman del casino):
- * un `Avatar` como cualquiera, con nombre, que no se puede clickear (no está en los avatares de los
- * jugadores) y que de a ratos camina a otro tile de su `roam` (detrás de la barra), como atendiendo.
- * Es sólo del cliente: cada uno lo ve moverse a su manera.
+ * un `Avatar` como cualquiera, con nombre, que de a ratos camina a otro tile de su `roam` (detrás
+ * de la barra), como atendiendo. Es sólo del cliente: cada uno lo ve moverse a su manera. A los que
+ * tienen `talks` (quietos, de 1 × 1) se les habla con clic o F (`talkingAt`, `talkingNear`); lo que
+ * contestan lo muestra React (`NpcDialog`).
  */
 export class Npcs {
   private readonly walkers: Walker[];
@@ -47,6 +48,23 @@ export class Npcs {
       walker.waitMs = pause();
       walkTo(walker.avatar, pick(walker.npc));
     }
+  }
+
+  /** NPC al que se le puede hablar bajo el punto del mundo (el de más adelante si se superponen). */
+  talkingAt(worldX: number, worldY: number): Npc | null {
+    let found: Walker | null = null;
+    for (const walker of this.walkers) {
+      if (!walker.npc.talks || !walker.avatar.containsWorldPoint(worldX, worldY)) continue;
+      if (!found || walker.avatar.depth > found.avatar.depth) found = walker;
+    }
+    return found?.npc ?? null;
+  }
+
+  /** NPC al que se le puede hablar pegado al tile (o en él). */
+  talkingNear(tile: TilePoint): Npc | null {
+    const near = (npc: Npc) =>
+      tile.x >= npc.roam.x - 1 && tile.x <= npc.roam.x + npc.roam.width && tile.y >= npc.roam.y - 1 && tile.y <= npc.roam.y + npc.roam.height;
+    return this.walkers.find((walker) => walker.npc.talks && near(walker.npc))?.npc ?? null;
   }
 
   destroy() {

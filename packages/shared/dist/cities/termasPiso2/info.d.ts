@@ -15,8 +15,8 @@ export declare const TERMAS_PISO_2_INFO: {
         description: string;
         kind: "plant" | "pottedPalm" | "flowers";
         area: {
-            x: 16 | 6 | 9 | 5 | 1 | 11 | 21 | 13 | 17;
-            y: 6 | 5 | 1 | 11 | 13 | 17;
+            x: 16 | 6 | 9 | 5 | 1 | 13 | 11 | 21 | 17;
+            y: 6 | 5 | 1 | 13 | 11 | 17;
             width: number;
             height: number;
         };

@@ -42,6 +42,9 @@ export const VEND_ENERGY_COST = 6;
 /** Gasto por cada tema que se toca en la calle (el Centro). */
 export const BUSK_ENERGY_COST = 6;
 
+/** Gasto por cada auto que se cuida (cuidacoches, frente a un edificio con nombre). */
+export const PARK_ENERGY_COST = 5;
+
 /** Recuperación por segundo quieto (parado, sin pescar). */
 export const IDLE_ENERGY_REGEN = 2;
 
@@ -63,6 +66,9 @@ export const LOW_ENERGY = EXHAUSTED_RECOVERY;
 
 export const MAX_HUNGER = 100;
 
+/** Con esto aparece un jugador nuevo: con hambre, así lo primero es comerse la torta frita que trae. */
+export const STARTING_HUNGER = 50;
+
 /** Baja sola esto por segundo jugando (de lleno a vacío en 50 min sin hacer nada). */
 export const HUNGER_PER_SECOND = 1 / 30;
 
@@ -71,6 +77,7 @@ export const WALK_HUNGER_COST = 0.05;
 export const FISH_HUNGER_COST = 0.5;
 export const VEND_HUNGER_COST = 0.5;
 export const BUSK_HUNGER_COST = 0.5;
+export const PARK_HUNGER_COST = 0.5;
 
 /** Por debajo de esto "tenés hambre" y la energía se recupera a la mitad. */
 export const HUNGRY = 60;

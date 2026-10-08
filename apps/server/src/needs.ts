@@ -17,6 +17,7 @@ import {
   JACUZZI_HUNGER_REGEN,
   SIT_HEALTH_REGEN,
   STARVE_HEALTH_PER_SECOND,
+  STARTING_HUNGER,
   SavedNeeds,
   WALK_ENERGY_COST,
   WALK_ENERGY_FLOOR,
@@ -65,6 +66,11 @@ export class Needs {
   /** Lo guardado (validado) o, sin nada, todo lleno. */
   static restore(saved: unknown): Needs {
     return new Needs(sanitizeNeeds(saved));
+  }
+
+  /** Jugador nuevo: energía y salud llenas, pero con hambre (`STARTING_HUNGER`). */
+  static starter(): Needs {
+    return new Needs({ ...sanitizeNeeds(undefined), hunger: STARTING_HUNGER });
   }
 
   /** Energía redondeada hacia abajo: lo que va al Schema y se muestra. */

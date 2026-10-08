@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Door, Jacuzzi, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
+import { Bench, BusStop, CityDefinition, Door, Jacuzzi, LandmarkKind, Npc, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
 
 export type FishingFacing = "south" | "east" | "west" | "north";
 
@@ -55,6 +55,27 @@ function tileRect(x: number, y: number): TileRect {
  * Grilla de un barrio lista para consultar: qué hay en cada tile, qué se puede caminar
  * (layout menos los edificios emblemáticos) y pathfinding. Cliente y servidor la usan igual.
  */
+/** Hasta cuántos tiles de un edificio con nombre se cuidan coches (la vereda y la calle de enfrente). */
+export const PARKING_REACH = 2;
+
+/**
+ * Lugares con nombre que no son edificios (monumentos, estatuas, fuentes, escolleras, la Puerta de la
+ * Ciudadela) o que son comercios (shopping, London París): frente a ellos no se cuidan coches.
+ */
+const NOT_PARKING_LANDMARKS: ReadonlySet<LandmarkKind> = new Set<LandmarkKind>([
+  "gate",
+  "equestrianMonument",
+  "fountain",
+  "lockFountain",
+  "lighthouse",
+  "peaceColumn",
+  "victoryStatue",
+  "statue",
+  "obelisk",
+  "shopping",
+  "departmentStore",
+]);
+
 export class CityMap {
   readonly width: number;
   readonly height: number;
@@ -116,6 +137,42 @@ export class CityMap {
   canBuskAt(x: number, y: number): boolean {
     const zone = this.city.busking;
     return Boolean(zone && this.isWalkable(x, y) && zone.areas.some((area) => inRect(area, x, y)));
+  }
+
+  /**
+   * Se cuidan coches frente a cualquier edificio con nombre (`Landmark` que sea edificio, ver
+   * `NOT_PARKING_LANDMARKS`): en un tile caminable a `PARKING_REACH` tiles o menos de él, pero nunca
+   * frente a una tienda o kiosco (a esa misma distancia de un `Shop`), ni en un interior ni en la cárcel.
+   */
+  canParkAt(x: number, y: number): boolean {
+    if (!this.inBounds(x, y)) return false;
+    this.parkable ??= this.buildParkable();
+    return this.parkable[y * this.width + x] === 1;
+  }
+
+  /** Los tiles donde se cuidan coches (se arma la primera vez que se pregunta). */
+  private parkable: Uint8Array | null = null;
+
+  private buildParkable(): Uint8Array {
+    const tiles = new Uint8Array(this.width * this.height);
+    const { city } = this;
+    if (city.indoor || city.prison) return tiles;
+    const mark = (area: TileRect, value: 0 | 1) => {
+      for (let y = area.y - PARKING_REACH; y < area.y + area.height + PARKING_REACH; y++) {
+        for (let x = area.x - PARKING_REACH; x < area.x + area.width + PARKING_REACH; x++) {
+          if (!this.inBounds(x, y) || inRect(area, x, y)) continue;
+          if (value === 0 || this.isWalkable(x, y)) tiles[y * this.width + x] = value;
+        }
+      }
+    };
+    const overlaps = (a: TileRect, b: TileRect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    for (const landmark of city.landmarks) {
+      // Un edificio que es una tienda (el Mercado del Puerto con la pescadería, el Registro de Barras) tampoco.
+      if (NOT_PARKING_LANDMARKS.has(landmark.kind) || city.shops.some((shop) => overlaps(shop.area, landmark.area))) continue;
+      mark(landmark.area, 1);
+    }
+    for (const shop of city.shops) mark(shop.area, 0);
+    return tiles;
   }
 
   /**
@@ -210,6 +267,21 @@ export class CityMap {
   /** Tile caminable pegado a la puerta más cercano a `from`. */
   doorApproach(door: Door, from: TilePoint): TilePoint | undefined {
     return this.areaApproach(door.area, from);
+  }
+
+  /** NPC al que se le puede hablar (`Npc.talks`), por id. */
+  getTalkingNpc(id: string): Npc | undefined {
+    return this.city.npcs?.find((npc) => npc.talks && npc.id === id);
+  }
+
+  /** ¿Desde (x, y) se le habla al NPC? Pegado a él (o encima). */
+  isNearNpc(npc: Npc, x: number, y: number): boolean {
+    return inRect(npc.roam, x, y) || isNextToArea(npc.roam, x, y);
+  }
+
+  /** Tile caminable pegado al NPC más cercano a `from`. */
+  npcApproach(npc: Npc, from: TilePoint): TilePoint | undefined {
+    return this.areaApproach(npc.roam, from);
   }
 
   jacuzziAt(x: number, y: number): Jacuzzi | undefined {

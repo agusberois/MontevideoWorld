@@ -13,7 +13,7 @@ paths:
 Diseño completo y etapas siguientes en `docs/pending/funcionalidades-primera-version.md` (§2.2).
 
 - **Reglas** (`packages/shared/src/barras.ts`, las usan server y cliente): fundar cuesta
-  `BARRA_FOUND_COST` ($1.000), tope `BARRA_MAX_MEMBERS` (30), nombre de 3 a 24 letras
+  `BARRA_FOUND_COST` ($5.000), tope `BARRA_MAX_MEMBERS` (30), nombre de 3 a 24 letras
   (`normalizeBarraName` + `barraNameProblem`, misma limpieza que los nombres de jugador), sigla de 2 a
   4 letras o números en mayúsculas (`normalizeBarraTag` + `barraTagProblem`, sin siglas del staff como
   `[ADM]` o `[MOD]`), dos colores de `BARRA_COLORS` (por id). Nombre (`nameKey`) y sigla, únicos.
@@ -42,8 +42,10 @@ Diseño completo y etapas siguientes en `docs/pending/funcionalidades-primera-ve
   la barra en cualquier barrio, como `ChatKind` `"barra"` (con `barraTag` y `barraColor`; sin globo). Los
   avisos de la barra (entró, se fue, la disolvieron) usan el mismo tipo sin nombre. Silenciado y
   repetido, como `/mensaje`.
-- **Cliente:** panel **Mi barra** (tecla **B**, `BarraPanel`: bandera con los dos colores, integrantes,
-  irse / disolver con confirmación), `BarraInvites` (Entrar / No; las de bloqueados no se muestran),
+- **Cliente:** panel **Mi barra** (tecla **B**, `BarraPanel`: bandera con los dos colores y la sigla en su
+  pastilla, números —integrantes, conectados, tu rol—, integrantes con la inicial en los colores de la
+  barra, conectados primero y su barrio, irse / disolver con confirmación; sin barra, las dos formas de
+  tener una: que te inviten o fundarla), `BarraInvites` (Entrar / No; las de bloqueados no se muestran),
   "🚩 Invitar a mi barra" en `PlayerMenu` (si sos fundador y el otro no tiene barra), `App` pide la
   barra al entrar a cada sala (`requestBarra`) y `gameStore.barra` la guarda.
 - **Pendiente (etapa 2):** roles (segundos que invitan y echan), pasar el mando, mensaje del día, el

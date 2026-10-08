@@ -26,6 +26,8 @@ export function Hud({ cityName, onExit }: HudProps) {
   const playerCount = useGame((state) => state.players.length);
   const isAdmin = useGame((state) => state.isAdmin);
   const cityCopy = useGame((state) => state.cityCopy);
+  // El sobre de la bienvenida: mientras dura la misión (con el punto de "sin leer" hasta abrirlo).
+  const welcomeStage = useGame((state) => state.welcome?.stage);
 
   useEffect(() => {
     return eventBus.on("player:self", setSelf);
@@ -63,6 +65,27 @@ export function Hud({ cityName, onExit }: HudProps) {
         </span>
       </div>
       <div className={cx("hud-actions")}>
+        {welcomeStage && welcomeStage !== "done" && (
+          <HudButton
+            icon="mail"
+            label="Mensaje"
+            onClick={() => openPanel("welcome")}
+            title={welcomeStage === "mail" ? "Tenés un mensaje sin leer" : "Tu misión de bienvenida"}
+            attention={welcomeStage === "mail"}
+          >
+            {welcomeStage === "mail" && (
+              <>
+                <span className={cx("hud-unread")} aria-hidden="true">
+                  1
+                </span>
+                {/* Cartelito debajo del botón: que el nuevo no se lo pierda. */}
+                <span className={cx("hud-callout")} aria-hidden="true">
+                  ¡Tenés un mensaje! 👆
+                </span>
+              </>
+            )}
+          </HudButton>
+        )}
         <HudButton icon="users" label="online" onClick={() => openPanel("players")} title="Jugadores en el barrio" shortcut="Tab">
           <span className={cx("hud-count")}>{playerCount}</span>
         </HudButton>
@@ -92,14 +115,16 @@ interface HudButtonProps {
   title: string;
   shortcut?: string;
   admin?: boolean;
+  /** Resaltado y animado para llamar la atención (un mensaje sin leer). */
+  attention?: boolean;
   onClick: () => void;
   /** Algo que se ve siempre, también sin texto (p. ej. la cantidad de jugadores). */
   children?: ReactNode;
 }
 
-function HudButton({ icon, label, title, shortcut, admin, onClick, children }: HudButtonProps) {
+function HudButton({ icon, label, title, shortcut, admin, attention, onClick, children }: HudButtonProps) {
   return (
-    <button type="button" className={cx(`hud-item hud-button${admin ? " hud-admin" : ""}`)} onClick={onClick} title={title} aria-label={title}>
+    <button type="button" className={cx(`hud-item hud-button${admin ? " hud-admin" : ""}${attention ? " hud-attention" : ""}`)} onClick={onClick} title={title} aria-label={title}>
       <span className={cx("hud-button-icon")}>
         <UiIcon name={icon} />
         {children}

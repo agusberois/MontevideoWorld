@@ -8,7 +8,7 @@ exports.TRAVEL_TICKET_MS = exports.TRAVEL_FARE = exports.MAX_MONEY = exports.STA
 exports.isValidAmount = isValidAmount;
 exports.formatMoney = formatMoney;
 /** Saldo con el que aparece un jugador nuevo. */
-exports.STARTING_MONEY = 100;
+exports.STARTING_MONEY = 20;
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 exports.MAX_MONEY = 1_000_000_000;
 /** Precio del boleto de ómnibus (STM, `TICKET_ID`) en la Agencia STM: cada viaje entre barrios gasta uno. */

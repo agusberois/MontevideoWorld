@@ -19,8 +19,15 @@ paths:
 
 # Mochila, herramientas, barra rápida y dinero
 
-Mochila. Un jugador nuevo aparece con el `STARTER_KIT` **puesto** (1 remera, 1 short, chancletas)
-y en la mochila el `STARTER_INVENTORY` (la caña básica). La mochila es estado **privado** de la Room (`Inventory`, `INVENTORY_CAPACITY`
+Mochila. Un jugador nuevo aparece con el `STARTER_KIT` **puesto** (la ropa de recién llegado:
+musculosa amarilla y short gris, descalzo) y en la mochila el `STARTER_INVENTORY` (una torta
+frita: arranca con hambre en 50, `STARTING_HUNGER`, y sin caña). La ropa de recién llegado (`NEWBIE_CLOTHING`, `newbie: true`) marca a
+los nuevos: no está en `CLOTHING`, así que ninguna tienda la vende; se puede vender a una ropería
+pero da $1 (`price` 2 × `SELL_RATIO`). La mochila la marca con `newbiePerk`. La ropa de trabajo
+(`WORK_CLOTHING`, el chaleco flúo del cuidacoches) tampoco se vende en tiendas: la da la profesión.
+Categoría `letter` (el sobre de la bienvenida, ver `bienvenida.md`): no se intercambia
+(`ItemCategoryInfo.untradable` → `isTradable`, lo miran `checkOffer` y el panel de intercambio); la compra
+el Kiosco de la Plaza ($5) y se puede **tirar** desde la mochila (`droppable` → `inventory:drop`, con confirmación). La mochila es estado **privado** de la Room (`Inventory`, `INVENTORY_CAPACITY`
 casilleros; prendas iguales se apilan hasta `MAX_STACK`, las herramientas no: ver abajo): no va en el Schema. El cliente la pide con
 `inventory:get` después de registrar su handler (en `bindRoomMessages`) y el server responde, y
 reenvía tras cada cambio, con `client.send("inventory", …)` sólo al dueño → EventBus
@@ -67,7 +74,7 @@ y la vista previa en SVG) y en el ícono SVG
 tener los dos dibujos.
 
 Dinero. Saldo en pesos **enteros**, autoritativo y **privado** como la mochila: `Wallet` por jugador
-en la Room (arranca en `STARTING_MONEY` = $100), no va en el Schema. El cliente lo pide con
+en la Room (arranca en `STARTING_MONEY` = $20), no va en el Schema. El cliente lo pide con
 `wallet:get` (en `bindRoomMessages`) y el server lo manda sólo al dueño con `wallet` → EventBus
 `wallet:update` → HUD (`formatMoney`, "$1.250"). Para tiendas: `wallet.debit(precio)` / `credit`
 devuelven false sin tocar nada si el monto es inválido, no alcanza o pasa `MAX_MONEY`; después de
@@ -75,3 +82,31 @@ cada operación llamar `room.markWallet(session)` (y `markInventory` si cambió 
 mandan en el acto sino una sola vez, antes del próximo envío privado a ese jugador
 (`room.sendTo`) o al terminar el handler (`flushPrivate`). Así nunca salen dos mochilas por una
 acción y el resultado ("Compraste…") llega después del saldo nuevo.
+
+## Economía (la escalera de niveles)
+
+Se piensa en **acciones** (tiradas, ventas, temas, autos), no en horas: repetir lo mismo cientos de
+veces aburre. Cada acción dura lo mismo en las cuatro actividades (**5–8 s**, × `waitFactor`) y paga
+bastante; las herramientas duran pocos usos y **subir de nivel cuesta ~50, ~100 y ~150 acciones** con
+lo que deja el nivel anterior. Cada nivel rinde claramente más por acción que el anterior (si no,
+no conviene subir). Las tres profesiones con herramienta van parejas:
+
+| Nivel | Pesca / Venta / Música | Precio | Usos | $ por acción | Para pagar el siguiente |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Caña básica / Conservadora / Armónica | $60 | 60 | ~$10 | ~50 acciones |
+| 2 | Fibra / Garrapiñada / Guitarra | $500 | 100 | ~$18 | ~100 acciones |
+| 3 | Carbono / Panchos / Bandoneón | $1.300 | 150 | ~$28 | ~150 acciones |
+| 4 | Profesional / Choripán / Tambor | $3.000 | 200 | ~$42 | — |
+
+- **Pesca:** los peces valen $6–25 los comunes y mucho los raros (lenguado $70, corvina negra $150):
+  sacar uno es un evento. Las cañas buenas los hacen más probables (`rareBoost`: corvina negra 1 % con
+  la básica, ~10 % con la profesional) y suman doble pesca.
+- **Venta y música:** $10–16 por venta / propina con nivel 1 hasta $40–54 con nivel 4 (la música,
+  con público, hasta el doble). **Cuidacoches:** $6–14 por auto, sin herramienta (~$7 por acción).
+- **Para mantenerla:** precio del nivel k ≈ acciones buscadas × lo que deja neto el anterior
+  (`valuePerUse − precio/usos`); `lifetimeValue` tiene que superar el precio con margen (hoy ×2,7 o
+  más, también con el peor clima). `needsBalance.ts` usa 6,5 s por acción.
+- **Lo demás, en acciones de nivel 1 (~$9):** ropa de tienda $120–1.200 (13 a 130 acciones), calzado
+  rápido $800 / $2.000 / $4.500 / $9.000, mascotas $400–4.000, fundar una barra $5.000. Los regalos
+  de los hinchas son raros (0,4–1,4 % por intento: valen como un 10 % de lo que deja el carrito).
+  Comida, remedios, boleto y casino no cambian (la comida queda muy por debajo del 15 %).

@@ -79,6 +79,7 @@ function gestureBlocked(session: PlayerSession, gesture: AnyGestureId | string):
   if (player.fishing) return "Estás pescando: recogé la línea para hacer un gesto.";
   if (player.vending) return "Estás vendiendo: terminá la venta para hacer un gesto.";
   if (player.busking) return "Estás tocando: terminá el tema para hacer un gesto.";
+  if (player.parking) return "Estás cuidando un auto: esperá al dueño para hacer un gesto.";
   const seated = isGestureId(gesture) && GESTURES[gesture].seated;
   const name = isGestureId(gesture) || isPairGestureId(gesture) ? gestureInfo(gesture).name.toLocaleLowerCase("es") : "eso";
   if ((player.sitting || player.bathing) && !seated) return `Para ${name} tenés que estar parado.`;

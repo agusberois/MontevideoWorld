@@ -8,7 +8,7 @@ import { nameKey, sanitizeLabel } from "./sanitize";
  */
 
 /** Lo que cuesta fundar una barra (saca plata de la economía y hace que fundarla sea un logro). */
-export const BARRA_FOUND_COST = 1000;
+export const BARRA_FOUND_COST = 5000;
 /** Tope de integrantes, para que haya muchas barras y no una gigante. */
 export const BARRA_MAX_MEMBERS = 30;
 export const BARRA_NAME_MIN = 3;

@@ -17,9 +17,9 @@ import { JailBanner } from "../features/jail/JailBanner";
 import { FaintOverlay } from "../features/health/FaintOverlay";
 import { VendingWidget } from "../features/activities/VendingWidget";
 import { BuskingWidget } from "../features/activities/BuskingWidget";
+import { ParkingWidget } from "../features/activities/ParkingWidget";
 import { CameraButton } from "../ui/CameraButton";
 import { Vitals } from "../ui/Vitals";
-import { TutorialCard } from "../features/tutorial/TutorialCard";
 import { Hotbar } from "../features/inventory/Hotbar";
 import { Hud } from "../ui/Hud";
 import { Notices } from "../ui/Notices";
@@ -245,7 +245,7 @@ export function App() {
         <FishingWidget room={room} />
         <VendingWidget room={room} />
         <BuskingWidget room={room} />
-        <TutorialCard room={room} cityId={session.cityId} />
+        <ParkingWidget room={room} />
         <Vitals />
         <Hotbar room={room} />
         <ChatBox room={room} />

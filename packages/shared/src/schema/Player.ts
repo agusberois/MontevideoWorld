@@ -36,7 +36,9 @@ export class Player extends Schema {
   @type("boolean") busking = false;
   /** Instrumento con el que toca (id de `INSTRUMENTS`; "" si no toca). */
   @type("string") instrument = "";
-  /** Sube con cada propina: los clientes muestran la moneda cayendo en el estuche. */
+  /** Cuidando coches frente a un edificio con nombre (los demás lo ven haciendo señas con la franela). */
+  @type("boolean") parking = false;
+  /** Sube con cada propina (al músico o al cuidacoches): los clientes muestran "🪙 ¡Propina!". */
   @type("uint16") tips = 0;
   /** Barra a la que pertenece: sigla (2–4 letras; "" = ninguna) y su color principal ("#rrggbb"). La ven todos. */
   @type("string") barraTag = "";

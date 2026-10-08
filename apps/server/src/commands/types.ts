@@ -54,8 +54,6 @@ export interface CommandHost {
   setFlying(client: Client, flying: boolean): void;
   /** Llena energía, hambre y salud (y se las reenvía). */
   healFully(client: Client): void;
-  /** Vuelve a abrir la guía de bienvenida (`/guia`). */
-  restartTutorial(client: Client): void;
   /**
    * Preso al COMCAR hasta `until` (ms; 0 = liberarlo). Conectado (`target`), lo lleva su sala; si
    * no, queda anotado por nombre (como mucho `NAME_BAN_MAX_MS`) y por los jugadores guardados con

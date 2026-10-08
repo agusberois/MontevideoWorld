@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, copyFileSync, readFileSync } from "node:fs";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint, TutorialState, nameKey } from "@montevideo-world/shared";
+import { InventoryStack, OutfitIds, STARTER_INVENTORY, STARTING_MONEY, SavedNeeds, TilePoint, WelcomeState, nameKey } from "@montevideo-world/shared";
 import { round } from "./metrics";
 
 /**
@@ -26,10 +26,10 @@ export interface PlayerRecord {
   jailedUntil?: number;
   /** Necesidades (por ahora la energía), así salir y volver a entrar no las llena. */
   needs?: SavedNeeds;
+  /** Bienvenida del jugador nuevo (`WelcomeState`). Sin el campo (guardados de antes), ya terminada. */
+  welcome?: WelcomeState;
   /** Mascota adoptada (id de `PETS`) y su nombre. */
   pet?: { id: string; name: string };
-  /** Guía de bienvenida (`TutorialState`). Sin el campo (guardados viejos), la ve desde el principio. */
-  tutorial?: TutorialState;
   /**
    * Dónde quedó (barrio y tile): al volver a entrar aparece ahí (`CityRoom.onAuth` / `onJoin`). Nunca
    * el COMCAR: estando ahí se conserva el de antes. Sin el campo (guardados viejos), Ciudad Vieja.

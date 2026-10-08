@@ -1,14 +1,16 @@
-import type { Appearance } from "./appearance";
+import type { Appearance, Gender } from "./appearance";
+import type { Npc } from "./cities/types";
 import type { Card, CasinoGame, RouletteBet, SlotSymbol } from "./casino";
 import type { GestureId, PairGestureId } from "./gestures";
 import type { InventoryStack, ItemSlot } from "./items";
 import type { TilePoint } from "./cities/types";
 import type { TradeOffer } from "./trade";
-import type { TutorialState } from "./tutorial";
 import type { CustomerState, MatchMode } from "./vending";
 import type { CrowdState } from "./busking";
+import type { CarState } from "./parking";
 import type { BarraColorId, BarraView } from "./barras";
 import type { WeatherMode } from "./weather";
+import type { ProfessionId, WelcomeState } from "./welcome";
 
 /** Tipos de mensaje que viajan por room.send / room.onMessage. */
 export const MessageType = {
@@ -26,13 +28,26 @@ export const MessageType = {
   RequestWallet: "wallet:get",
   /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
   RequestNeeds: "needs:get",
-  RequestTutorial: "tutorial:get",
-  TutorialSkip: "tutorial:skip",
   /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
   Wallet: "wallet",
   /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
   Needs: "needs",
-  Tutorial: "tutorial",
+  /** Cliente → Servidor: pedir cómo va la bienvenida (al entrar). */
+  RequestWelcome: "welcome:get",
+  /** Cliente → Servidor: abrió el mensaje de bienvenida por primera vez (pasa de `mail` a `courier`). */
+  WelcomeRead: "welcome:read",
+  /** Cliente → Servidor: eligió profesión en la carta de bienvenida. */
+  WelcomeProfession: "welcome:profession",
+  /** Servidor → Cliente (sólo al dueño): cómo va su bienvenida. */
+  Welcome: "welcome",
+  /** Cliente → Servidor: clic (o F) en un NPC: camina hasta él y le habla. */
+  NpcTalk: "npc:talk",
+  /** Servidor → Cliente (sólo a quien le habló): lo que dice el NPC (abre el modal de diálogo). */
+  NpcSay: "npc:say",
+  /** Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el carrito). */
+  GrillCook: "grill:cook",
+  /** Cliente → Servidor: tirar una unidad de algo de la mochila (sólo lo que se puede tirar: el sobre). */
+  InventoryDrop: "inventory:drop",
   /** Servidor → Cliente: te desmayaste (salud en 0). */
   Faint: "faint",
   /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
@@ -89,6 +104,16 @@ export const MessageType = {
   BuskResult: "busk:result",
   /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
   BuskCrowd: "busk:crowd",
+  /** Cliente → Servidor: cuidar un auto (en la zona de Ciudad Vieja, con el chaleco flúo puesto). */
+  ParkStart: "park:start",
+  /** Cliente → Servidor: dejar de cuidar coches. */
+  ParkStop: "park:stop",
+  /** Servidor → Cliente: estás cuidando un auto; en `durationMs` vuelve el dueño. */
+  ParkStarted: "park:started",
+  /** Servidor → Cliente: cómo te fue con el auto. */
+  ParkResult: "park:result",
+  /** Servidor → Cliente (sólo al cuidacoches): el auto de mentira que estaciona al lado (`CarState`). */
+  ParkCar: "park:car",
   /** Cliente → Servidor: fundar una barra (al lado del Registro de Barras, pagando `BARRA_FOUND_COST`). */
   BarraCreate: "barra:create",
   /** Cliente → Servidor: el fundador invita a un jugador de la sala a su barra. */
@@ -298,13 +323,36 @@ export interface InventoryMessage {
 
 /** Servidor → Cliente: el saldo del jugador (privado, no viaja en el Schema). */
 /** Servidor → Cliente: hambre (saciedad) y salud, 0–100 redondeadas. Privadas: no van en el Schema. */
-/**
- * Servidor → Cliente (sólo al dueño): cómo va su guía de bienvenida (ver `tutorial.ts`). Lo pide el
- * cliente al entrar (`tutorial:get`) y llega de nuevo con cada paso cumplido. `completed`: el paso
- * que se acaba de cumplir y lo que pagó (para el aviso).
- */
-export interface TutorialMessage extends TutorialState {
-  completed?: { step: number; reward: number; gift?: string };
+/** Servidor → Cliente: la bienvenida, con el nombre y el género del jugador (para "¡Bienvenida, Ana!"). */
+export interface WelcomeMessage extends WelcomeState {
+  name: string;
+  gender: Gender;
+}
+
+export interface WelcomeProfessionMessage {
+  profession: ProfessionId;
+}
+
+export interface NpcTalkMessage {
+  npcId: string;
+}
+
+/** Botón del diálogo con un NPC: ver la misión de bienvenida o abrir la carta. */
+export type NpcDialogAction = "mission" | "letter";
+
+/** Servidor → Cliente: lo que te dice un NPC (con quién hablás, lo que te dio y qué podés hacer). */
+export interface NpcSayMessage {
+  npc: Pick<Npc, "id" | "name" | "appearance" | "outfit">;
+  /** Quién es, debajo del nombre ("Plaza Independencia"). */
+  role: string;
+  text: string;
+  /** Lo que te dio (id de ítem), si te dio algo. */
+  received?: string;
+  action?: NpcDialogAction;
+}
+
+export interface InventoryDropMessage {
+  itemId: string;
 }
 
 export interface NeedsMessage {
@@ -416,6 +464,8 @@ export interface ShopResultMessage {
   bought?: CartLine[];
   /** Venta (o regateo aceptado) de lo elegido: lo que se vendió, para resaltar cada fila. */
   sold?: CartLine[];
+  /** Parrilla: lo que se cocinó y cómo salió (`total` porciones, `burnt` quemadas, `kept` a la mochila). */
+  grill?: { cooked: CartLine[]; total: number; burnt: number; kept: number };
 }
 
 /** Cliente → Servidor: comerse una unidad de `itemId` (comida o pescado). */
@@ -485,6 +535,23 @@ export interface BuskResultMessage {
 /** Servidor → Cliente (sólo al músico): su público se arrima, deja plata, se va sin dejar o se va (tema cortado). */
 export interface BuskCrowdMessage {
   state: CrowdState;
+}
+
+/** Servidor → Cliente: estás cuidando un auto; el dueño vuelve en `durationMs`. */
+export interface ParkStartedMessage {
+  durationMs: number;
+}
+
+/** Servidor → Cliente: resultado del auto. `earned` = la propina (0 si no dejó nada). */
+export interface ParkResultMessage {
+  ok: boolean;
+  text: string;
+  earned: number;
+}
+
+/** Servidor → Cliente (sólo al cuidacoches): el auto llega, el dueño deja plata, se va sin dejar o se va (cortado). */
+export interface ParkCarMessage {
+  state: CarState;
 }
 
 /** Cliente → Servidor: fundar una barra con este nombre, sigla y colores (ids de `BARRA_COLORS`). */
@@ -718,8 +785,6 @@ export interface ClientToServerMessages {
   [MessageType.InventoryMove]: InventoryMoveMessage;
   [MessageType.RequestWallet]: undefined;
   [MessageType.RequestNeeds]: undefined;
-  [MessageType.RequestTutorial]: undefined;
-  [MessageType.TutorialSkip]: undefined;
   [MessageType.HospitalHeal]: { shopId: string };
   [MessageType.ShopVisit]: ShopVisitMessage;
   [MessageType.ShopBuy]: ShopTradeMessage;
@@ -743,12 +808,20 @@ export interface ClientToServerMessages {
   [MessageType.BarraLeave]: undefined;
   [MessageType.BarraRequest]: undefined;
   [MessageType.BuskStop]: undefined;
+  [MessageType.ParkStart]: undefined;
+  [MessageType.ParkStop]: undefined;
   [MessageType.AdminSetTime]: AdminSetTimeMessage;
   [MessageType.AdminNearbyRequest]: undefined;
   [MessageType.AdminGive]: AdminGiveMessage;
   [MessageType.AdminMatch]: AdminMatchMessage;
   [MessageType.AdminWeather]: AdminWeatherMessage;
   [MessageType.BoxOpen]: BoxOpenMessage;
+  [MessageType.RequestWelcome]: undefined;
+  [MessageType.WelcomeRead]: undefined;
+  [MessageType.WelcomeProfession]: WelcomeProfessionMessage;
+  [MessageType.NpcTalk]: NpcTalkMessage;
+  [MessageType.InventoryDrop]: InventoryDropMessage;
+  [MessageType.GrillCook]: ShopCheckoutMessage;
   [MessageType.TravelRequest]: TravelMessage;
   [MessageType.CitiesRequest]: undefined;
   [MessageType.PalmShake]: { x: number; y: number };
@@ -778,7 +851,6 @@ export interface ServerToClientMessages {
   [MessageType.Inventory]: InventoryMessage;
   [MessageType.Wallet]: WalletMessage;
   [MessageType.Needs]: NeedsMessage;
-  [MessageType.Tutorial]: TutorialMessage;
   [MessageType.Faint]: FaintMessage;
   [MessageType.ShopOpen]: ShopOpenMessage;
   [MessageType.ShopResult]: ShopResultMessage;
@@ -790,6 +862,9 @@ export interface ServerToClientMessages {
   [MessageType.BuskStarted]: BuskStartedMessage;
   [MessageType.BuskResult]: BuskResultMessage;
   [MessageType.BuskCrowd]: BuskCrowdMessage;
+  [MessageType.ParkStarted]: ParkStartedMessage;
+  [MessageType.ParkResult]: ParkResultMessage;
+  [MessageType.ParkCar]: ParkCarMessage;
   [MessageType.BarraInvited]: BarraInvitedMessage;
   [MessageType.Barra]: BarraMessage;
   [MessageType.BarraResult]: BarraResultMessage;
@@ -799,6 +874,8 @@ export interface ServerToClientMessages {
   [MessageType.AdminNearby]: AdminNearbyMessage;
   [MessageType.Announcement]: AnnouncementMessage;
   [MessageType.BoxOpened]: BoxOpenedMessage;
+  [MessageType.Welcome]: WelcomeMessage;
+  [MessageType.NpcSay]: NpcSayMessage;
   [MessageType.TravelApproved]: TravelMessage;
   [MessageType.Cities]: CitiesMessage;
   [MessageType.TradeInvite]: TradeInviteMessage;

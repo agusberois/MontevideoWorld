@@ -6,7 +6,7 @@
  * Centro; los mejores dejan más propina) y cajas sorpresa (se abren y dan un ítem al azar). Cliente y servidor lo comparten: el server valida y el cliente
  * dibuja cada prenda según su `style` (`apps/client/src/lib/avatar/clothing.ts`, `ItemIcon.tsx`).
  */
-export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "instrument" | "box" | "ticket";
+export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "instrument" | "box" | "ticket" | "letter";
 export declare const ITEM_SLOTS: readonly ["hat", "top", "bottom", "shoes"];
 export type ItemSlot = (typeof ITEM_SLOTS)[number];
 export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
@@ -17,7 +17,7 @@ export declare const ITEM_SLOT_LABELS: Record<ItemSlot, string>;
  */
 export declare const ITEM_STYLES: {
     readonly hat: readonly ["cap", "beanie", "beret"];
-    readonly top: readonly ["tshirt", "jersey", "hoodie", "tank"];
+    readonly top: readonly ["tshirt", "jersey", "hoodie", "tank", "vest"];
     readonly bottom: readonly ["jeans", "pants", "shorts"];
     readonly shoes: readonly ["sneakers", "boots", "flipflops"];
 };
@@ -41,6 +41,8 @@ export interface ClothingOf<S extends ItemSlot> extends ItemBase {
      * Lo aplican el server al mover (`walkSpeed`) y el cliente al animar.
      */
     speed?: number;
+    /** Ropa de recién llegado (`NEWBIE_CLOTHING`): la trae el jugador nuevo y ninguna tienda la vende. */
+    newbie?: boolean;
 }
 export type ClothingItem = {
     [S in ItemSlot]: ClothingOf<S>;
@@ -181,7 +183,14 @@ export interface MedicineItem extends ItemBase {
     health: number;
     energy: number;
 }
-export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | InstrumentItem | BoxItem | TicketItem;
+/**
+ * Carta: algo que hay que llevarle a alguien (el sobre de la bienvenida, `welcome.ts`). No se
+ * intercambia (`untradable`); se puede vender en el Kiosco de la Plaza o tirar (`droppable`).
+ */
+export interface LetterItem extends ItemBase {
+    category: "letter";
+}
+export type ItemDefinition = ClothingItem | FishItem | FoodItem | MedicineItem | RodItem | CartItem | InstrumentItem | BoxItem | TicketItem | LetterItem;
 export declare const CLOTHING: readonly ClothingItem[];
 /**
  * Moda coreana: prendas que sólo se venden en el Barrio de los Judíos (los locales coreanos de la
@@ -201,6 +210,20 @@ export declare const LONDON_PARIS_FASHION: readonly ClothingItem[];
  * roperías no los tienen.
  */
 export declare const WALKING_SHOES: readonly ClothingItem[];
+/**
+ * Ropa de recién llegado: la musculosa y el short con los que aparece un jugador nuevo
+ * (`STARTER_KIT`). Colores propios para que se note que es nuevo; ninguna tienda la vende (no está en
+ * `CLOTHING`) y venderla da casi nada ($1 cada una, por `SELL_RATIO`).
+ */
+export declare const NEWBIE_CLOTHING: readonly ClothingItem[];
+/**
+ * Ropa de trabajo: la que da una profesión al elegirla (`PROFESSION_KIT`), como el chaleco flúo del
+ * cuidacoches. Ninguna tienda la vende (no está en `CLOTHING`).
+ */
+export declare const SAFETY_VEST_ID = "chaleco-fluo";
+export declare const WORK_CLOTHING: readonly ClothingItem[];
+/** "Ropa de recién llegado" para mostrar en la mochila (vacío si no lo es). */
+export declare function newbiePerk(item: ClothingItem): string[];
 /** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
 export declare function walkSpeed(shoesId: string | undefined): number;
 /** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
@@ -243,6 +266,7 @@ export declare const BOXES: readonly BoxItem[];
 /** El boleto de STM (`TicketItem`): lo que gasta viajar entre barrios. */
 export declare const TICKET_ID = "boleto-stm";
 export declare const TICKETS: readonly TicketItem[];
+export declare const LETTERS: readonly LetterItem[];
 export declare const ITEMS: readonly ItemDefinition[];
 /** Una tienda paga por una prenda usada esta fracción de su precio. */
 export declare const SELL_RATIO = 0.5;
@@ -267,6 +291,10 @@ export interface ItemCategoryInfo {
     buyNote?: string;
     /** Pestaña Vender vacía: no tenés nada de esta categoría para venderle. */
     nothingToSell: string;
+    /** No se puede ofrecer en un intercambio. */
+    untradable?: boolean;
+    /** Se puede tirar desde la mochila (`inventory:drop`). */
+    droppable?: boolean;
 }
 /**
  * Todas las categorías, en el orden en que se muestran (p. ej. en el maker). Para una nueva: sumarla
@@ -274,6 +302,8 @@ export interface ItemCategoryInfo {
  * (`Backpack.tsx`) y qué hace en la barra rápida (`itemActions.ts`).
  */
 export declare const ITEM_CATEGORIES: Record<ItemCategory, ItemCategoryInfo>;
+/** ¿Se puede ofrecer en un intercambio? (El sobre de la bienvenida, no.) */
+export declare function isTradable(item: ItemDefinition | undefined): boolean;
 export declare const ITEM_CATEGORY_IDS: ItemCategory[];
 export declare function isRod(item: ItemDefinition | undefined): item is RodItem;
 /** La caña de mayor nivel entre estos ids (los de la mochila), o undefined si no hay ninguna. */
@@ -323,11 +353,11 @@ export declare function getClothing(id: string): ClothingItem | undefined;
 export declare function fishWithArticle(fish: FishItem): string;
 /** "★★★☆☆" para mostrar la dificultad de un pescado. */
 export declare function difficultyStars(difficulty: FishDifficulty): string;
-/** Lo que tiene en la mochila un jugador nuevo: la caña básica para poder pescar. */
+/** Lo que tiene en la mochila un jugador nuevo: una torta frita (arranca con hambre, `STARTING_HUNGER`). */
 export declare const STARTER_INVENTORY: readonly string[];
 /**
- * Kit con el que aparece un jugador nuevo: una remera, un short y chancletas, puestos (y en la
- * mochila, `STARTER_INVENTORY`). De cada lista se elige una opción al azar (para que no estén todos vestidos iguales).
+ * Kit con el que aparece un jugador nuevo, puesto: la ropa de recién llegado (`NEWBIE_CLOTHING`),
+ * descalzo (y en la mochila, `STARTER_INVENTORY`). Si un lugar tiene varias opciones, se elige una al azar.
  */
 export declare const STARTER_KIT: Readonly<Partial<Record<ItemSlot, readonly string[]>>>;
 /** Casilleros de la mochila. Cada casillero guarda una pila de prendas iguales. */

@@ -11,11 +11,15 @@ paths:
   - "packages/shared/src/busking.ts"
   - "apps/server/src/busking.ts"
   - "apps/client/src/features/activities/BuskingWidget.tsx"
+  - "packages/shared/src/parking.ts"
+  - "apps/client/src/features/activities/ParkingWidget.tsx"
+  - "apps/client/src/game/objects/ParkedCars.ts"
+  - "apps/client/src/features/shop/GrillPanel.tsx"
   - "apps/client/src/game/objects/Customers.ts"
   - "apps/client/src/game/objects/Avatar.ts"
 ---
 
-# Pesca, vendedor ambulante y música en la calle
+# Pesca, vendedor ambulante, música en la calle y cuidacoches
 
 Pesca. La Escollera Sarandí son tiles `TileChar.Jetty` ("E", caminables) que entran en el río (en
 Ciudad Vieja hay dos iguales, para repartir a los que pescan: una sale de la punta oeste, al final de
@@ -32,7 +36,7 @@ cuando pica) y `waitFactor`. Las probabilidades se calculan en shared (`fishChan
 tienda y la mochila muestran lo mismo que sortea el server. `fish:cast` → el server valida (en la
 escollera, sin camino pendiente, sin estar pescando, con caña), sortea con `rollCatch(rod)` y pone
 `player.fishing = true` y `player.rod` (Schema: los demás ven la caña de su color). Manda
-`fish:started { durationMs }` (3,5–7,5 s × `waitFactor`, sorteada **aparte** del resultado: si
+`fish:started { durationMs }` (5–8 s × `waitFactor`, igual que vender, tocar y cuidar coches, sorteada **aparte** del resultado: si
 dependiera del pez, tirar y cortar hasta ver una espera larga sería gratis) y al vencer el timer
 (`this.clock.setTimeout`) cobra la tirada (`finishAttempt`: un uso de la caña y `FISH_ENERGY_COST`;
 al empezar sólo se chequea que alcance la energía), agrega los peces a la mochila y manda
@@ -47,6 +51,15 @@ la punta. Llega con `fishing` ya en false: `setFishing(false)` no esconde la ca�
 negra) son ítems `category: "fish"`: no se ponen; se comen desde la barra rápida o se venden a precio completo
 en la **Pescadería del Mercado** (tienda `building: "none"` sobre el área del Mercado del Puerto,
 `buys: ["fish"]`), que además vende todas las especies con recargo (`FISH_BUY_MARKUP` = 1,5×).
+**Parrilla del Mercado** (tienda `grill: true`, `building: "grill"`: ladrillo, toldo rojo y la
+parrilla con brasas en la vidriera), al lado de la Pescadería en la manzana del Mercado (la grande
+entre Juan Lindolfo Cuestas y Maciel, sin edificios de relleno; el Mercado ocupa 4 × 4). No compra ni vende: abre `GrillPanel`, donde
+se eligen los pescados de la mochila y `grill:cook { shopId, items }` (forma del carrito) los cambia
+por **pescado a la plancha** (`GRILLED_FISH_ID`): `grillYield` porciones por pez según su dificultad
+(`GRILL_YIELD`: 1, 1, 2, 3 y 5; un bagre da una, una corvina negra cinco) y cada porción se **quema**
+con `GRILL_BURN_CHANCE` (15 %, sorteado en el server porción por porción: "salieron 40, se te
+quemaron 6"). Gratis, todo o nada (que entre lo que salió en la mochila). Ninguna tienda compra
+comida, así que no es negocio: es para que el pescador coma de lo que saca.
 Las tiendas sólo compran las categorías de su `buys`. Precios: `buyPrice(item)` (lo que cobra la
 tienda) y `sellPrice(item)` (lo que paga); el server cobra/paga siempre con esas funciones.
 
@@ -92,7 +105,7 @@ tambor de candombe (`INSTRUMENTS`, cada uno con `kind` para el dibujo, `song`, `
 `noTipChance`, `waitFactor`, `maxUses`). Se compran (y se venden usados) en la **Casa de Música**
 (Centro, `building: "music"`). `busk:start` → el server valida (en la zona, quieto, sin pescar,
 vender ni tocar, con instrumento y `BUSK_ENERGY_COST`), sortea la propina base con `rollTip`
-(`apps/server/src/busking.ts`; espera de 4–6 s × `waitFactor`, sorteada aparte) y pone
+(`apps/server/src/busking.ts`; espera de 5–8 s × `waitFactor`, sorteada aparte) y pone
 `player.busking` + `player.instrument` (Schema). Manda `busk:started { durationMs }`; al vencer
 cuenta el **público** (`audience`: los que están a `BUSK_LISTEN_RADIUS` tiles o menos; los que
 tocan son la **comparsa**) y paga `tip × buskMultiplier(oyentes, comparsa)` (+15 % por oyente hasta
@@ -112,3 +125,27 @@ dentro de `stopActivities`). Cliente: `BuskingWidget` (mismos estilos que pesca 
 que se abre y se cierra (se redibuja cada frame), el tambor reusa el tamboril y el palo del gesto de
 candombe, y notas que suben (`drawNotes`). El balance (`[Balance]` al arrancar) incluye a los
 instrumentos: sin público rinden un poco menos que los carritos; con público, hasta el doble.
+
+Cuidacoches (todos los barrios de calle). Se cuidan coches **frente a cualquier edificio con nombre**
+(`CityMap.canParkAt`): un tile caminable a `PARKING_REACH` (2) tiles o menos de un `Landmark` que sea
+edificio. No cuentan los que no son edificios ni los comercios (`NOT_PARKING_LANDMARKS`: monumentos,
+estatuas, fuentes, escolleras, la Puerta de la Ciudadela, el shopping, London París), ni un landmark
+con una tienda encima (Mercado del Puerto, Registro de Barras, Sanatorio Americano); y nunca a 2 tiles
+o menos de una tienda o kiosco (`Shop`). En interiores (`indoor`) y en la cárcel (`prison`), en
+ningún lado. Los tiles se calculan una vez por mapa (`buildParkable`). Para un edificio nuevo no hay
+que hacer nada; un landmark nuevo que no sea edificio va en `NOT_PARKING_LANDMARKS`. **No hay
+herramienta que se gaste**: hace falta tener **puesto** el **Chaleco flúo** (`SAFETY_VEST_ID`,
+`wearsSafetyVest(player.top)`; lo da la profesión cuidacoches, ver `bienvenida.md`). Reglas en
+`packages/shared/src/parking.ts`: propina `PARK_TIP_MIN`–`PARK_TIP_MAX` ($6–14), `PARK_NO_TIP_CHANCE`
+(30 %), espera 5–8 s sorteada aparte. `park:start` → el server valida (frente a un edificio, quieto, sin otra
+actividad, con chaleco y `PARK_ENERGY_COST`), pone `player.parking` (todos lo ven haciendo señas con
+la franela roja, `Avatar.setParking` / `poseParking`) y manda `park:started { durationMs }`; al vencer
+cobra energía y hambre (`PARK_HUNGER_COST`), paga si sigue con el chaleco puesto, `player.tips++` (el
+mismo "🪙 ¡Propina!" del músico) y `park:result { ok, text, earned }`. **El auto de mentira** (sólo
+lo ve el cuidacoches, como el hincha): `park:car { state: CarState }` (`Arriving` a los
+`CAR_ARRIVE_MS`, `Tipped`/`Left` al terminar, `None` al cortar; `session.carOut`) → `ParkedCars`
+(`game/objects/ParkedCars.ts`): un auto isométrico (`isoPoint`, cajas con las caras que se ven) de
+color al azar entra por la calle, estaciona en un tile pegado, y al volver el dueño una moneda vuela
+al cuidacoches (o dice "hoy no tengo cambio") y arranca. Cliente: `ParkingWidget`, F (`toggleParking`,
+último en `pressF`). Balance: no entra en `foodTooExpensiveFor` (no es herramienta); el server lo mide
+aparte con `parkingHourlyIncome` (la comida, ~3 %) y avisa `[Balance]` si se pasa.

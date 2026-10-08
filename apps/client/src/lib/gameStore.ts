@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { BarraView, InventoryMessage, MatchMode, OutfitIds, TutorialMessage, WeatherId, WeatherMode, nameKey } from "@montevideo-world/shared";
+import { BarraView, InventoryMessage, MatchMode, OutfitIds, WeatherId, WeatherMode, NpcSayMessage, WelcomeMessage, nameKey } from "@montevideo-world/shared";
 import { type PlayerSummary, eventBus } from "./eventBus";
 import { HotbarSlots, emptyHotbar, loadHotbar, saveHotbar } from "../features/inventory/hotbarStorage";
 import { loadBlocked, saveBlocked, toggleInList } from "../features/players/blockStorage";
@@ -13,7 +13,7 @@ import { QualitySetting, loadQuality, saveQuality } from "./quality";
  */
 
 /** Paneles que se abren de a uno (ver el registro en `shell/panels.ts`). */
-export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails" | "barra" | "options";
+export type PanelId = "cities" | "backpack" | "players" | "shop" | "admin" | "maker" | "commands" | "gestures" | "calendar" | "playerDetails" | "barra" | "options" | "welcome" | "npcDialog";
 
 export interface GameStoreState {
   /** Un solo panel abierto a la vez. */
@@ -39,6 +39,7 @@ export interface GameStoreState {
   fishing: { canFish: boolean; fishing: boolean };
   vending: { canVend: boolean; vending: boolean };
   busking: { canBusk: boolean; busking: boolean };
+  parking: { canPark: boolean; parking: boolean };
   /** Tu barra (la manda el server al pedirla y cada vez que cambia), o null. */
   barra: BarraView | null;
   /** Con qué se puede interactuar con F ahora (lo decide la escena), o null. */
@@ -61,10 +62,12 @@ export interface GameStoreState {
   outfit: OutfitIds | null;
   /** Mochila según el server; null hasta que llega. */
   inventory: InventoryMessage | null;
-  /** Guía de bienvenida (del jugador: sigue al viajar). null hasta que llega. */
-  tutorial: TutorialMessage | null;
   /** Saldo según el server; null hasta que llega. */
   money: number | null;
+  /** Bienvenida del jugador nuevo (sigue al viajar); null hasta que llega. */
+  welcome: WelcomeMessage | null;
+  /** Lo último que te dijo un NPC (el panel `npcDialog`). */
+  npcDialog: NpcSayMessage | null;
   /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
   trading: boolean;
   /** Viaje en curso (pantalla del ómnibus): de qué barrio a cuál. */
@@ -91,6 +94,7 @@ const INITIAL: GameStoreState = {
   fishing: { canFish: false, fishing: false },
   vending: { canVend: false, vending: false },
   busking: { canBusk: false, busking: false },
+  parking: { canPark: false, parking: false },
   barra: null,
   interaction: null,
   jailLeft: 0,
@@ -103,8 +107,9 @@ const INITIAL: GameStoreState = {
   health: null,
   outfit: null,
   inventory: null,
-  tutorial: null,
   money: null,
+  welcome: null,
+  npcDialog: null,
   trading: false,
   traveling: null,
   hotbar: emptyHotbar(),
@@ -112,7 +117,7 @@ const INITIAL: GameStoreState = {
 };
 
 /** Lo que depende del barrio en el que estás: al viajar se borra (mochila, plata, energía… siguen). */
-const CITY_FIELDS = ["panel", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "interaction", "trading", "jailLeft", "following"] as const;
+const CITY_FIELDS = ["panel", "npcDialog", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "parking", "interaction", "trading", "jailLeft", "following"] as const;
 
 let state = INITIAL;
 const listeners = new Set<() => void>();
@@ -205,16 +210,23 @@ export function bindGameStore(): () => void {
   const offs = [
     eventBus.on("player:outfit", (outfit) => setState({ outfit })),
     eventBus.on("inventory:update", (inventory) => setState({ inventory })),
-    eventBus.on("tutorial:update", (tutorial) => setState({ tutorial })),
     eventBus.on("wallet:update", ({ balance }) => setState({ money: balance })),
     eventBus.on("players:list", (players) => setState({ players })),
     eventBus.on("fishing:status", (fishing) => setState({ fishing })),
     eventBus.on("vending:status", (vending) => setState({ vending })),
     eventBus.on("busking:status", (busking) => setState({ busking })),
+    eventBus.on("parking:status", (parking) => setState({ parking })),
     eventBus.on("barra:update", ({ barra }) => setState({ barra })),
     eventBus.on("interact:prompt", (prompt) => setState({ interaction: prompt?.label ?? null })),
     eventBus.on("player:energy", (energy) => setState({ energy })),
     eventBus.on("needs:update", ({ hunger, health }) => setState({ hunger, health })),
+    eventBus.on("welcome:update", (welcome) => {
+      // Vendió o tiró el sobre: se le muestra que le tocó ser cuidacoches (salvo con un intercambio abierto).
+      const lost = state.welcome?.stage === "deliver" && welcome.stage === "done";
+      setState(lost && !state.trading ? { welcome, panel: "welcome" } : { welcome });
+    }),
+    // Hablarle a un NPC abre el diálogo (con un intercambio abierto no se abren paneles).
+    eventBus.on("npc:say", (npcDialog) => setState(state.trading ? { npcDialog } : { npcDialog, panel: "npcDialog" })),
     eventBus.on("player:jail", (jailLeft) => setState({ jailLeft })),
     eventBus.on("player:following", (following) => setState({ following })),
     eventBus.on("quality:low", (qualityLow) => setState({ qualityLow })),

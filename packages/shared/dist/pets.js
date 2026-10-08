@@ -12,7 +12,7 @@ exports.PETS = [
         color: "#c89b62",
         accent: "#8a6236",
         size: 1,
-        price: 80,
+        price: 400,
         description: "Rescatado de la calle: fiel como ninguno.",
     },
     {
@@ -22,7 +22,7 @@ exports.PETS = [
         color: "#b0773d",
         accent: "#3b2a1c",
         size: 1.15,
-        price: 300,
+        price: 1500,
         description: "El perro nacional: grandote, atigrado y guardián.",
     },
     {
@@ -32,7 +32,7 @@ exports.PETS = [
         color: "#6b3e1e",
         accent: "#3a2010",
         size: 0.8,
-        price: 220,
+        price: 1000,
         description: "Largo, petiso y con mucha personalidad.",
     },
     {
@@ -42,7 +42,7 @@ exports.PETS = [
         color: "#d08a45",
         accent: "#8a4f1d",
         size: 0.85,
-        price: 120,
+        price: 600,
         description: "Te sigue cuando quiere. Casi siempre.",
     },
     {
@@ -52,7 +52,7 @@ exports.PETS = [
         color: "#2b2b30",
         accent: "#4a4a52",
         size: 0.85,
-        price: 120,
+        price: 600,
         description: "Trae suerte (dicen).",
     },
     {
@@ -62,7 +62,7 @@ exports.PETS = [
         color: "#8b6a4a",
         accent: "#5e4630",
         size: 1.2,
-        price: 900,
+        price: 4000,
         description: "El más tranquilo del Río de la Plata. Exclusivo.",
     },
 ];

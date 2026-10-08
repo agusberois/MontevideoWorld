@@ -12,7 +12,7 @@
  * Las lleva el servidor (y las guarda con el progreso); el cliente sólo las muestra.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.JACUZZI_HUNGER_REGEN = exports.JACUZZI_HEALTH_REGEN = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.BUSK_HUNGER_COST = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.JACUZZI_ENERGY_REGEN = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.BUSK_ENERGY_COST = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.TIRED_RECOVERY = exports.TIRED_STEP_TICKS = exports.WALK_ENERGY_FLOOR = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
+exports.FULL_NEEDS = exports.HOSPITAL_SHOP_ID = exports.HOSPITAL_CITY_ID = exports.FAINT_FEE_MIN_BALANCE = exports.FAINT_FEE_MAX = exports.FAINT_FEE_RATE = exports.REVIVE_HUNGER = exports.REVIVE_ENERGY = exports.REVIVE_HEALTH = exports.RAW_FISH_HEALTH_FLOOR = exports.RAW_FISH_HEALTH = exports.JACUZZI_HUNGER_REGEN = exports.JACUZZI_HEALTH_REGEN = exports.SIT_HEALTH_REGEN = exports.IDLE_HEALTH_REGEN = exports.STARVE_HEALTH_PER_SECOND = exports.WEAK_ENERGY_CAP = exports.LOW_HEALTH = exports.MAX_HEALTH = exports.STARVING = exports.HUNGRY = exports.PARK_HUNGER_COST = exports.BUSK_HUNGER_COST = exports.VEND_HUNGER_COST = exports.FISH_HUNGER_COST = exports.WALK_HUNGER_COST = exports.HUNGER_PER_SECOND = exports.STARTING_HUNGER = exports.MAX_HUNGER = exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY = exports.JACUZZI_ENERGY_REGEN = exports.SIT_ENERGY_REGEN = exports.IDLE_ENERGY_REGEN = exports.PARK_ENERGY_COST = exports.BUSK_ENERGY_COST = exports.VEND_ENERGY_COST = exports.FISH_ENERGY_COST = exports.TIRED_RECOVERY = exports.TIRED_STEP_TICKS = exports.WALK_ENERGY_FLOOR = exports.WALK_ENERGY_COST = exports.MAX_ENERGY = void 0;
 exports.hungerLevel = hungerLevel;
 exports.energyRegenFactor = energyRegenFactor;
 exports.faintFee = faintFee;
@@ -43,6 +43,8 @@ exports.FISH_ENERGY_COST = 10;
 exports.VEND_ENERGY_COST = 6;
 /** Gasto por cada tema que se toca en la calle (el Centro). */
 exports.BUSK_ENERGY_COST = 6;
+/** Gasto por cada auto que se cuida (cuidacoches, frente a un edificio con nombre). */
+exports.PARK_ENERGY_COST = 5;
 /** Recuperación por segundo quieto (parado, sin pescar). */
 exports.IDLE_ENERGY_REGEN = 2;
 /** Recuperación por segundo sentado en un banco: descansar de verdad rinde mucho más. */
@@ -58,6 +60,8 @@ exports.EXHAUSTED_RECOVERY = 20;
 exports.LOW_ENERGY = exports.EXHAUSTED_RECOVERY;
 // --- Hambre (saciedad) -----------------------------------------------------------------------
 exports.MAX_HUNGER = 100;
+/** Con esto aparece un jugador nuevo: con hambre, así lo primero es comerse la torta frita que trae. */
+exports.STARTING_HUNGER = 50;
 /** Baja sola esto por segundo jugando (de lleno a vacío en 50 min sin hacer nada). */
 exports.HUNGER_PER_SECOND = 1 / 30;
 /** Y además, por esfuerzo: */
@@ -65,6 +69,7 @@ exports.WALK_HUNGER_COST = 0.05;
 exports.FISH_HUNGER_COST = 0.5;
 exports.VEND_HUNGER_COST = 0.5;
 exports.BUSK_HUNGER_COST = 0.5;
+exports.PARK_HUNGER_COST = 0.5;
 /** Por debajo de esto "tenés hambre" y la energía se recupera a la mitad. */
 exports.HUNGRY = 60;
 /** Por debajo de esto "estás muerto de hambre" y se recupera a un cuarto (también en el HUD en rojo). */

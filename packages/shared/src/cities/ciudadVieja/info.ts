@@ -21,9 +21,9 @@ export const ESCOLLERA_PLATFORM: TileRect = { x: 1, y: 45, width: 7, height: 11 
  */
 export const ESCOLLERA_NORTE_PLATFORM: TileRect = { x: 1, y: 10, width: 7, height: 11 };
 
-/** Paradas de ómnibus (la de la Plaza Independencia es la de la guía de bienvenida). */
+/** Paradas de ómnibus. */
 export const PLAZA_BUS_STOP: BusStop = { name: "Plaza Independencia", x: 136, y: 60, facing: "south" };
-export const MERCADO_BUS_STOP: BusStop = { name: "Mercado del Puerto", x: 52, y: 13, facing: "south" };
+export const MERCADO_BUS_STOP: BusStop = { name: "Mercado del Puerto", x: 39, y: 13, facing: "south" };
 
 export const CIUDAD_VIEJA_INFO = {
   id: "ciudad-vieja",
@@ -152,7 +152,8 @@ export const CIUDAD_VIEJA_INFO = {
       name: "Mercado del Puerto",
       description: "Estructura de hierro de 1868 frente al puerto, famosa por sus parrillas.",
       kind: "market",
-      area: rect(44, 11, 4),
+      // En la manzana grande entre Juan Lindolfo Cuestas y Maciel; al lado, la Parrilla del Mercado.
+      area: rect(31, 11, 4),
     },
   ],
   shops: [
@@ -219,7 +220,8 @@ export const CIUDAD_VIEJA_INFO = {
       area: rect(136, 47, 2),
       building: "kiosk",
       stock: ["torta-frita", "alfajor", "mate"],
-      buys: [],
+      // El sobre de la bienvenida: unos pesos por él (y se termina la misión, ver `welcome.ts`).
+      buys: ["letter"],
     },
     {
       id: "farmacia-sarandi",
@@ -245,10 +247,21 @@ export const CIUDAD_VIEJA_INFO = {
       name: "Pescadería del Mercado",
       description:
         "En el Mercado del Puerto te compran lo que pescaste a precio completo y venden todos los pescados del río (más caros). En las parrillas, chivito y pescado a la plancha.",
-      area: rect(44, 11, 4),
+      area: rect(31, 11, 4),
       building: "none",
       stock: ["chivito", "pescado-plancha", ...FISH.map((fish) => fish.id)],
       buys: ["fish"],
+    },
+    {
+      // Al lado de la Pescadería, en la misma manzana del Mercado: se cocina lo que se pescó (`grillYield`).
+      id: "parrilla-mercado",
+      name: "Parrilla del Mercado",
+      description: "Brasas de leña frente al Mercado del Puerto: traé lo que pescaste y te lo devuelven a la plancha. Cuanto más grande el pez, más porciones.",
+      area: rect(36, 11, 2),
+      building: "grill",
+      stock: [],
+      buys: [],
+      grill: true,
     },
     {
       id: "tienda-pesca",

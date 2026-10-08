@@ -1,0 +1,470 @@
+/* Mensaje, misión y carta de bienvenida (el sobre del HUD). Las clases que no están acá son globales (`modal`…). */
+
+.welcome {
+  position: relative;
+  width: min(500px, 100%);
+}
+
+.welcome-letter {
+  width: min(600px, 100%);
+}
+
+.welcome h2 {
+  margin: 0;
+}
+
+.welcome-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.welcome-close:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Encabezado de la misión ---------- */
+
+.welcome-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 22px 48px 20px 20px;
+  border-bottom: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at 12% 30%, rgba(255, 209, 102, 0.28), transparent 55%),
+    linear-gradient(135deg, rgba(76, 201, 240, 0.16), rgba(155, 93, 229, 0.14));
+}
+
+.welcome-envelope {
+  flex: none;
+  width: 84px;
+  height: 63px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  animation: welcome-float 3s ease-in-out infinite;
+}
+
+@keyframes welcome-float {
+  50% {
+    transform: translateY(-4px) rotate(-2deg);
+  }
+}
+
+.welcome-kicker {
+  margin: 0 0 2px;
+  color: var(--system);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.welcome-hero h2 {
+  font-size: 1.35rem;
+}
+
+.welcome-lead {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* ---------- Cuerpo ---------- */
+
+.welcome-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px 20px;
+  line-height: 1.45;
+}
+
+.welcome-body p {
+  margin: 0;
+}
+
+.welcome-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.welcome-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.welcome-progress-head span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.welcome-progress-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.welcome-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #06d6a0, var(--accent));
+  transition: width 0.4s ease;
+}
+
+.welcome-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.welcome-step.current {
+  border-color: rgba(255, 209, 102, 0.7);
+  background: rgba(255, 209, 102, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.12);
+}
+
+.welcome-step.pending {
+  opacity: 0.55;
+}
+
+.welcome-step-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1.2rem;
+}
+
+.welcome-step.done .welcome-step-icon {
+  background: #06d6a0;
+  color: #0b1d17;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.welcome-step.done strong {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.welcome-step-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.welcome-step-text small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.welcome-step-text p {
+  margin-top: 4px;
+  font-size: 0.88rem;
+}
+
+.welcome-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--system);
+  color: #1a1a1a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.welcome-warning {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 10px;
+  background: rgba(255, 107, 107, 0.1);
+  font-size: 0.85rem;
+}
+
+.welcome-button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.welcome-button.primary {
+  border-color: transparent;
+  background: linear-gradient(180deg, #ffd166, #f4a261);
+  color: #1a1a1a;
+}
+
+.welcome-button.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.welcome-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- La carta ---------- */
+
+.welcome-paper {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 24px 22px 20px;
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(transparent 0 27px, rgba(120, 90, 40, 0.08) 27px 28px),
+    linear-gradient(180deg, #fbf5e6, #f2e6c8);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  color: #3b2f1e;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.welcome-paper h2 {
+  color: #2a1f12;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.welcome-paper-from {
+  color: #8a6d3b;
+  font-family: system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.welcome-paper kbd {
+  border-color: rgba(59, 47, 30, 0.35);
+  color: #3b2f1e;
+  font-family: system-ui, sans-serif;
+}
+
+.welcome-keys {
+  font-size: 0.85rem;
+}
+
+.welcome-signature {
+  justify-self: end;
+  font-style: italic;
+}
+
+.welcome-seal {
+  position: absolute;
+  top: -12px;
+  right: 22px;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #7a1f16;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e05a4a, #a42b20);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+.welcome-section-title {
+  margin: 4px 0 0;
+  color: var(--system);
+  font-size: 1rem;
+}
+
+.welcome-professions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.welcome-profession {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  align-content: start;
+  padding: 14px 10px;
+  border: 2px solid var(--panel-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.welcome-profession:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 209, 102, 0.5);
+}
+
+.welcome-profession input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-profession:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.welcome-profession.selected {
+  border-color: var(--system);
+  background: rgba(255, 209, 102, 0.12);
+}
+
+.welcome-profession-emoji {
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+
+.welcome-profession small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.welcome-profession-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--system);
+  color: #1a1a1a;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+/* Lo que da cada profesión (en su tarjeta y en el resultado). */
+
+.welcome-kit {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 1px dashed rgba(6, 214, 160, 0.55);
+  border-radius: 10px;
+  background: rgba(6, 214, 160, 0.08);
+  text-align: left;
+}
+
+.welcome-kit > span:last-child {
+  display: grid;
+}
+
+.welcome-kit small {
+  color: #06d6a0;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.welcome-kit strong {
+  font-size: 0.8rem;
+}
+
+/* ---------- Resultado ---------- */
+
+.welcome-result {
+  justify-items: center;
+  padding-top: 32px;
+  text-align: center;
+}
+
+.welcome-result-emoji {
+  font-size: 3.2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-envelope {
+    animation: none;
+  }
+
+  .welcome-profession,
+  .welcome-progress-bar span {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px), (max-height: 500px) {
+  .welcome-hero {
+    padding: 18px 44px 16px 16px;
+  }
+
+  .welcome-envelope {
+    width: 60px;
+    height: 45px;
+  }
+
+  .welcome-hero h2 {
+    font-size: 1.15rem;
+  }
+
+  .welcome-body {
+    padding: 14px 16px 18px;
+  }
+
+  .welcome-paper {
+    padding: 20px 16px 16px;
+  }
+
+  .welcome-professions {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-profession {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    column-gap: 12px;
+    text-align: left;
+  }
+
+  .welcome-profession-emoji {
+    grid-row: span 3;
+    align-self: center;
+  }
+
+  .welcome-kit {
+    justify-self: start;
+  }
+}

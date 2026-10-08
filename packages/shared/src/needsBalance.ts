@@ -44,11 +44,12 @@ export function foodCostPerHour(hungerFactor = 1): number {
 
 /**
  * Segundos promedio de un intento (tirada, venta o tema, ver `fishing.ts` / `vending.ts` /
- * `busking.ts` del server: una tirada tarda ~5,5 s, una venta ~4,5 s y un tema ~5 s, por el `waitFactor` de la herramienta) más lo que hay que
+ * `busking.ts` del server: una tirada, una venta y un tema tardan ~6,5 s (5–8 s), por el `waitFactor` de la herramienta) más lo que hay que
  * descansar sentado para reponer la energía que gasta.
  */
 function secondsPerUse(tool: ToolItem): number {
-  const [attempt, energy] = tool.category === "rod" ? [5.5, FISH_ENERGY_COST] : tool.category === "cart" ? [4.5, VEND_ENERGY_COST] : [5, BUSK_ENERGY_COST];
+  const attempt = 6.5;
+  const energy = tool.category === "rod" ? FISH_ENERGY_COST : tool.category === "cart" ? VEND_ENERGY_COST : BUSK_ENERGY_COST;
   return attempt * tool.waitFactor + energy / SIT_ENERGY_REGEN;
 }
 

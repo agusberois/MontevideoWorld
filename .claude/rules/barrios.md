@@ -52,7 +52,7 @@ paths:
   Palacio Salvo en la esquina este (18 de Julio sale de ahí) y la Torre Ejecutiva y el Palacio Estévez
   al sur; Teatro Solís al suroeste; Plaza Matriz con la Catedral (oeste) y el Cabildo (este); Plaza
   Zabala con el Palacio Taranco; Mercado del Puerto frente a la bahía; Templo Inglés y Plaza España
-  sobre la rambla sur. La guía de bienvenida toma sus áreas de `CIUDAD_VIEJA_INFO` (por id).
+  sobre la rambla sur.
 - Centro (127×68, `centro/grid.ts`, spawn en las dos mitades de la Plaza Cagancha): **el mismo patrón que Ciudad Vieja**
   (franjas de 4 tiles, sin vereda en los cruces, manzanas de 6 × 8 llenas de `fillers` de 2 × 2,
   `bigTowerSpec`: ~580). **Delante de cada emblemático y cada local** (al sur y al este, las fachadas

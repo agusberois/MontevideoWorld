@@ -3,7 +3,7 @@
  * El saldo es autoritativo del servidor y privado de cada jugador (no viaja en el Schema).
  */
 /** Saldo con el que aparece un jugador nuevo. */
-export declare const STARTING_MONEY = 100;
+export declare const STARTING_MONEY = 20;
 /** Tope del saldo, para que ninguna operación se vaya de rango. */
 export declare const MAX_MONEY = 1000000000;
 /** Precio del boleto de ómnibus (STM, `TICKET_ID`) en la Agencia STM: cada viaje entre barrios gasta uno. */

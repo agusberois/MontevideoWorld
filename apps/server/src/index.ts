@@ -24,6 +24,7 @@ import {
   hourlyIncome,
   lifetimeValue,
   rodInWeather,
+  parkingHourlyIncome,
   unprofitableTools,
 } from "@montevideo-world/shared";
 import { liveRooms, tickMetrics } from "./metrics";
@@ -50,6 +51,13 @@ const worstHunger = Math.max(...Object.values(WEATHERS).map((weather) => weather
 for (const { tool, share } of foodTooExpensiveFor(worstHunger)) {
   console.warn(
     `[Balance] Con ${tool.name} comer se lleva ${formatPercent(share)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(foodCostPerHour(worstHunger)))}/h de comida contra ~${formatMoney(Math.round(hourlyIncome(tool)))}/h.`,
+  );
+}
+// Cuidar coches no tiene herramienta: lo mismo, contra lo que deja por hora.
+const parkingShare = foodCostPerHour(worstHunger) / parkingHourlyIncome();
+if (!(parkingShare > 0 && parkingShare <= MAX_FOOD_SHARE)) {
+  console.warn(
+    `[Balance] Cuidando coches comer se lleva ${formatPercent(parkingShare)} de lo que se gana (máximo ${formatPercent(MAX_FOOD_SHARE)}): ~${formatMoney(Math.round(parkingHourlyIncome()))}/h.`,
   );
 }
 // El clima empeora la pesca (pampero) o la venta y la música (lluvia): con cualquiera, cada herramienta se tiene que seguir pagando sola.

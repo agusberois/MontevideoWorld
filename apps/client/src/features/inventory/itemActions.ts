@@ -84,6 +84,9 @@ export function itemAction(item: ItemDefinition, context: ItemActionContext): It
     }
     case "box":
       return inBag ? { label: "abrirla", run: () => sendBoxOpen(room, item.id) } : null;
+    case "letter":
+      // Se entrega hablándole a la funcionaria de la Intendencia: el atajo abre el mensaje con la misión.
+      return inBag ? { label: "ver la misión", run: () => openPanel("welcome") } : null;
     case "ticket":
       // Un boleto se usa al viajar: el atajo abre la lista de barrios (como la tecla M).
       return inBag ? { label: "elegir barrio", run: () => openPanel("cities") } : null;

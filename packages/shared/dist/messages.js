@@ -18,13 +18,26 @@ exports.MessageType = {
     RequestWallet: "wallet:get",
     /** Cliente → Servidor: pedir las necesidades privadas (hambre) al entrar. */
     RequestNeeds: "needs:get",
-    RequestTutorial: "tutorial:get",
-    TutorialSkip: "tutorial:skip",
     /** Servidor → Cliente (sólo al dueño): saldo de dinero. */
     Wallet: "wallet",
     /** Servidor → Cliente: necesidades privadas del jugador (hambre y salud; la energía va en el Schema). */
     Needs: "needs",
-    Tutorial: "tutorial",
+    /** Cliente → Servidor: pedir cómo va la bienvenida (al entrar). */
+    RequestWelcome: "welcome:get",
+    /** Cliente → Servidor: abrió el mensaje de bienvenida por primera vez (pasa de `mail` a `courier`). */
+    WelcomeRead: "welcome:read",
+    /** Cliente → Servidor: eligió profesión en la carta de bienvenida. */
+    WelcomeProfession: "welcome:profession",
+    /** Servidor → Cliente (sólo al dueño): cómo va su bienvenida. */
+    Welcome: "welcome",
+    /** Cliente → Servidor: clic (o F) en un NPC: camina hasta él y le habla. */
+    NpcTalk: "npc:talk",
+    /** Servidor → Cliente (sólo a quien le habló): lo que dice el NPC (abre el modal de diálogo). */
+    NpcSay: "npc:say",
+    /** Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el carrito). */
+    GrillCook: "grill:cook",
+    /** Cliente → Servidor: tirar una unidad de algo de la mochila (sólo lo que se puede tirar: el sobre). */
+    InventoryDrop: "inventory:drop",
     /** Servidor → Cliente: te desmayaste (salud en 0). */
     Faint: "faint",
     /** Cliente → Servidor: en la guardia del sanatorio, pagar para curarse del todo. */
@@ -81,6 +94,16 @@ exports.MessageType = {
     BuskResult: "busk:result",
     /** Servidor → Cliente (sólo al músico): la gente de mentira que se arrima a escuchar (`CrowdState`). */
     BuskCrowd: "busk:crowd",
+    /** Cliente → Servidor: cuidar un auto (en la zona de Ciudad Vieja, con el chaleco flúo puesto). */
+    ParkStart: "park:start",
+    /** Cliente → Servidor: dejar de cuidar coches. */
+    ParkStop: "park:stop",
+    /** Servidor → Cliente: estás cuidando un auto; en `durationMs` vuelve el dueño. */
+    ParkStarted: "park:started",
+    /** Servidor → Cliente: cómo te fue con el auto. */
+    ParkResult: "park:result",
+    /** Servidor → Cliente (sólo al cuidacoches): el auto de mentira que estaciona al lado (`CarState`). */
+    ParkCar: "park:car",
     /** Cliente → Servidor: fundar una barra (al lado del Registro de Barras, pagando `BARRA_FOUND_COST`). */
     BarraCreate: "barra:create",
     /** Cliente → Servidor: el fundador invita a un jugador de la sala a su barra. */

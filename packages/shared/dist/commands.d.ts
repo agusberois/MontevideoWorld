@@ -85,11 +85,6 @@ export declare const COMMANDS: readonly [{
     readonly description: "Modo vuelo: volás por arriba de todo, rápido y sin que nadie te vea (clic adonde ir). /god otra vez para bajar a la baldosa más cercana.";
     readonly role: "admin";
 }, {
-    readonly name: "guia";
-    readonly usage: "/guia";
-    readonly description: "Vuelve a abrir la guía de bienvenida (repetirla no da premios).";
-    readonly role: "user";
-}, {
     readonly name: "donador";
     readonly usage: "/donador <si|no> [jugador]";
     readonly description: "Marca (o desmarca) a un jugador del barrio como donador del proyecto (sin nombre, a vos).";

@@ -8,9 +8,12 @@ export interface CatchRoll {
   durationMs: number;
 }
 
-/** Espera de una tirada antes de `waitFactor`: entre `MIN` y `MIN + SPREAD` ms (promedio 5,5 s, el que usa `needsBalance.ts`). */
-const WAIT_MIN_MS = 3500;
-const WAIT_SPREAD_MS = 4000;
+/**
+ * Espera de una tirada antes de `waitFactor`: entre `MIN` y `MIN + SPREAD` ms (promedio 6,5 s, el que
+ * usa `needsBalance.ts`). Igual que vender, tocar y cuidar coches: todas las actividades van al mismo ritmo.
+ */
+const WAIT_MIN_MS = 5000;
+const WAIT_SPREAD_MS = 3000;
 
 /**
  * Sortea qué pica con esta caña: nada (`rod.nothingChance`) o un pez según su peso con la caña

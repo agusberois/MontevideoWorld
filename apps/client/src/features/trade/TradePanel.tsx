@@ -9,6 +9,7 @@ import {
   changeOfferQuantity,
   formatMoney,
   getItem,
+  isTradable,
   isTool,
   offeredQuantity,
   usesLabel,
@@ -66,9 +67,9 @@ export function TradePanel({ room }: TradePanelProps) {
   const theirs = trade.theirs.offer;
   const offer = (next: TradeOffer) => sendTradeOffer(room, next);
 
-  /** Lo que queda en la mochila sin ofrecer, un casillero por ítem (lo puesto no se intercambia). */
+  /** Lo que queda en la mochila sin ofrecer, un casillero por ítem (lo puesto y el sobre de la bienvenida no se intercambian). */
   const totals = new Map<string, number>();
-  for (const stack of inventory?.stacks ?? []) totals.set(stack.itemId, (totals.get(stack.itemId) ?? 0) + stack.quantity);
+  for (const stack of inventory?.stacks ?? []) if (isTradable(getItem(stack.itemId))) totals.set(stack.itemId, (totals.get(stack.itemId) ?? 0) + stack.quantity);
   const available = [...totals]
     .map(([itemId, quantity]) => [itemId, quantity - offeredQuantity(mine, itemId)] as const)
     .filter(([, quantity]) => quantity > 0);

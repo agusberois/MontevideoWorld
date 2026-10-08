@@ -129,6 +129,8 @@ const CART_DARK = 0x2b2b30;
  * bandoneón) y notas que suben flotando, una cada `BUSK_NOTE_EVERY_MS` y durante `BUSK_NOTE_MS`.
  */
 const BUSK_BEAT_MS = 420;
+/** Cuidando coches: una ida y vuelta de la franela. */
+const PARK_WAVE_MS = 900;
 const BUSK_NOTE_EVERY_MS = 650;
 const BUSK_NOTE_MS = 1800;
 /** La armónica, frente a la boca (px del cuerpo). */
@@ -298,6 +300,9 @@ export class Avatar extends Phaser.GameObjects.Container {
   private busking: InstrumentKind | null = null;
   private buskColor = 0xb5651d;
   private buskTime = 0;
+  /** Cuidando coches: hace señas con la franela (y cuánto lleva, ms). */
+  private parking = false;
+  private parkTime = 0;
   /** Gesto en curso (`Player.gesture`) y cuánto lleva (ms). */
   private gesture: AnyGestureId | null = null;
   private gestureTime = 0;
@@ -824,6 +829,8 @@ export class Avatar extends Phaser.GameObjects.Container {
         this.poseBusking(this.busking, delta);
       } else if (this.vending) {
         this.poseVending(delta);
+      } else if (this.parking) {
+        this.poseParking(delta);
       } else {
         if (this.idleTime >= ARRIVE_GRACE_MS) this.setBackView(false);
         this.poseLimbs(delta, 0, 1, 0);
@@ -831,7 +838,7 @@ export class Avatar extends Phaser.GameObjects.Container {
       // El gesto pisa los brazos (y, parado, el resto del cuerpo) de la pose de base.
       if (this.gesture) this.poseGesture(this.gesture, delta);
       // Respira sólo parado sin hacer nada (sentado, pescando, vendiendo o con un gesto ya se mueve otra cosa).
-      const idle = !this.sitting && !this.bathing && !this.fishing && !this.vending && !this.busking && !this.gesture && this.reelLeft <= 0;
+      const idle = !this.sitting && !this.bathing && !this.fishing && !this.vending && !this.busking && !this.parking && !this.gesture && this.reelLeft <= 0;
       this.body_.scaleY = idle ? 1 + Math.sin((this.idleTime / BREATH_MS) * Math.PI * 2) * BREATH_SCALE : 1;
     } else {
       // Se fue caminando mientras sacaba el pez: se corta la animación.
@@ -844,8 +851,8 @@ export class Avatar extends Phaser.GameObjects.Container {
 
     // Caminando no hay gesto (el server lo corta): sin accesorios ni efectos. (Con gesto, cada frame
     // `poseGesture` dice qué se ve.)
-    // Tocando quieto, el tambor, el palo y las notas los maneja `poseBusking`.
-    if ((!this.gesture || this.segment) && !(this.busking && !this.segment)) this.hideGestureProps();
+    // Tocando quieto, el tambor, el palo y las notas los maneja `poseBusking` (y la franela, `poseParking`).
+    if ((!this.gesture || this.segment) && !((this.busking || this.parking) && !this.segment)) this.hideGestureProps();
     this.poseKick(delta);
     this.poseOffer(delta);
     this.updateCartHold(delta);
@@ -1293,6 +1300,49 @@ export class Avatar extends Phaser.GameObjects.Container {
     }
     this.drawCase(g);
     this.drawNotes(g, time);
+  }
+
+  /** Cuidando coches (o no): hace señas con la franela roja, el brazo arriba ("¡dale, dale, dale!"). */
+  setParking(parking: boolean) {
+    if (parking === this.parking) return;
+    if (parking) this.parkTime = 0;
+    this.parking = parking;
+    if (!parking) this.hideGestureProps();
+  }
+
+  /**
+   * De frente cuidando coches: el brazo cercano arriba, moviendo la franela de lado a lado como quien
+   * le indica al auto hasta dónde puede ir; el otro, quieto al costado.
+   */
+  private poseParking(delta: number) {
+    this.setBackView(false);
+    this.body_.scaleX = 1;
+    this.poseLimbs(delta, 0, 1, 0);
+    this.parkTime += delta;
+    const wave = Math.sin((this.parkTime / PARK_WAVE_MS) * Math.PI * 2);
+    const [, near] = this.arms;
+    const hand = { x: ARM_X + 7 + wave * 7, y: SHOULDER_Y - 20 + Math.abs(wave) * 3 };
+    const target = reach({ x: hand.x - ARM_X, y: hand.y - SHOULDER_Y });
+    near.rotation = target.rotation;
+    near.scaleY = target.scale;
+    this.body_.rotation = wave * 0.025;
+    this.drum.setVisible(false);
+    this.prop.setVisible(false);
+    // La franela cuelga de la mano y flamea para el lado contrario al que va el brazo.
+    const at = this.handOf(near, ARM_X);
+    const flap = -wave * 5;
+    const g = this.fx.clear();
+    g.fillStyle(0xc62828, 1);
+    g.fillPoints(
+      [
+        { x: at.x - 3, y: at.y - 1 },
+        { x: at.x + 3, y: at.y - 1 },
+        { x: at.x + 5 + flap, y: at.y + 10 },
+        { x: at.x - 1 + flap * 1.3, y: at.y + 12 },
+      ],
+      true,
+    );
+    g.lineStyle(1, 0x7f1515, 0.9).lineBetween(at.x, at.y, at.x + 2 + flap, at.y + 11);
   }
 
   /** El estuche abierto en el piso, al costado, con unas monedas (ahí cae la propina). */

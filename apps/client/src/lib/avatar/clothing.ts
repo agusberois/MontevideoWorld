@@ -97,7 +97,7 @@ export function leg(skin: number, outfit: WornOutfit): Shape[] {
   return shapes;
 }
 
-// --- Arriba: remera, camiseta, buzo, musculosa o el torso a la vista -------------------------
+// --- Arriba: remera, camiseta, buzo, musculosa, chaleco o el torso a la vista -------------------------
 
 interface TopStyle {
   /** Manga sobre el brazo, desde el hombro. Sin `sleeve` el brazo queda a la vista. */
@@ -118,6 +118,10 @@ function sleeve(color: number, length: number, cuff = false): Shape[] {
     rect(-3.2, -1, 6.4, length, OUTLINED, 3),
   ];
 }
+
+/** Remera de abajo del chaleco flúo y sus bandas reflectivas. */
+const VEST_SHIRT = 0x7a828c;
+const VEST_STRIPE = 0xd9dde3;
 
 /** Brillo del pecho de las prendas con mangas. */
 const chestLight = (color: number): Shape => rect(2, SHOULDER_Y + 1, 6, 12, { fill: shade(color, 12) }, 3);
@@ -160,6 +164,25 @@ const TOPS: Record<SlotStyle<"top">, TopStyle> = {
       rect(-6.5, SHOULDER_Y + 1, 15.5, 23, { fill: color }, 5),
       rect(-6.5, SHOULDER_Y - 3, 3, 6, { fill: color }),
       rect(4, SHOULDER_Y - 3, 3, 6, { fill: color }),
+    ],
+  },
+  // Chaleco flúo (cuidacoches) sobre una remera gris: abierto adelante, con dos bandas reflectivas.
+  vest: {
+    covers: true,
+    sleeve: () => sleeve(VEST_SHIRT, 11),
+    body: (color) => [
+      rect(-1.5, SHOULDER_Y - 3, 4, 27, { fill: VEST_SHIRT }),
+      poly(
+        [
+          { x: -5, y: SHOULDER_Y - 3 },
+          { x: 7, y: SHOULDER_Y - 3 },
+          { x: 1, y: SHOULDER_Y + 6 },
+        ],
+        { fill: VEST_SHIRT },
+      ),
+      rect(-9, SHOULDER_Y + 9, 20, 2.5, { fill: VEST_STRIPE }),
+      rect(-9, SHOULDER_Y + 16, 20, 2.5, { fill: VEST_STRIPE }),
+      line(0.5, SHOULDER_Y + 6, 0.5, SHOULDER_Y + 24, shade(color, -30), 1, 0.9),
     ],
   },
 };
