@@ -66,7 +66,7 @@ import { followRoutes } from "./systems/follow";
 import { gestureRoutes, stepGestures } from "./systems/gestures";
 import { movementRoutes, stepPlayers } from "./systems/movement";
 import { checkWelcomeLetter, welcomeRoutes } from "./systems/welcome";
-import { shopRoutes } from "./systems/shops";
+import { flushGrillTray, shopRoutes } from "./systems/shops";
 import { ANNOUNCEMENT_TOPIC, createCommandHost, socialRoutes, tickTyping } from "./systems/social";
 import { cancelTrade, revalidateTrade, tradeRoutes } from "./systems/trading";
 import { jail, travelRoutes, updateJail } from "./systems/travel";
@@ -494,6 +494,7 @@ export class CityRoom extends Room<GameState> implements SessionOwner, PrivateMa
     if (!session) return;
     stopActivities(session);
     cancelTrade(this, session, "leave");
+    flushGrillTray(session);
     this.savePlayer(session);
     if (session.key && activeSessions.get(session.key)?.sessionId === client.sessionId) activeSessions.delete(session.key);
     this.sessions.delete(client.sessionId);

@@ -35,6 +35,7 @@ import type {
   OutfitIds,
   ShopOpenMessage,
   ShopResultMessage,
+  GrillTrayMessage,
   TradeClosedMessage,
   TradeInviteMessage,
   TradeStateMessage,
@@ -62,6 +63,7 @@ export interface GameEvents {
   "shop:open": ShopOpenMessage;
   /** Red → React: resultado de una compra/venta. */
   "shop:result": ShopResultMessage;
+  "grill:tray": GrillTrayMessage;
   /** Phaser → React: si el avatar propio está en la escollera y si tiene la línea en el agua. */
   "fishing:status": { canFish: boolean; fishing: boolean };
   /** Red → React: la línea está en el agua; el resultado llega en `durationMs`. */

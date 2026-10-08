@@ -233,11 +233,11 @@ class CityMap {
     }
     /** ¿Desde (x, y) se le habla al NPC? Pegado a él (o encima). */
     isNearNpc(npc, x, y) {
-        return inRect(npc.roam, x, y) || isNextToArea(npc.roam, x, y);
+        return inRect(npc.roam, x, y) || isNextToArea((0, types_1.npcReach)(npc), x, y);
     }
     /** Tile caminable pegado al NPC más cercano a `from`. */
     npcApproach(npc, from) {
-        return this.areaApproach(npc.roam, from);
+        return this.areaApproach((0, types_1.npcReach)(npc), from);
     }
     jacuzziAt(x, y) {
         return this.city.jacuzzis?.find((jacuzzi) => inRect(jacuzzi.area, x, y));

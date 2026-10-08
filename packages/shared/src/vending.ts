@@ -1,4 +1,4 @@
-import { formatPercent } from "./fishing";
+import { fasterLabel, oddsLabel } from "./odds";
 import { CartItem, LootEntry } from "./items";
 import { formatMoney } from "./money";
 
@@ -91,10 +91,10 @@ export function cartPerks(cart: CartItem): string[] {
   const [matchMin, matchMax] = saleRange(cart, true);
   const perks = [
     `Venta: ${formatMoney(min)}–${formatMoney(max)} (con partido ${formatMoney(matchMin)}–${formatMoney(matchMax)})`,
-    `Que nadie compre: ${formatPercent(cart.noSaleChance)}`,
-    `Regalo de un hincha: ${formatPercent(giftChance(cart, false))}`,
+    `Que nadie compre: ${oddsLabel(cart.noSaleChance)}`,
+    `Regalo de un hincha: ${oddsLabel(giftChance(cart, false))}`,
   ];
-  if (cart.waitFactor < 1) perks.push(`Clientes ${Math.round((1 - cart.waitFactor) * 100)} % más rápido`);
-  perks.push(`Dura ${cart.maxUses} intentos y rinde ~${formatMoney(Math.floor(saleValue(cart) * cart.maxUses))} en total (sin partidos)`);
+  if (cart.waitFactor < 1) perks.push(`Clientes ${fasterLabel(1 - cart.waitFactor)}`);
+  perks.push(`Dura ${cart.maxUses} intentos`);
   return perks;
 }

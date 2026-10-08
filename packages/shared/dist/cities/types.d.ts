@@ -51,7 +51,7 @@ export declare const TileChar: {
 export type TileCharValue = (typeof TileChar)[keyof typeof TileChar];
 export declare const WALKABLE_TILE_CHARS: ReadonlySet<string>;
 /** Cada tipo tiene su propio dibujo en el cliente (`game/city/landmarks.ts`). */
-export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable" | "barShelf" | "barCounter" | "barraRegistry" | "entrevero" | "lockFountain" | "peaceColumn" | "departmentStore" | "artDeco" | "cinema" | "cityHall" | "statue" | "modernTower" | "decoTower" | "italianPalace" | "frenchPalace" | "victoryStatue";
+export type LandmarkKind = "gate" | "equestrianMonument" | "palacioSalvo" | "theater" | "cathedral" | "cabildo" | "market" | "fountain" | "lighthouse" | "shopping" | "hospital" | "velodrome" | "stadium" | "obelisk" | "cellBlock" | "watchtower" | "reusHouses" | "agriMarket" | "church" | "artCenter" | "termas" | "executiveTower" | "palace" | "plant" | "pottedPalm" | "flowers" | "lamp" | "casino" | "slotMachine" | "rouletteTable" | "blackjackTable" | "barShelf" | "barCounter" | "barraRegistry" | "officeDesk" | "entrevero" | "lockFountain" | "peaceColumn" | "departmentStore" | "artDeco" | "cinema" | "cityHall" | "statue" | "modernTower" | "decoTower" | "italianPalace" | "frenchPalace" | "victoryStatue";
 /** Edificio o monumento emblemático. Sus tiles no son caminables salvo los de `passable`. */
 export interface Landmark {
     id: string;
@@ -142,7 +142,7 @@ export interface PlaceLabel {
     y: number;
 }
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export declare const CITY_IDS: readonly ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "termas-2", "casino"];
+export declare const CITY_IDS: readonly ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "termas-2", "casino", "intendencia"];
 export type CityId = (typeof CITY_IDS)[number];
 /**
  * Lo liviano de un barrio: lo que necesitan la lista de barrios, la landing, las tiendas y los
@@ -159,7 +159,7 @@ export interface CityInfo {
     /**
      * Se entra sólo por una puerta, no en ómnibus: no sale en la lista de barrios ni en la landing.
      * "donor": además sólo entran los donadores (y el admin), como el Hotel del Donador; "door":
-     * entra cualquiera (el casino).
+     * entra cualquiera (el casino, la Intendencia).
      */
     access?: "donor" | "door";
     /** Es un interior: sin lluvia ni noche (luz fija). */
@@ -308,11 +308,20 @@ export interface Npc {
     /** Por dónde se mueve (empieza en el medio). De 1 × 1 se queda quieto ahí. */
     roam: TileRect;
     /**
+     * Lo que tiene delante (el escritorio de los empleados de la Intendencia): se le habla también
+     * desde pegado a esto, del otro lado de la mesa (ver `npcReach`).
+     */
+    counter?: TileRect;
+    /** Frases sueltas (una al azar) si no tiene diálogo propio en `talkToNpc`. */
+    lines?: readonly string[];
+    /**
      * Se le puede hablar (clic o F): se camina hasta pegado a su `roam` y el server decide qué dice
      * (`systems/npcs.ts`). Tiene que ser de 1 × 1, así el server sabe dónde está.
      */
     talks?: boolean;
 }
+/** Desde dónde se le habla a un NPC: pegado a su `roam` o a su `counter` (el rectángulo que cubre los dos). */
+export declare function npcReach({ roam, counter }: Npc): TileRect;
 /** Una guirnalda: un cable con lamparitas que cuelga de un poste en `from` a otro en `to`. */
 export interface StringLight {
     from: TilePoint;

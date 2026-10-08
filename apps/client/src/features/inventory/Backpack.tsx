@@ -33,6 +33,7 @@ import {
   wornestStack,
   isBox,
   lootChances,
+  oddsLabel,
   rodPerks,
   rodStars,
 } from "@montevideo-world/shared";
@@ -433,10 +434,10 @@ export function Backpack({ room, onClose }: PanelProps) {
   );
 }
 
-/** "Caja sorpresa — puede salir: Pejerrey 25 %, …" (las probabilidades reales del server). */
+/** "Caja sorpresa — puede salir: Pejerrey (seguido), …" (lo que sortea el server, en palabras). */
 function boxTitle(box: BoxItem): string {
   const odds = lootChances(box)
-    .map(({ item, chance }) => `${item.name} ${Math.round(chance * 100)} %`)
+    .map(({ item, chance }) => `${item.name} (${oddsLabel(chance)})`)
     .join(", ");
   return `${box.name} — clic o tirala fuera de la mochila para abrirla. Puede salir: ${odds}`;
 }

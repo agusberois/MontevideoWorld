@@ -9,7 +9,7 @@ exports.formatPercent = formatPercent;
 exports.rodPerks = rodPerks;
 exports.grillYield = grillYield;
 const items_1 = require("./items");
-const money_1 = require("./money");
+const odds_1 = require("./odds");
 /** Peso de un pez con esta caña: los difíciles ganan `(1 + rareBoost)` por cada nivel de dificultad. */
 function catchWeight(fish, rod) {
     return fish.catchWeight * Math.pow(1 + rod.rareBoost, fish.difficulty - 1);
@@ -40,12 +40,12 @@ function formatPercent(chance) {
 }
 /** Las ventajas de una caña en frases cortas, para la tienda y la mochila. */
 function rodPerks(rod) {
-    const perks = [`Peces raros: ${formatPercent(rareChance(rod))}`, `Que no pique nada: ${formatPercent(rod.nothingChance)}`];
+    const perks = [`Peces raros: ${(0, odds_1.oddsLabel)(rareChance(rod))}`, `Que no pique nada: ${(0, odds_1.oddsLabel)(rod.nothingChance)}`];
     if (rod.doubleChance > 0)
-        perks.push(`Doble pesca (cuando pica): ${formatPercent(rod.doubleChance)}`);
+        perks.push(`Doble pesca: ${(0, odds_1.oddsLabel)(rod.doubleChance)}`);
     if (rod.waitFactor < 1)
-        perks.push(`Pica ${Math.round((1 - rod.waitFactor) * 100)} % más rápido`);
-    perks.push(`Dura ${rod.maxUses} tiradas y rinde ~${(0, money_1.formatMoney)(Math.floor(catchValue(rod) * rod.maxUses))} en total`);
+        perks.push(`Pica ${(0, odds_1.fasterLabel)(1 - rod.waitFactor)}`);
+    perks.push(`Dura ${rod.maxUses} tiradas`);
     return perks;
 }
 /**

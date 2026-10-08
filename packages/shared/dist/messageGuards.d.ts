@@ -1,4 +1,4 @@
-import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BarraCreateMessage, BarraInviteMessage, BarraRespondMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryDropMessage, InventoryMoveMessage, MoveMessage, NpcTalkMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TypingMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage, WelcomeProfessionMessage } from "./messages";
+import { AdminGiveMessage, AdminMatchMessage, AdminWeatherMessage, AdminSetTimeMessage, BarraCreateMessage, BarraInviteMessage, BarraRespondMessage, BoxOpenMessage, ChatInputMessage, ClientToServerMessages, EquipMessage, FoodEatMessage, GestureMessage, CasinoBlackjackMessage, CasinoRouletteMessage, CasinoSlotsMessage, DoorEnterMessage, GesturePairRequestMessage, GesturePairRespondMessage, InventoryDropMessage, InventoryMoveMessage, MoveMessage, NpcTalkMessage, PetAdoptMessage, PetRenameMessage, ShopCheckoutMessage, GrillTakeMessage, ShopHaggleMessage, ShopHaggleManyMessage, ShopSellManyMessage, ShopTradeMessage, SitMessage, TargetPlayerMessage, TypingMessage, TradeRespondMessage, TravelMessage, WeevilKickMessage, WelcomeProfessionMessage } from "./messages";
 import { TradeOffer } from "./trade";
 /** Un tile (x, y enteros): mover, sentarse, visitar una tienda, sacudir una palmera. */
 export declare function isTileMessage(message: unknown): message is SitMessage;
@@ -18,6 +18,7 @@ export declare function isShopTradeMessage(message: unknown): message is ShopTra
 export declare function isShopHaggleMessage(message: unknown): message is ShopHaggleMessage;
 export declare function isShopSellManyMessage(message: unknown): message is ShopSellManyMessage;
 export declare function isShopHaggleManyMessage(message: unknown): message is ShopHaggleManyMessage;
+export declare function isGrillTakeMessage(message: unknown): message is GrillTakeMessage;
 export declare function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage;
 export declare function isWelcomeProfessionMessage(message: unknown): message is WelcomeProfessionMessage;
 export declare function isNpcTalkMessage(message: unknown): message is NpcTalkMessage;

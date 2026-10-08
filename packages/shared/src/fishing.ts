@@ -1,5 +1,5 @@
 import { FISH, FishDifficulty, FishItem, RodItem } from "./items";
-import { formatMoney } from "./money";
+import { fasterLabel, oddsLabel } from "./odds";
 
 /**
  * Probabilidades de pesca según la caña. Las comparten el server (que sortea) y el cliente (que
@@ -47,10 +47,10 @@ export function formatPercent(chance: number): string {
 
 /** Las ventajas de una caña en frases cortas, para la tienda y la mochila. */
 export function rodPerks(rod: RodItem): string[] {
-  const perks = [`Peces raros: ${formatPercent(rareChance(rod))}`, `Que no pique nada: ${formatPercent(rod.nothingChance)}`];
-  if (rod.doubleChance > 0) perks.push(`Doble pesca (cuando pica): ${formatPercent(rod.doubleChance)}`);
-  if (rod.waitFactor < 1) perks.push(`Pica ${Math.round((1 - rod.waitFactor) * 100)} % más rápido`);
-  perks.push(`Dura ${rod.maxUses} tiradas y rinde ~${formatMoney(Math.floor(catchValue(rod) * rod.maxUses))} en total`);
+  const perks = [`Peces raros: ${oddsLabel(rareChance(rod))}`, `Que no pique nada: ${oddsLabel(rod.nothingChance)}`];
+  if (rod.doubleChance > 0) perks.push(`Doble pesca: ${oddsLabel(rod.doubleChance)}`);
+  if (rod.waitFactor < 1) perks.push(`Pica ${fasterLabel(1 - rod.waitFactor)}`);
+  perks.push(`Dura ${rod.maxUses} tiradas`);
   return perks;
 }
 

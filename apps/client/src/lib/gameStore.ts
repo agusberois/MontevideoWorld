@@ -66,6 +66,8 @@ export interface GameStoreState {
   money: number | null;
   /** Bienvenida del jugador nuevo (sigue al viajar); null hasta que llega. */
   welcome: WelcomeMessage | null;
+  /** Porciones cocinadas que esperan en la bandeja de la parrilla (`grill:tray`). */
+  grillTray: number;
   /** Lo último que te dijo un NPC (el panel `npcDialog`). */
   npcDialog: NpcSayMessage | null;
   /** Con un intercambio abierto no se abren otros paneles ni andan los atajos. */
@@ -109,6 +111,7 @@ const INITIAL: GameStoreState = {
   inventory: null,
   money: null,
   welcome: null,
+  grillTray: 0,
   npcDialog: null,
   trading: false,
   traveling: null,
@@ -117,7 +120,7 @@ const INITIAL: GameStoreState = {
 };
 
 /** Lo que depende del barrio en el que estás: al viajar se borra (mochila, plata, energía… siguen). */
-const CITY_FIELDS = ["panel", "npcDialog", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "parking", "interaction", "trading", "jailLeft", "following"] as const;
+const CITY_FIELDS = ["panel", "npcDialog", "shopId", "detailsId", "cityCopy", "adminCoords", "players", "fishing", "vending", "parking", "interaction", "trading", "jailLeft", "following", "grillTray"] as const;
 
 let state = INITIAL;
 const listeners = new Set<() => void>();
@@ -228,6 +231,7 @@ export function bindGameStore(): () => void {
     // Hablarle a un NPC abre el diálogo (con un intercambio abierto no se abren paneles).
     eventBus.on("npc:say", (npcDialog) => setState(state.trading ? { npcDialog } : { npcDialog, panel: "npcDialog" })),
     eventBus.on("player:jail", (jailLeft) => setState({ jailLeft })),
+    eventBus.on("grill:tray", ({ portions }) => setState({ grillTray: portions })),
     eventBus.on("player:following", (following) => setState({ following })),
     eventBus.on("quality:low", (qualityLow) => setState({ qualityLow })),
     eventBus.on("player:pet", (pet) => setState({ pet: pet.id ? pet : null })),

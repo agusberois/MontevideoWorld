@@ -6,6 +6,7 @@ import { COMCAR } from "./comcar/map";
 import { TERMAS } from "./termas/map";
 import { TERMAS_PISO_2 } from "./termasPiso2/map";
 import { CASINO } from "./casino/map";
+import { INTENDENCIA } from "./intendencia/map";
 import { TRES_CRUCES } from "./tresCruces/map";
 import { CityDefinition, CityId } from "./types";
 
@@ -17,7 +18,7 @@ import { CityDefinition, CityId } from "./types";
 export * from "./info";
 export * from "./types";
 
-export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, CENTRO, TRES_CRUCES, BARRIO_DE_LOS_JUDIOS, COMCAR, TERMAS, TERMAS_PISO_2, CASINO];
+export const CITIES: readonly CityDefinition[] = [CIUDAD_VIEJA, CENTRO, TRES_CRUCES, BARRIO_DE_LOS_JUDIOS, COMCAR, TERMAS, TERMAS_PISO_2, CASINO, INTENDENCIA];
 
 /** Un barrio por id (los tipos obligan a que estén todos los de `CITY_IDS`). */
 const BY_ID: Record<CityId, CityDefinition> = {
@@ -29,6 +30,7 @@ const BY_ID: Record<CityId, CityDefinition> = {
   termas: TERMAS,
   "termas-2": TERMAS_PISO_2,
   casino: CASINO,
+  intendencia: INTENDENCIA,
 };
 
 export function getCity(id: string): CityDefinition | undefined {

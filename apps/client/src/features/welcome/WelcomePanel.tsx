@@ -31,8 +31,8 @@ const MISSION_STEPS: readonly MissionStep[] = [
   {
     icon: "🏛️",
     title: "Llevá el sobre a la Intendencia",
-    place: "Explanada de la Intendencia · Centro",
-    hint: "Caminá por 18 de Julio hacia el este hasta el Centro y hablá con la funcionaria de la puerta.",
+    place: "Adentro de la Intendencia · Centro",
+    hint: "Caminá por 18 de Julio hacia el este hasta el Centro entrá a la Intendencia y hablá con la funcionaria del primer escritorio.",
     doneFrom: ["profession", "done"],
   },
   {

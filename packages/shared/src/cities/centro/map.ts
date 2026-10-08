@@ -2,7 +2,6 @@ import { LayoutBuilder } from "../layoutBuilder";
 import { Bench, BusStop, CityDefinition, Door, Filler, StringLight, TileChar, TilePoint, doubleBench } from "../types";
 import { AVENUE, AVENUE_WIDTH, COLUMN_STREETS, HEIGHT, INTENDENCIA_X, ROW_STREETS, STREET_WIDTH, WIDTH, rect } from "./grid";
 import { CAGANCHA, CAGANCHA_NORTE, CENTRO_INFO, FABINI } from "./info";
-import { WELCOME_CLERK_ID } from "../../welcome";
 
 /**
  * El Centro, con el patrón de Ciudad Vieja (`grid.ts`): franjas de calle de 4 tiles (vereda, calzada
@@ -226,6 +225,17 @@ for (const top of [CAGANCHA_NORTE.y + 1, CAGANCHA.y + 1]) {
 }
 for (const x of [CAGANCHA.x, CAGANCHA.x + 5]) stringLights.push({ from: { x, y: CAGANCHA_NORTE.y + 6 }, to: { x, y: CAGANCHA.y + 1 } });
 
+/**
+ * La puerta de la Intendencia: el edificio entero (entra cualquiera). Adentro, el hall de Atención al
+ * público con los escritorios y la funcionaria de la bienvenida; se aparece frente a la salida.
+ */
+const intendenciaDoor: Door = {
+  id: "intendencia",
+  name: "Entrar a la Intendencia",
+  area: rect(INTENDENCIA_X + 5, AVENUE.southFront + 6, 8),
+  to: { cityId: "intendencia", at: { x: 1, y: 6 } },
+};
+
 /** 18 de Julio sigue hacia Ciudad Vieja: el borde oeste de la avenida lleva a la Plaza Independencia. */
 const toCiudadVieja: Door = {
   id: "ciudad-vieja",
@@ -240,25 +250,13 @@ export const CENTRO: CityDefinition = {
   layout: builder.build(),
   // Las dos mitades de la Plaza Cagancha y la avenida del medio: con 50 jugadores llegando en ómnibus hay lugar.
   spawnArea: rect(CAGANCHA.x - 3, CAGANCHA_NORTE.y, CAGANCHA.width + 6, CAGANCHA.y + CAGANCHA.height - CAGANCHA_NORTE.y),
-  doors: [toCiudadVieja],
+  doors: [toCiudadVieja, intendenciaDoor],
   fillers,
   // En los cruces, la calzada: ahí no va farol.
   streetLamps: streetLamps.filter(({ x, y }) => builder.get(x, y) !== TileChar.Street),
   stringLights,
   benches,
   busStops,
-  // La funcionaria que recibe el sobre de la bienvenida (`welcome.ts`), en la puerta de la Intendencia.
-  npcs: [
-    {
-      id: WELCOME_CLERK_ID,
-      name: "Funcionaria de la Intendencia",
-      role: "Intendencia de Montevideo · Atención al público",
-      appearance: { gender: "f", skin: 2, hairColor: 1, hairStyle: "bun", eyeColor: 0, facialHair: "none", glasses: "square", color: "#9b5de5" },
-      outfit: { hat: "", top: "buzo-bordo", bottom: "pantalon-vestir-negro", shoes: "botas-negras" },
-      roam: rect(INTENDENCIA_X + 9, AVENUE.southFront + 5, 1, 1),
-      talks: true,
-    },
-  ],
   logoSign: { landmarkId: "intendencia" },
   // Se toca en la calle sobre 18 de Julio (calzada y veredas), en las plazas y en la explanada.
   busking: { name: "18 de Julio", areas: [rect(0, AVENUE.y0, WIDTH, AVENUE_WIDTH), FABINI, CAGANCHA, CAGANCHA_NORTE, explanada] },

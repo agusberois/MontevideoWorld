@@ -33,6 +33,7 @@ import { torreEjecutiva } from "./ciudadVieja/torreEjecutiva";
 import { palacio } from "./ciudadVieja/palacio";
 import { registroBarras } from "./ciudadVieja/registroBarras";
 import { flowers, lamp, planta, pottedPalm } from "./termas/planta";
+import { officeDesk } from "./intendencia/escritorio";
 import { garita } from "./comcar/garita";
 import { pabellon } from "./comcar/pabellon";
 import { estadioCentenario } from "./tresCruces/estadioCentenario";
@@ -107,6 +108,7 @@ const LANDMARKS: Record<LandmarkKind, LandmarkDrawing> = {
   barShelf,
   barCounter,
   barraRegistry: registroBarras,
+  officeDesk,
 };
 
 export type { PlacedPiece, RoofSpot };

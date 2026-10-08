@@ -8,6 +8,7 @@
  */
 
 import { TRAVEL_FARE } from "./money";
+import { fasterLabel } from "./odds";
 import { WELCOME_LETTER_ID } from "./welcome";
 
 export type ItemCategory = "clothing" | "fish" | "food" | "medicine" | "rod" | "cart" | "instrument" | "box" | "ticket" | "letter";
@@ -327,9 +328,9 @@ export function walkSpeed(shoesId: string | undefined): number {
   return item?.category === "clothing" && item.speed ? item.speed : 1;
 }
 
-/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+/** "Caminás más rápido" (en palabras, ver `fasterLabel`) para mostrar en la tienda y la mochila (vacío si no da velocidad). */
 export function speedPerk(item: ClothingItem): string[] {
-  return item.speed && item.speed > 1 ? [`👟 Caminás ${Math.round((item.speed - 1) * 100)} % más rápido`] : [];
+  return item.speed && item.speed > 1 ? [`👟 Caminás ${fasterLabel(item.speed - 1)}`] : [];
 }
 
 /**
@@ -513,7 +514,7 @@ export const ITEM_CATEGORIES: Record<ItemCategory, ItemCategoryInfo> = {
     buyMarkup: FISH_BUY_MARKUP,
     sellRatio: 1,
     sellNote: "El pescado se paga a precio completo.",
-    buyNote: `Comprar pescado sale ${Math.round((FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado.`,
+    buyNote: "Comprar pescado sale bastante más caro de lo que paga el mercado.",
     nothingToSell: "No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.",
   },
   food: {

@@ -76,12 +76,12 @@ export function talkToNpc(room: CityRoom, session: PlayerSession, npc: Npc) {
       room.markInventory(session);
       advance(room, session, "deliver");
       return say(
-        `¡Vos debés ser ${player.name}! Hace días que tengo este sobre a tu nombre. Es de la Intendencia: llevalo hasta allá, en el Centro. Seguí derecho por 18 de Julio y lo vas a ver. ¡Y cuidalo, eh!`,
+        `¡Vos debés ser ${player.name}! Hace días que tengo este sobre a tu nombre. Es de la Intendencia: llevalo hasta allá, en el Centro. Seguí derecho por 18 de Julio, entrá al edificio y dáselo a la funcionaria del primer escritorio. ¡Y cuidalo, eh!`,
         { received: WELCOME_LETTER_ID, action: "mission" },
       );
     }
     if (welcome.stage === "deliver") {
-      return say("¿Todavía por acá? La Intendencia está en el Centro: caminá por 18 de Julio hacia el este, no tiene pierde.", { action: "mission" });
+      return say("¿Todavía por acá? La Intendencia está en el Centro: caminá por 18 de Julio hacia el este y entrá al edificio, no tiene pierde.", { action: "mission" });
     }
     return say("¡Buenas! Hoy no tengo nada para vos. Que tengas un lindo día por la Ciudad Vieja.");
   }
@@ -99,6 +99,7 @@ export function talkToNpc(room: CityRoom, session: PlayerSession, npc: Npc) {
     }
     return say("Intendencia de Montevideo, buenas. Cualquier trámite, acá estamos.");
   }
+  if (npc.lines?.length) return say(npc.lines[Math.floor(Math.random() * npc.lines.length)]);
 }
 
 /**

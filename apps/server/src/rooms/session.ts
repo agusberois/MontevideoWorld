@@ -64,6 +64,11 @@ export interface PlayerSession {
   typingUntil: number;
   /** Cuándo termina el gesto de `player.gesture` (ms, `Date.now()`). */
   gestureUntil: number;
+  /**
+   * Porciones de pescado a la plancha que esperan en la bandeja de la parrilla (`grill:take` las pasa
+   * a la mochila). No se guardan: al irse de la sala pasa a la mochila lo que entre (`flushGrillTray`).
+   */
+  grillTray: number;
   /** Mano de blackjack en curso en el casino (null = ninguna). */
   blackjack: import("./systems/casino").BlackjackHand | null;
   /** Su invitación a un gesto de a dos que todavía no respondieron (una sola a la vez). */
@@ -117,6 +122,7 @@ export function createSession(client: Client, player: Player, inventory: Invento
     carOut: false,
     typingUntil: 0,
     gestureUntil: 0,
+    grillTray: 0,
     pairRequest: null,
     blackjack: null,
     lastChatAt: 0,

@@ -81,7 +81,7 @@ export const BARRIO_DE_LOS_JUDIOS_INFO = {
     {
       id: "mayorista-arenal-grande",
       name: "Mayorista Arenal Grande",
-      description: "Ropa por mayor sobre Arenal Grande: todo el catálogo un 25 % más barato. También compra prendas.",
+      description: "Ropa por mayor sobre Arenal Grande: todo el catálogo más barato. También compra prendas.",
       area: { x: 18, y: 8, width: 2, height: 2 },
       building: "wholesale",
       buys: ["clothing"],

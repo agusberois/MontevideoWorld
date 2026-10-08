@@ -1,4 +1,4 @@
-import { formatPercent } from "./fishing";
+import { fasterLabel, oddsLabel } from "./odds";
 import { InstrumentItem } from "./items";
 import { formatMoney } from "./money";
 
@@ -48,9 +48,9 @@ export function tipValue(instrument: InstrumentItem): number {
 export function instrumentPerks(instrument: InstrumentItem): string[] {
   const perks = [
     `Propina: ${formatMoney(instrument.tipMin)}–${formatMoney(instrument.tipMax)} (con público, hasta el doble)`,
-    `Que nadie deje nada: ${formatPercent(instrument.noTipChance)}`,
+    `Que nadie deje nada: ${oddsLabel(instrument.noTipChance)}`,
   ];
-  if (instrument.waitFactor < 1) perks.push(`Propinas ${Math.round((1 - instrument.waitFactor) * 100)} % más rápido`);
-  perks.push(`Dura ${instrument.maxUses} temas y rinde ~${formatMoney(Math.floor(tipValue(instrument) * instrument.maxUses))} en total (sin público)`);
+  if (instrument.waitFactor < 1) perks.push(`Propinas ${fasterLabel(1 - instrument.waitFactor)}`);
+  perks.push(`Dura ${instrument.maxUses} temas`);
   return perks;
 }

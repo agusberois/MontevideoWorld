@@ -4,7 +4,7 @@ exports.BUSK_MAX_PARTNER_BONUS = exports.BUSK_PARTNER_BONUS = exports.BUSK_MAX_L
 exports.buskMultiplier = buskMultiplier;
 exports.tipValue = tipValue;
 exports.instrumentPerks = instrumentPerks;
-const fishing_1 = require("./fishing");
+const odds_1 = require("./odds");
 const money_1 = require("./money");
 /**
  * Tocar en la calle (el Centro: 18 de Julio y sus plazas): reglas que comparten el server (que
@@ -46,11 +46,11 @@ function tipValue(instrument) {
 function instrumentPerks(instrument) {
     const perks = [
         `Propina: ${(0, money_1.formatMoney)(instrument.tipMin)}–${(0, money_1.formatMoney)(instrument.tipMax)} (con público, hasta el doble)`,
-        `Que nadie deje nada: ${(0, fishing_1.formatPercent)(instrument.noTipChance)}`,
+        `Que nadie deje nada: ${(0, odds_1.oddsLabel)(instrument.noTipChance)}`,
     ];
     if (instrument.waitFactor < 1)
-        perks.push(`Propinas ${Math.round((1 - instrument.waitFactor) * 100)} % más rápido`);
-    perks.push(`Dura ${instrument.maxUses} temas y rinde ~${(0, money_1.formatMoney)(Math.floor(tipValue(instrument) * instrument.maxUses))} en total (sin público)`);
+        perks.push(`Propinas ${(0, odds_1.fasterLabel)(1 - instrument.waitFactor)}`);
+    perks.push(`Dura ${instrument.maxUses} temas`);
     return perks;
 }
 //# sourceMappingURL=busking.js.map

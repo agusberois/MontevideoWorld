@@ -101,6 +101,7 @@ export type LandmarkKind =
   | "barShelf"
   | "barCounter"
   | "barraRegistry"
+  | "officeDesk"
   // Centro
   | "entrevero"
   | "lockFountain"
@@ -235,7 +236,7 @@ export interface PlaceLabel {
 }
 
 /** Barrios del juego. Cada uno tiene su carpeta en `cities/` con `info.ts` y `map.ts`. */
-export const CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "termas-2", "casino"] as const;
+export const CITY_IDS = ["ciudad-vieja", "centro", "tres-cruces", "barrio-de-los-judios", "comcar", "termas", "termas-2", "casino", "intendencia"] as const;
 export type CityId = (typeof CITY_IDS)[number];
 
 /**
@@ -253,7 +254,7 @@ export interface CityInfo {
   /**
    * Se entra sólo por una puerta, no en ómnibus: no sale en la lista de barrios ni en la landing.
    * "donor": además sólo entran los donadores (y el admin), como el Hotel del Donador; "door":
-   * entra cualquiera (el casino).
+   * entra cualquiera (el casino, la Intendencia).
    */
   access?: "donor" | "door";
   /** Es un interior: sin lluvia ni noche (luz fija). */
@@ -398,10 +399,27 @@ export interface Npc {
   /** Por dónde se mueve (empieza en el medio). De 1 × 1 se queda quieto ahí. */
   roam: TileRect;
   /**
+   * Lo que tiene delante (el escritorio de los empleados de la Intendencia): se le habla también
+   * desde pegado a esto, del otro lado de la mesa (ver `npcReach`).
+   */
+  counter?: TileRect;
+  /** Frases sueltas (una al azar) si no tiene diálogo propio en `talkToNpc`. */
+  lines?: readonly string[];
+  /**
    * Se le puede hablar (clic o F): se camina hasta pegado a su `roam` y el server decide qué dice
    * (`systems/npcs.ts`). Tiene que ser de 1 × 1, así el server sabe dónde está.
    */
   talks?: boolean;
+}
+
+/** Desde dónde se le habla a un NPC: pegado a su `roam` o a su `counter` (el rectángulo que cubre los dos). */
+export function npcReach({ roam, counter }: Npc): TileRect {
+  if (!counter) return roam;
+  const x = Math.min(roam.x, counter.x);
+  const y = Math.min(roam.y, counter.y);
+  const right = Math.max(roam.x + roam.width, counter.x + counter.width);
+  const bottom = Math.max(roam.y + roam.height, counter.y + counter.height);
+  return { x, y, width: right - x, height: bottom - y };
 }
 
 /** Una guirnalda: un cable con lamparitas que cuelga de un poste en `from` a otro en `to`. */

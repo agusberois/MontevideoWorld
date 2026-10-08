@@ -14,6 +14,7 @@ exports.isShopTradeMessage = isShopTradeMessage;
 exports.isShopHaggleMessage = isShopHaggleMessage;
 exports.isShopSellManyMessage = isShopSellManyMessage;
 exports.isShopHaggleManyMessage = isShopHaggleManyMessage;
+exports.isGrillTakeMessage = isGrillTakeMessage;
 exports.isShopCheckoutMessage = isShopCheckoutMessage;
 exports.isWelcomeProfessionMessage = isWelcomeProfessionMessage;
 exports.isNpcTalkMessage = isNpcTalkMessage;
@@ -101,6 +102,9 @@ function isShopSellManyMessage(message) {
 }
 function isShopHaggleManyMessage(message) {
     return isShopCheckoutMessage(message) && typeof message.price === "number";
+}
+function isGrillTakeMessage(message) {
+    return isObject(message) && Number.isInteger(message.quantity) && message.quantity >= 1 && message.quantity <= 999;
 }
 function isShopCheckoutMessage(message) {
     if (!isObject(message))
@@ -240,6 +244,7 @@ exports.MESSAGE_GUARDS = {
     [messages_1.MessageType.NpcTalk]: isNpcTalkMessage,
     [messages_1.MessageType.InventoryDrop]: isItemIdMessage,
     [messages_1.MessageType.GrillCook]: isShopCheckoutMessage,
+    [messages_1.MessageType.GrillTake]: isGrillTakeMessage,
     [messages_1.MessageType.TravelRequest]: isTravelMessage,
     [messages_1.MessageType.CitiesRequest]: noPayload,
     [messages_1.MessageType.PalmShake]: isTileMessage,

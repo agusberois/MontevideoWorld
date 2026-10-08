@@ -1,4 +1,4 @@
-import { Bench, BusStop, CityDefinition, Door, Jacuzzi, LandmarkKind, Npc, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS } from "./cities/types";
+import { Bench, BusStop, CityDefinition, Door, Jacuzzi, LandmarkKind, Npc, Shop, TileChar, TilePoint, TileRect, WALKABLE_TILE_CHARS, npcReach } from "./cities/types";
 
 export type FishingFacing = "south" | "east" | "west" | "north";
 
@@ -276,12 +276,12 @@ export class CityMap {
 
   /** ¿Desde (x, y) se le habla al NPC? Pegado a él (o encima). */
   isNearNpc(npc: Npc, x: number, y: number): boolean {
-    return inRect(npc.roam, x, y) || isNextToArea(npc.roam, x, y);
+    return inRect(npc.roam, x, y) || isNextToArea(npcReach(npc), x, y);
   }
 
   /** Tile caminable pegado al NPC más cercano a `from`. */
   npcApproach(npc: Npc, from: TilePoint): TilePoint | undefined {
-    return this.areaApproach(npc.roam, from);
+    return this.areaApproach(npcReach(npc), from);
   }
 
   jacuzziAt(x: number, y: number): Jacuzzi | undefined {

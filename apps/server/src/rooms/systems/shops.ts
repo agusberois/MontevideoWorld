@@ -300,8 +300,8 @@ export function shopRoutes(room: CityRoom) {
     /**
      * Cocinar en la Parrilla del Mercado: los pescados elegidos se cambian por pescado a la plancha
      * (`grillYield` porciones cada uno: más cuanto más difícil el pez), y cada porción se puede quemar
-     * (`GRILL_BURN_CHANCE`). Gratis y todo o nada: si no entra lo que salió en la mochila (probado en
-     * `inventory.clone()`), no se cocina nada.
+     * (`GRILL_BURN_CHANCE`). Gratis. Lo que sale va a la bandeja de la parrilla (`session.grillTray`),
+     * no a la mochila: de ahí se pasa con `grill:take`.
      */
     [MessageType.GrillCook]: (session, message) => {
       const { player, inventory } = session;
@@ -325,15 +325,11 @@ export function shopRoutes(room: CityRoom) {
       let burnt = 0;
       for (let i = 0; i < total; i++) if (Math.random() < GRILL_BURN_CHANCE) burnt += 1;
       const portions = total - burnt;
-      const trial = inventory.clone();
-      for (const { fish, quantity } of batch) for (let i = 0; i < quantity; i++) trial.remove(fish.id);
-      for (let i = 0; i < portions; i++) {
-        if (!trial.add(GRILLED_FISH_ID)) return shopResult(room, session, false, "No te entra todo en la mochila: cociná menos o hacé lugar.");
-      }
 
       for (const { fish, quantity } of batch) for (let i = 0; i < quantity; i++) inventory.remove(fish.id);
-      for (let i = 0; i < portions; i++) inventory.add(GRILLED_FISH_ID);
+      session.grillTray += portions;
       room.markInventory(session);
+      sendGrillTray(room, session);
       const list = batch.map(({ fish, quantity }) => (quantity > 1 ? `${quantity} × ${fish.name}` : fish.name)).join(", ");
       const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
       const outcome =
@@ -341,13 +337,23 @@ export function shopRoutes(room: CityRoom) {
           ? `salieron ${plural(portions, "porción", "porciones")} a la plancha, ¡sin quemar ninguna!`
           : portions === 0
             ? `se te quemó todo (${plural(burnt, "porción", "porciones")}). ¡Mala suerte!`
-            : `salieron ${total} porciones, pero se te ${burnt === 1 ? "quemó 1" : `quemaron ${burnt}`}: te quedan ${plural(portions, "pescado", "pescados")} a la plancha.`;
+            : `salieron ${total} porciones, pero se te ${burnt === 1 ? "quemó 1" : `quemaron ${burnt}`}: te quedan ${plural(portions, "pescado", "pescados")} a la plancha en la bandeja.`;
       const cooked = batch.map(({ fish, quantity }) => ({ itemId: fish.id, quantity }));
       shopResult(room, session, portions > 0, `🔥 Cocinaste ${list}: ${outcome}`, {
         action: "sell",
         sold: cooked,
         grill: { cooked, total, burnt, kept: portions },
       });
+    },
+
+    /** Pasar porciones de la bandeja de la parrilla a la mochila: las que entren (el resto queda en la bandeja). */
+    [MessageType.GrillTake]: (session, message) => {
+      if (session.grillTray === 0) return sendGrillTray(room, session);
+      if (room.trades.get(session.client.sessionId)) return shopResult(room, session, false, "Terminá el intercambio antes de agarrar lo de la bandeja.");
+      const moved = takeFromGrillTray(session, message.quantity);
+      if (moved > 0) room.markInventory(session);
+      sendGrillTray(room, session);
+      if (moved < message.quantity && session.grillTray > 0) shopResult(room, session, false, "No te entra más en la mochila: hacé lugar y volvé a pasarlos.");
     },
 
     /** Tirar una unidad de algo que se puede tirar (`ItemCategoryInfo.droppable`: el sobre de la bienvenida). */
@@ -526,4 +532,24 @@ function shopResult(
   detail?: Pick<ShopResultMessage, "action" | "itemId" | "quantity" | "bought" | "sold" | "grill">,
 ) {
   room.sendTo(session, MessageType.ShopResult, { ok, text, ...detail });
+}
+
+/** Pasa hasta `quantity` porciones de la bandeja de la parrilla a la mochila (las que entren); devuelve cuántas pasó. */
+export function takeFromGrillTray(session: PlayerSession, quantity: number): number {
+  let moved = 0;
+  while (moved < quantity && session.grillTray > 0 && session.inventory.add(GRILLED_FISH_ID)) {
+    session.grillTray -= 1;
+    moved += 1;
+  }
+  return moved;
+}
+
+/** Al irse de la sala: lo que quedó en la bandeja pasa a la mochila (lo que no entra se pierde). */
+export function flushGrillTray(session: PlayerSession) {
+  takeFromGrillTray(session, session.grillTray);
+  session.grillTray = 0;
+}
+
+function sendGrillTray(room: CityRoom, session: PlayerSession) {
+  room.sendTo(session, MessageType.GrillTray, { portions: session.grillTray });
 }

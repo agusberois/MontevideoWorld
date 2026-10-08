@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { Npc, TilePoint } from "@montevideo-world/shared";
+import { npcReach, type Npc, type TilePoint } from "@montevideo-world/shared";
 import { Avatar } from "./Avatar";
 import { lookFromAppearance } from "./avatarLook";
 
@@ -62,8 +62,10 @@ export class Npcs {
 
   /** NPC al que se le puede hablar pegado al tile (o en él). */
   talkingNear(tile: TilePoint): Npc | null {
-    const near = (npc: Npc) =>
-      tile.x >= npc.roam.x - 1 && tile.x <= npc.roam.x + npc.roam.width && tile.y >= npc.roam.y - 1 && tile.y <= npc.roam.y + npc.roam.height;
+    const near = (npc: Npc) => {
+      const reach = npcReach(npc);
+      return tile.x >= reach.x - 1 && tile.x <= reach.x + reach.width && tile.y >= reach.y - 1 && tile.y <= reach.y + reach.height;
+    };
     return this.walkers.find((walker) => walker.npc.talks && near(walker.npc))?.npc ?? null;
   }
 

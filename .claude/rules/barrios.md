@@ -121,7 +121,13 @@ paths:
   "🚶 Caminando a…"). Se aparece en la otra punta de 18 de Julio (Centro 1,30; Ciudad Vieja 148,53).
   `CityInfo.onFoot`: al volver a entrar al juego se vuelve a ese barrio sin boleto (`canResumeTo`).
   El Centro igual sale en la lista de barrios y se puede ir en ómnibus.
-- **NPCs** (`CityDefinition.npcs`, hoy el barman del casino): personajes que no son jugadores, sólo del cliente (`objects/Npcs.ts`: un `Avatar` con nombre que pasea por su `roam`, sin clic). Su `roam` tiene que ser no caminable (p. ej. dentro de un landmark) para que nadie se le pare encima.
+- **Intendencia por dentro** (sala `intendencia`, `access: "door"`, 22×14): se entra por la puerta
+  del edificio del Centro (`Door` sobre todo el landmark `intendencia`) y se sale a la explanada
+  (117,39). Hall de Atención al público: cuatro escritorios (`officeDesk`, 2 × 2: atrás el empleado,
+  adelante la mesa; `landmarks/intendencia/escritorio.ts`) con un empleado cada uno (en el primero, la
+  funcionaria de la bienvenida; los otros, Trámites, Tributos y Catastro, dicen frases sueltas) y
+  bancos de espera.
+- **NPCs** (`CityDefinition.npcs`, p. ej. el barman del casino o los empleados de la Intendencia): personajes que no son jugadores, sólo del cliente (`objects/Npcs.ts`: un `Avatar` con nombre que pasea por su `roam`, sin clic). Su `roam` tiene que ser no caminable (p. ej. dentro de un landmark) para que nadie se le pare encima.
 - Salas con acceso (`CityInfo.access`, hoy las Termas del Donador): no salen en la lista ni en la
   landing, no se llega en ómnibus y se entra por una `Door` (ver `termas.md`). `indoor`: sin noche
   ni lluvia. Tiles de interior: `Floor` e `InnerWall`.

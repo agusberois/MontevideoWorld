@@ -43,8 +43,15 @@ export declare const MessageType: {
     readonly NpcTalk: "npc:talk";
     /** Servidor → Cliente (sólo a quien le habló): lo que dice el NPC (abre el modal de diálogo). */
     readonly NpcSay: "npc:say";
-    /** Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el carrito). */
+    /**
+     * Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el
+     * carrito). Lo que sale va a la bandeja de la parrilla (`grill:tray`), no a la mochila.
+     */
     readonly GrillCook: "grill:cook";
+    /** Cliente → Servidor: pasar `quantity` porciones de la bandeja de la parrilla a la mochila (las que entren). */
+    readonly GrillTake: "grill:take";
+    /** Servidor → Cliente (sólo al dueño): cuántas porciones cocinadas esperan en su bandeja. */
+    readonly GrillTray: "grill:tray";
     /** Cliente → Servidor: tirar una unidad de algo de la mochila (sólo lo que se puede tirar: el sobre). */
     readonly InventoryDrop: "inventory:drop";
     /** Servidor → Cliente: te desmayaste (salud en 0). */
@@ -428,13 +435,21 @@ export interface ShopResultMessage {
     bought?: CartLine[];
     /** Venta (o regateo aceptado) de lo elegido: lo que se vendió, para resaltar cada fila. */
     sold?: CartLine[];
-    /** Parrilla: lo que se cocinó y cómo salió (`total` porciones, `burnt` quemadas, `kept` a la mochila). */
+    /** Parrilla: lo que se cocinó y cómo salió (`total` porciones, `burnt` quemadas, `kept` a la bandeja). */
     grill?: {
         cooked: CartLine[];
         total: number;
         burnt: number;
         kept: number;
     };
+}
+/** Cliente → Servidor: pasar porciones de la bandeja de la parrilla a la mochila. */
+export interface GrillTakeMessage {
+    quantity: number;
+}
+/** Servidor → Cliente: las porciones de pescado a la plancha que esperan en la bandeja de la parrilla. */
+export interface GrillTrayMessage {
+    portions: number;
 }
 /** Cliente → Servidor: comerse una unidad de `itemId` (comida o pescado). */
 export interface FoodEatMessage {
@@ -746,6 +761,7 @@ export interface ClientToServerMessages {
     [MessageType.NpcTalk]: NpcTalkMessage;
     [MessageType.InventoryDrop]: InventoryDropMessage;
     [MessageType.GrillCook]: ShopCheckoutMessage;
+    [MessageType.GrillTake]: GrillTakeMessage;
     [MessageType.TravelRequest]: TravelMessage;
     [MessageType.CitiesRequest]: undefined;
     [MessageType.PalmShake]: {
@@ -776,6 +792,7 @@ export interface ClientToServerMessages {
 }
 export interface ServerToClientMessages {
     [MessageType.Chat]: ChatBroadcastMessage;
+    [MessageType.GrillTray]: GrillTrayMessage;
     [MessageType.Inventory]: InventoryMessage;
     [MessageType.Wallet]: WalletMessage;
     [MessageType.Needs]: NeedsMessage;

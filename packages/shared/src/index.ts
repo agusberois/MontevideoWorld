@@ -4,6 +4,7 @@ export * from "./casino";
 export * from "./commands";
 export * from "./constants";
 export * from "./fishing";
+export * from "./odds";
 export * from "./gestures";
 export * from "./haggle";
 export * from "./cities/types";

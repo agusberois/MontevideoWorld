@@ -43,6 +43,7 @@ exports.isItemSlot = isItemSlot;
 exports.buyPrice = buyPrice;
 exports.sellPrice = sellPrice;
 const money_1 = require("./money");
+const odds_1 = require("./odds");
 const welcome_1 = require("./welcome");
 exports.ITEM_SLOTS = ["hat", "top", "bottom", "shoes"];
 exports.ITEM_SLOT_LABELS = {
@@ -150,9 +151,9 @@ function walkSpeed(shoesId) {
     const item = shoesId ? exports.ITEMS.find((candidate) => candidate.id === shoesId) : undefined;
     return item?.category === "clothing" && item.speed ? item.speed : 1;
 }
-/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+/** "Caminás más rápido" (en palabras, ver `fasterLabel`) para mostrar en la tienda y la mochila (vacío si no da velocidad). */
 function speedPerk(item) {
-    return item.speed && item.speed > 1 ? [`👟 Caminás ${Math.round((item.speed - 1) * 100)} % más rápido`] : [];
+    return item.speed && item.speed > 1 ? [`👟 Caminás ${(0, odds_1.fasterLabel)(item.speed - 1)}`] : [];
 }
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos
@@ -291,7 +292,7 @@ exports.ITEM_CATEGORIES = {
         buyMarkup: exports.FISH_BUY_MARKUP,
         sellRatio: 1,
         sellNote: "El pescado se paga a precio completo.",
-        buyNote: `Comprar pescado sale ${Math.round((exports.FISH_BUY_MARKUP - 1) * 100)} % más de lo que paga el mercado.`,
+        buyNote: "Comprar pescado sale bastante más caro de lo que paga el mercado.",
         nothingToSell: "No tenés pescados en la mochila. Pescá en la Escollera Sarandí y volvé.",
     },
     food: {

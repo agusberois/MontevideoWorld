@@ -35,6 +35,7 @@ import {
   PetRenameMessage,
   SHOP_MAX_QUANTITY,
   ShopCheckoutMessage,
+  GrillTakeMessage,
   ShopHaggleMessage,
   ShopHaggleManyMessage,
   ShopSellManyMessage,
@@ -124,6 +125,10 @@ export function isShopSellManyMessage(message: unknown): message is ShopSellMany
 
 export function isShopHaggleManyMessage(message: unknown): message is ShopHaggleManyMessage {
   return isShopCheckoutMessage(message) && typeof (message as unknown as Fields).price === "number";
+}
+
+export function isGrillTakeMessage(message: unknown): message is GrillTakeMessage {
+  return isObject(message) && Number.isInteger(message.quantity) && (message.quantity as number) >= 1 && (message.quantity as number) <= 999;
 }
 
 export function isShopCheckoutMessage(message: unknown): message is ShopCheckoutMessage {
@@ -291,6 +296,7 @@ export const MESSAGE_GUARDS: { [K in keyof ClientToServerMessages]: MessageGuard
   [MessageType.NpcTalk]: isNpcTalkMessage,
   [MessageType.InventoryDrop]: isItemIdMessage,
   [MessageType.GrillCook]: isShopCheckoutMessage,
+  [MessageType.GrillTake]: isGrillTakeMessage,
   [MessageType.TravelRequest]: isTravelMessage,
   [MessageType.CitiesRequest]: noPayload,
   [MessageType.PalmShake]: isTileMessage,

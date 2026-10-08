@@ -23,6 +23,7 @@ import {
   InventoryMoveMessage,
   CartLine,
   ShopCheckoutMessage,
+  GrillTakeMessage,
   PetAdoptMessage,
   PetRenameMessage,
   ItemSlot,
@@ -173,6 +174,7 @@ const SERVER_MESSAGES: { readonly [E in keyof GameEvents]?: MessageTypeName } = 
   faint: MessageType.Faint,
   "shop:open": MessageType.ShopOpen,
   "shop:result": MessageType.ShopResult,
+  "grill:tray": MessageType.GrillTray,
   "fishing:started": MessageType.FishStarted,
   "fishing:result": MessageType.FishResult,
   "vending:started": MessageType.VendStarted,
@@ -273,6 +275,12 @@ export function sendShopCheckout(room: CityRoom, shopId: string, items: CartLine
 export function sendGrillCook(room: CityRoom, shopId: string, items: CartLine[]) {
   const message: ShopCheckoutMessage = { shopId, items };
   room.send(MessageType.GrillCook, message);
+}
+
+/** Parrilla: pasar `quantity` porciones de la bandeja a la mochila (las que entren). */
+export function sendGrillTake(room: CityRoom, quantity: number) {
+  const message: GrillTakeMessage = { quantity };
+  room.send(MessageType.GrillTake, message);
 }
 
 /** Casino: una tirada de la tragamonedas `shopId`. */

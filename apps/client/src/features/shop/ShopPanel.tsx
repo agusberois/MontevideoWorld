@@ -12,7 +12,6 @@ import {
   ITEM_CATEGORIES,
   ITEM_CATEGORY_IDS,
   formatMoney,
-  formatPercent,
   getItem,
   haggleChance,
   maxHagglePrice,
@@ -503,6 +502,9 @@ function ItemRating({ item }: { item: ItemDefinition }) {
   ) : null;
 }
 
+/** Qué tan probable es que acepten, en palabras (sin porcentajes). */
+const HAGGLE_ODDS = { high: "Seguro que aceptan… o casi", mid: "Puede que acepten", low: "Difícil que acepten" } as const;
+
 interface HaggleFormProps {
   /** Lo que se regatea ("Pejerrey", "los 5 productos"), para el aviso. */
   what: string;
@@ -541,7 +543,7 @@ function HaggleForm({ what, base, disabled, onHaggle }: HaggleFormProps) {
       </label>
       <div className={cx("haggle-odds")}>
         <span className={cx(`haggle-chance ${level}`)}>
-          {formatPercent(chance)} de que acepten
+          {HAGGLE_ODDS[level]}
         </span>
         <span className={cx("haggle-bar")} aria-hidden="true">
           <span className={cx(level)} style={{ width: `${chance * 100}%` }} />

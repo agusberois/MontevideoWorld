@@ -226,7 +226,7 @@ export declare const WORK_CLOTHING: readonly ClothingItem[];
 export declare function newbiePerk(item: ClothingItem): string[];
 /** Velocidad al caminar con el calzado `shoesId` puesto (1 si no tiene o no es de los rápidos). */
 export declare function walkSpeed(shoesId: string | undefined): number;
-/** "Caminás 20 % más rápido" para mostrar en la tienda y la mochila (vacío si no da velocidad). */
+/** "Caminás más rápido" (en palabras, ver `fasterLabel`) para mostrar en la tienda y la mochila (vacío si no da velocidad). */
 export declare function speedPerk(item: ClothingItem): string[];
 /**
  * Peces del Río de la Plata que se sacan desde la Escollera Sarandí. Cuanto más difícil, menos

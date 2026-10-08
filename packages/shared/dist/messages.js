@@ -34,8 +34,15 @@ exports.MessageType = {
     NpcTalk: "npc:talk",
     /** Servidor → Cliente (sólo a quien le habló): lo que dice el NPC (abre el modal de diálogo). */
     NpcSay: "npc:say",
-    /** Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el carrito). */
+    /**
+     * Cliente → Servidor: cocinar pescados en la Parrilla del Mercado (`{ shopId, items }`, como el
+     * carrito). Lo que sale va a la bandeja de la parrilla (`grill:tray`), no a la mochila.
+     */
     GrillCook: "grill:cook",
+    /** Cliente → Servidor: pasar `quantity` porciones de la bandeja de la parrilla a la mochila (las que entren). */
+    GrillTake: "grill:take",
+    /** Servidor → Cliente (sólo al dueño): cuántas porciones cocinadas esperan en su bandeja. */
+    GrillTray: "grill:tray",
     /** Cliente → Servidor: tirar una unidad de algo de la mochila (sólo lo que se puede tirar: el sobre). */
     InventoryDrop: "inventory:drop",
     /** Servidor → Cliente: te desmayaste (salud en 0). */

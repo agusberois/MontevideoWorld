@@ -1,4 +1,4 @@
-import { formatPercent } from "./fishing";
+import { oddsLabel } from "./odds";
 import { SAFETY_VEST_ID } from "./items";
 import { formatMoney } from "./money";
 import { PARK_ENERGY_COST, SIT_ENERGY_REGEN } from "./needs";
@@ -52,7 +52,7 @@ export function parkingHourlyIncome(): number {
 export function parkingPerks(): string[] {
   return [
     `Propina: ${formatMoney(PARK_TIP_MIN)}–${formatMoney(PARK_TIP_MAX)} por auto`,
-    `Que el dueño no deje nada: ${formatPercent(PARK_NO_TIP_CHANCE)}`,
+    `Que el dueño no deje nada: ${oddsLabel(PARK_NO_TIP_CHANCE)}`,
     "No se gasta nada: sólo hace falta el chaleco flúo puesto",
   ];
 }

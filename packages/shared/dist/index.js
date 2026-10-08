@@ -20,6 +20,7 @@ __exportStar(require("./casino"), exports);
 __exportStar(require("./commands"), exports);
 __exportStar(require("./constants"), exports);
 __exportStar(require("./fishing"), exports);
+__exportStar(require("./odds"), exports);
 __exportStar(require("./gestures"), exports);
 __exportStar(require("./haggle"), exports);
 __exportStar(require("./cities/types"), exports);

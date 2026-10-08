@@ -18,6 +18,7 @@ const LOADERS: Record<CityId, () => Promise<CityDefinition>> = {
   termas: () => import("@montevideo-world/shared/cities/termas").then((module) => module.TERMAS),
   "termas-2": () => import("@montevideo-world/shared/cities/termasPiso2").then((module) => module.TERMAS_PISO_2),
   casino: () => import("@montevideo-world/shared/cities/casino").then((module) => module.CASINO),
+  intendencia: () => import("@montevideo-world/shared/cities/intendencia").then((module) => module.INTENDENCIA),
 };
 
 const loaded = new Map<CityId, CityMap>();

@@ -87,6 +87,9 @@ corré `npm run build:shared`.
   clases globales, con `:global(.x)`.
 - Archivos: componentes React en PascalCase (`ChatBox.tsx`), módulos en camelCase (`eventBus.ts`).
   Textos de UI en español rioplatense.
+- Lo que ve el jugador **no muestra porcentajes ni cuentas** (probabilidades, "rinde ~$X", "20 % más
+  rápido"): se dice en palabras (`oddsLabel`, `fasterLabel` en `packages/shared/src/odds.ts`; "a veces
+  alguna porción se quema"). Los números exactos quedan para el código y el log `[Balance]`.
 - Estado sólo de servidor de un jugador (camino, cooldowns, timers, mochila…) va en su `PlayerSession`
   (`rooms/session.ts`), no en el Schema ni en un `Map` nuevo de la sala. Lo que va a hacer al llegar
   (banco, tienda, palmera) es un solo `pending`; `halt(session)` lo borra junto con el camino.
@@ -152,7 +155,8 @@ Reglas:
 - Cuatro barrios (Ciudad Vieja, el Centro, Tres Cruces y el Barrio de los Judíos; los dos últimos ocultos por ahora), más el COMCAR (presos adentro, visitas afuera)
   el **Hotel del Donador** (spa de dos pisos con jacuzzis al que sólo entran donadores y el admin) y el **Casino**
   (tragamonedas, ruleta y blackjack), interiores a los que se entra por la puerta de su edificio en
-  Ciudad Vieja. Al volver a
+  Ciudad Vieja, y la **Intendencia** (hall con escritorios y empleados; ahí se entrega el sobre de la
+  bienvenida), por la puerta de su edificio en el Centro. Al volver a
   entrar se aparece donde se quedó (barrio y tile, guardado con el progreso; el COMCAR no cuenta); la
   primera vez, en Ciudad Vieja. Al viajar, en la zona de spawn del destino. Quien queda en otro barrio
   sin boleto STM (sólo se venden en Ciudad Vieja) puede salir y volver a entrar: sin boleto en la

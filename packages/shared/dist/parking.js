@@ -5,7 +5,7 @@ exports.wearsSafetyVest = wearsSafetyVest;
 exports.parkValue = parkValue;
 exports.parkingHourlyIncome = parkingHourlyIncome;
 exports.parkingPerks = parkingPerks;
-const fishing_1 = require("./fishing");
+const odds_1 = require("./odds");
 const items_1 = require("./items");
 const money_1 = require("./money");
 const needs_1 = require("./needs");
@@ -51,7 +51,7 @@ function parkingHourlyIncome() {
 function parkingPerks() {
     return [
         `Propina: ${(0, money_1.formatMoney)(exports.PARK_TIP_MIN)}–${(0, money_1.formatMoney)(exports.PARK_TIP_MAX)} por auto`,
-        `Que el dueño no deje nada: ${(0, fishing_1.formatPercent)(exports.PARK_NO_TIP_CHANCE)}`,
+        `Que el dueño no deje nada: ${(0, odds_1.oddsLabel)(exports.PARK_NO_TIP_CHANCE)}`,
         "No se gasta nada: sólo hace falta el chaleco flúo puesto",
     ];
 }

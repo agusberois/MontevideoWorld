@@ -12,12 +12,10 @@ import {
   Shop,
   SlotSymbol,
   formatMoney,
-  formatPercent,
   handValue,
   rouletteBetLabel,
   rouletteColor,
   slotEmoji,
-  slotsReturnRate,
 } from "@montevideo-world/shared";
 import { eventBus } from "@/lib/eventBus";
 import { useGame } from "@/lib/gameStore";
@@ -524,7 +522,7 @@ function Slots({ reels, stopped, suspense, winning, canBet, bet, auto, onSpin, o
           🍒🍒 <strong>te devuelve la apuesta</strong>
         </li>
       </ul>
-      <small className={cx("casino-note")}>Devuelve en promedio el {formatPercent(slotsReturnRate())} de lo apostado.</small>
+      <small className={cx("casino-note")}>A la larga, la casa siempre gana. ¡Jugá con cabeza!</small>
     </div>
   );
 }

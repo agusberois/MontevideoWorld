@@ -22,8 +22,8 @@ Etapas (`WelcomeStage`): `mail` → `courier` → `deliver` → `profession` →
 2. **`courier`**: hablarle al **Cartero** (Plaza Independencia, Ciudad Vieja, `WELCOME_COURIER_ID`)
    da el **Sobre de bienvenida** (`WELCOME_LETTER_ID`, categoría `letter`) → `deliver`. Si no le entra
    en la mochila, no avanza.
-3. **`deliver`**: hablarle a la **Funcionaria de la Intendencia** (Centro, explanada frente a la
-   puerta, `WELCOME_CLERK_ID`) con el sobre: primero pasa a `profession` y después saca el sobre (en
+3. **`deliver`**: hablarle a la **Funcionaria de la Intendencia** (adentro de la Intendencia, sala
+   `intendencia`: primer escritorio, `WELCOME_CLERK_ID`) con el sobre: primero pasa a `profession` y después saca el sobre (en
    ese orden, si no contaría como perdido). Su diálogo ofrece "Abrir el sobre" → panel `welcome`,
    vista **carta** (papel, "Bienvenido/a, nombre, a Montevideo World", algo del juego y las profesiones).
    - **Perder el sobre**: venderlo (lo compra el Kiosco de la Plaza, $5) o tirarlo (mochila → "Tirar",
@@ -41,7 +41,9 @@ Etapas (`WelcomeStage`): `mail` → `courier` → `deliver` → `profession` →
      cada tarjeta qué te llevás y el resultado, qué te dieron.
 
 **NPCs con los que se habla** (`Npc.talks`, `roam` de 1 × 1 para que el server sepa dónde están;
-`role` es lo que sale debajo del nombre): clic en el NPC o F pegado a él (`Npcs.talkingAt` /
+`role` es lo que sale debajo del nombre; con `counter`, el escritorio que tienen delante, también se
+les habla desde pegado a él: `npcReach`; los que no tienen caso propio en `talkToNpc` dicen una de sus
+`lines` al azar): clic en el NPC o F pegado a él (`Npcs.talkingAt` /
 `talkingNear`, en `CityScene.handleTap` y `findInteraction`) → `npc:talk { npcId }`. El server
 (`systems/welcome.ts`) le habla si está pegado (`CityMap.isNearNpc`) o camina hasta al lado
 (`npcApproach`, `pending` `npc`, se resuelve en `stepPlayers`). Lo que dice va **sólo a quien le

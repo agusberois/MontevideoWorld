@@ -53,12 +53,19 @@ en la **Pescadería del Mercado** (tienda `building: "none"` sobre el área del 
 `buys: ["fish"]`), que además vende todas las especies con recargo (`FISH_BUY_MARKUP` = 1,5×).
 **Parrilla del Mercado** (tienda `grill: true`, `building: "grill"`: ladrillo, toldo rojo y la
 parrilla con brasas en la vidriera), al lado de la Pescadería en la manzana del Mercado (la grande
-entre Juan Lindolfo Cuestas y Maciel, sin edificios de relleno; el Mercado ocupa 4 × 4). No compra ni vende: abre `GrillPanel`, donde
-se eligen los pescados de la mochila y `grill:cook { shopId, items }` (forma del carrito) los cambia
-por **pescado a la plancha** (`GRILLED_FISH_ID`): `grillYield` porciones por pez según su dificultad
-(`GRILL_YIELD`: 1, 1, 2, 3 y 5; un bagre da una, una corvina negra cinco) y cada porción se **quema**
-con `GRILL_BURN_CHANCE` (15 %, sorteado en el server porción por porción: "salieron 40, se te
-quemaron 6"). Gratis, todo o nada (que entre lo que salió en la mochila). Ninguna tienda compra
+entre Juan Lindolfo Cuestas y Maciel, sin edificios de relleno; el Mercado ocupa 4 × 4). No compra ni vende: abre `GrillPanel`, en
+tres columnas: **tu mochila** (los casilleros; los pescados se arrastran a la parrilla o se tocan
+para poner de a uno), **la parrilla** (rejilla sobre brasas que titilan, humo si hay algo encima; al
+cocinar, `COOK_MS` de animación: los pescados chisporrotean, se dan vuelta y se doran, chispas y
+humo; el resultado del server se muestra recién al terminar) y **la bandeja**. `grill:cook { shopId,
+items }` (forma del carrito) cambia los pescados por **pescado a la plancha** (`GRILLED_FISH_ID`):
+`grillYield` porciones por pez según su dificultad (`GRILL_YIELD`: 1, 1, 2, 3 y 5; un bagre da una,
+una corvina negra cinco) y cada porción se **quema** con `GRILL_BURN_CHANCE` (sorteado en el server
+porción por porción; el jugador sólo ve "a veces alguna porción se quema"). Gratis. Lo que sale **no
+va a la mochila**: queda en la bandeja (`session.grillTray`, `grill:tray { portions }` → store
+`grillTray`). `grill:take { quantity }` pasa a la mochila las que entren (arrastrar la bandeja a la
+mochila o "Todo a la mochila" = todas; tocarla = una). Al cerrar el panel se pasa todo, y al irse de
+la sala (`onLeave` → `flushGrillTray`) también; lo que no entra se pierde. Ninguna tienda compra
 comida, así que no es negocio: es para que el pescador coma de lo que saca.
 Las tiendas sólo compran las categorías de su `buys`. Precios: `buyPrice(item)` (lo que cobra la
 tienda) y `sellPrice(item)` (lo que paga); el server cobra/paga siempre con esas funciones.

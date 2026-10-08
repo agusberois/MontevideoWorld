@@ -7,7 +7,7 @@ exports.giftChance = giftChance;
 exports.saleRange = saleRange;
 exports.saleValue = saleValue;
 exports.cartPerks = cartPerks;
-const fishing_1 = require("./fishing");
+const odds_1 = require("./odds");
 const money_1 = require("./money");
 /** Los partidos de cada día del juego (con `DAY_LENGTH_MINUTES` = 24, cada uno dura 2 minutos reales). */
 exports.MATCHES = [
@@ -74,12 +74,12 @@ function cartPerks(cart) {
     const [matchMin, matchMax] = saleRange(cart, true);
     const perks = [
         `Venta: ${(0, money_1.formatMoney)(min)}–${(0, money_1.formatMoney)(max)} (con partido ${(0, money_1.formatMoney)(matchMin)}–${(0, money_1.formatMoney)(matchMax)})`,
-        `Que nadie compre: ${(0, fishing_1.formatPercent)(cart.noSaleChance)}`,
-        `Regalo de un hincha: ${(0, fishing_1.formatPercent)(giftChance(cart, false))}`,
+        `Que nadie compre: ${(0, odds_1.oddsLabel)(cart.noSaleChance)}`,
+        `Regalo de un hincha: ${(0, odds_1.oddsLabel)(giftChance(cart, false))}`,
     ];
     if (cart.waitFactor < 1)
-        perks.push(`Clientes ${Math.round((1 - cart.waitFactor) * 100)} % más rápido`);
-    perks.push(`Dura ${cart.maxUses} intentos y rinde ~${(0, money_1.formatMoney)(Math.floor(saleValue(cart) * cart.maxUses))} en total (sin partidos)`);
+        perks.push(`Clientes ${(0, odds_1.fasterLabel)(1 - cart.waitFactor)}`);
+    perks.push(`Dura ${cart.maxUses} intentos`);
     return perks;
 }
 //# sourceMappingURL=vending.js.map
